@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-17T13:15:00.000Z",
+  "title": "Design System: Report Diario do Transportador",
+  "extensions": {
+    "colorMeta": {
+      "navy": {
+        "role": "primary",
+        "displayName": "Azul Controle",
+        "canonical": "#0f2742",
+        "tonalRamp": ["oklch(18% 0.05 250)", "oklch(28% 0.06 250)", "oklch(38% 0.07 250)", "oklch(50% 0.08 250)", "oklch(62% 0.07 250)", "oklch(74% 0.05 250)", "oklch(86% 0.03 250)", "oklch(95% 0.01 250)"]
+      },
+      "blue": {
+        "role": "primary",
+        "displayName": "Azul Acao",
+        "canonical": "#2563eb",
+        "tonalRamp": ["oklch(18% 0.08 260)", "oklch(30% 0.12 260)", "oklch(42% 0.16 260)", "oklch(54% 0.20 260)", "oklch(66% 0.18 260)", "oklch(78% 0.12 260)", "oklch(88% 0.06 260)", "oklch(96% 0.02 260)"]
+      },
+      "green": {
+        "role": "secondary",
+        "displayName": "Verde SLA",
+        "canonical": "#16a34a",
+        "tonalRamp": ["oklch(18% 0.06 145)", "oklch(30% 0.09 145)", "oklch(42% 0.12 145)", "oklch(54% 0.14 145)", "oklch(66% 0.12 145)", "oklch(78% 0.08 145)", "oklch(88% 0.04 145)", "oklch(96% 0.02 145)"]
+      },
+      "orange": {
+        "role": "secondary",
+        "displayName": "Ambar Atencao",
+        "canonical": "#f59e0b",
+        "tonalRamp": ["oklch(20% 0.06 75)", "oklch(34% 0.10 75)", "oklch(48% 0.14 75)", "oklch(62% 0.17 75)", "oklch(74% 0.14 75)", "oklch(84% 0.09 75)", "oklch(92% 0.05 75)", "oklch(97% 0.02 75)"]
+      },
+      "red": {
+        "role": "secondary",
+        "displayName": "Vermelho Incidencia",
+        "canonical": "#dc2626",
+        "tonalRamp": ["oklch(18% 0.07 30)", "oklch(30% 0.11 30)", "oklch(42% 0.16 30)", "oklch(54% 0.19 30)", "oklch(66% 0.15 30)", "oklch(78% 0.09 30)", "oklch(88% 0.05 30)", "oklch(96% 0.02 30)"]
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "Fundo Operacional",
+        "canonical": "#f4f7fb",
+        "tonalRamp": ["oklch(18% 0.01 250)", "oklch(30% 0.01 250)", "oklch(42% 0.01 250)", "oklch(56% 0.01 250)", "oklch(70% 0.01 250)", "oklch(82% 0.01 250)", "oklch(91% 0.01 250)", "oklch(97% 0.01 250)"]
+      },
+      "report-muted": {
+        "role": "neutral",
+        "displayName": "Texto Suave em Header",
+        "canonical": "#b8c7d9",
+        "tonalRamp": ["oklch(18% 0.02 250)", "oklch(30% 0.02 250)", "oklch(42% 0.02 250)", "oklch(56% 0.02 250)", "oklch(70% 0.02 250)", "oklch(82% 0.02 250)", "oklch(90% 0.02 250)", "oklch(96% 0.01 250)"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "KPI Display",
+        "purpose": "Numeros principais dos cards e indicadores."
+      },
+      "headline": {
+        "displayName": "Page Headline",
+        "purpose": "Titulos de pagina e report."
+      },
+      "title": {
+        "displayName": "Section Title",
+        "purpose": "Titulos de secao e blocos."
+      },
+      "body": {
+        "displayName": "Operational Body",
+        "purpose": "Tabelas, formularios, mensagens e leitura diaria."
+      },
+      "label": {
+        "displayName": "Control Label",
+        "purpose": "Labels, metricas e metadados compactos."
+      }
+    },
+    "shadows": [
+      {
+        "name": "surface-low",
+        "value": "0 1px 3px rgba(15, 39, 66, 0.06)",
+        "purpose": "Separar cards e paineis sem criar decoracao."
+      }
+    ],
+    "motion": [
+      {
+        "name": "skeleton-pulse",
+        "value": "1.25s linear infinite",
+        "purpose": "Estado de carregamento em skeletons."
+      },
+      {
+        "name": "state-transition",
+        "value": "150ms ease-out",
+        "purpose": "Transicoes futuras de hover/focus sem coreografia."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile-stack",
+        "value": "820px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acao principal em telas administrativas e formularios.",
+      "html": "<button class=\"ds-btn-primary\">Salvar alteracoes</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; gap: 8px; border: 1px solid #0f2742; border-radius: 8px; padding: 8px 12px; background: #0f2742; color: #ffffff; font: 400 14px Arial, Helvetica, sans-serif; cursor: pointer; } .ds-btn-primary:hover { background: #172f4f; } .ds-btn-primary:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.32); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Navegacao secundaria e acoes de suporte.",
+      "html": "<button class=\"ds-btn-secondary\">Abrir report</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; gap: 8px; border: 1px solid #0f2742; border-radius: 8px; padding: 8px 12px; background: #ffffff; color: #0f2742; font: 400 14px Arial, Helvetica, sans-serif; cursor: pointer; } .ds-btn-secondary:hover { background: #eef4fb; } .ds-btn-secondary:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.32); outline-offset: 2px; }"
+    },
+    {
+      "name": "Metric Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Card compacto para KPI operacional.",
+      "html": "<article class=\"ds-metric-card\"><div class=\"ds-metric-label\">Reports pendentes hoje</div><div class=\"ds-metric-value\">3</div></article>",
+      "css": ".ds-metric-card { background: #ffffff; border: 1px solid #d8dee8; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(15, 39, 66, 0.06); border-top: 4px solid #2563eb; font-family: Arial, Helvetica, sans-serif; } .ds-metric-label { color: #64748b; font-size: 13px; } .ds-metric-value { margin: 8px 0 4px; color: #0f2742; font-size: 30px; font-weight: 800; line-height: 1.2; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo padrao para formulario publico e admin.",
+      "html": "<label class=\"ds-field\"><span>Nome</span><input placeholder=\"Transportadora exemplo\" /></label>",
+      "css": ".ds-field { display: grid; gap: 6px; color: #0f2742; font: 700 13px Arial, Helvetica, sans-serif; } .ds-field input { min-height: 40px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; background: #ffffff; color: #172033; font: 400 14px Arial, Helvetica, sans-serif; } .ds-field input::placeholder { color: #4b5f78; } .ds-field input:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.28); outline-offset: 1px; border-color: #2563eb; }"
+    },
+    {
+      "name": "Status Pill",
+      "kind": "chip",
+      "refersTo": "pill-status",
+      "description": "Status compacto para enviado, pendente, ativo e inativo.",
+      "html": "<span class=\"ds-pill ds-pill-ok\">Recebido</span>",
+      "css": ".ds-pill { display: inline-flex; border-radius: 999px; padding: 4px 10px; font: 400 12px Arial, Helvetica, sans-serif; background: #e2e8f0; color: #0f2742; } .ds-pill-ok { background: #dcfce7; color: #166534; } .ds-pill-pending { background: #fef3c7; color: #92400e; }"
+    },
+    {
+      "name": "Top Navigation",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "Barra superior de comando do produto.",
+      "html": "<nav class=\"ds-topbar\"><strong>Report Transportador</strong><span>Admin</span><span>Logs</span></nav>",
+      "css": ".ds-topbar { min-height: 64px; display: flex; align-items: center; gap: 16px; padding: 0 16px; background: #0f2742; color: #ffffff; border-bottom: 4px solid #38bdf8; font: 400 14px Arial, Helvetica, sans-serif; } .ds-topbar strong { font-weight: 700; margin-right: auto; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Torre de Controle Operacional",
+    "overview": "Este sistema visual existe para uma rotina de decisao: abrir, conferir, identificar pendencias e agir. A interface deve parecer uma torre de controle de operacao logistica, com informacao densa, status legiveis e superficies quietas que deixam os indicadores trabalharem.",
+    "keyCharacteristics": [
+      "Superficie clara, fria e operacional, sem atmosfera promocional.",
+      "Azul escuro como eixo de autoridade e navegacao.",
+      "Cores semanticas usadas para estado e leitura de risco, nao para enfeite.",
+      "Cards compactos, tabelas legiveis e botoes padronizados.",
+      "Movimento restrito a feedback e carregamento."
+    ],
+    "rules": [
+      {
+        "name": "The Semantic Color Rule",
+        "body": "Verde, ambar e vermelho sao estados. Se a cor nao ajuda a decidir, nao use.",
+        "section": "colors"
+      },
+      {
+        "name": "The Navy Authority Rule",
+        "body": "O azul controle deve concentrar navegacao, hierarquia e comando. Nao diluir a identidade com muitos azuis concorrentes.",
+        "section": "colors"
+      },
+      {
+        "name": "The Data First Type Rule",
+        "body": "Numeros podem ser fortes; labels devem ser menores e estaveis. Nunca usar fonte display ou tipografia ornamental em UI, tabela, botao ou formulario.",
+        "section": "typography"
+      },
+      {
+        "name": "The Almost Flat Rule",
+        "body": "Se a sombra for percebida antes do conteudo, ela esta errada. Use sombra baixa ou nenhuma sombra.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do usar Azul Controle para autoridade, navegacao e botoes primarios.",
+      "Do usar cores semanticas junto com texto de status.",
+      "Do manter cards em 8px de radius e padding de 16px na maioria das superficies.",
+      "Do preservar tabelas densas e legiveis; este produto e uma ferramenta operacional.",
+      "Do usar estados vazios que orientam a proxima acao.",
+      "Do respeitar `prefers-reduced-motion`; animacao existe para estado, nao para coreografia."
+    ],
+    "donts": [
+      "Don't parecer Power BI generico.",
+      "Don't parecer planilha cinza.",
+      "Don't virar SaaS coloridinho demais.",
+      "Don't usar dashboard escuro de NOC como referencia visual.",
+      "Don't construir tela com linguagem de site marketing, hero promocional ou copy de venda.",
+      "Don't usar `border-left` ou `border-right` maior que 1px como faixa colorida de destaque.",
+      "Don't usar glassmorphism, texto em gradiente, ilustracao decorativa ou sombras largas.",
+      "Don't depender apenas de cor para comunicar status operacional."
+    ]
+  }
+}

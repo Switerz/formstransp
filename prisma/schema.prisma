@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Transportadora {
+  id                     String                  @id @default(cuid())
+  nome                   String
+  cnpj                   String?
+  codigoSlug             String                  @unique
+  ativo                  Boolean                 @default(true)
+  origem                 String                  @default("real")
+  tokenPublicoFormulario String                  @unique
+  emailsDestinatarios    String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  submissions            DailyReportSubmission[]
+  automationLogs         AutomationLog[]
+  qualityLogs            SubmissionQualityLog[]
+  users                  AppUser[]
+
+  @@map("transportadoras")
+}
+
+model AppUser {
+  id                 String          @id @default(cuid())
+  authUserId         String?         @unique @db.Uuid
+  username           String?         @unique
+  email              String          @unique
+  nome               String
+  passwordHash       String?
+  passwordMustChange Boolean         @default(false)
+  credentialSentAt   DateTime?
+  credentialSentBy   String?
+  role               String          @default("carrier_operator")
+  ativo              Boolean         @default(true)
+  transportadoraId   String?
+  lastLoginAt        DateTime?
+  passwordUpdatedAt  DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  transportadora     Transportadora? @relation(fields: [transportadoraId], references: [id], onDelete: SetNull)
+  sessions           AppSession[]
+  qualityLogs        SubmissionQualityLog[]
+
+  @@index([transportadoraId])
+  @@index([role])
+  @@map("app_users")
+}
+
+model AppSession {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      AppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("app_sessions")
+}
+
+model DailyReportSubmission {
+  id                       String                         @id @default(cuid())
+  transportadoraId         String
+  dataReport               DateTime
+  dataResultadoDiaAnterior DateTime
+  dataPreviaDiaAtual       DateTime
+  status                   String                         @default("draft")
+  submittedAt              DateTime?
+  submittedByName          String?
+  submittedByEmail         String?
+  observacoes              String?
+  createdAt                DateTime                       @default(now())
+  updatedAt                DateTime                       @updatedAt
+  transportadora           Transportadora                 @relation(fields: [transportadoraId], references: [id], onDelete: Cascade)
+  previousDayMetrics       DailyPreviousDayMetrics?
+  currentDayPreviewMetrics DailyCurrentDayPreviewMetrics?
+  ufMetrics                PreviousDayUFMetric[]
+
+  @@unique([transportadoraId, dataReport])
+  @@index([transportadoraId, dataReport])
+  @@map("report_submissions")
+}
+
+model DailyPreviousDayMetrics {
+  id                      String                @id @default(cuid())
+  submissionId            String                @unique
+  totalPedidos            Int
+  totalEntregue           Int
+  totalEmAberto           Int
+  totalTentativaInsucesso Int
+  totalDevolucao          Int
+  totalCancelado          Int
+  totalNoPrazo            Int
+  totalForaDoPrazo        Int
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  submission              DailyReportSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("previous_day_metrics")
+}
+
+model DailyCurrentDayPreviewMetrics {
+  id                      String                @id @default(cuid())
+  submissionId            String                @unique
+  totalPedidos            Int
+  totalFinalizado         Int
+  totalEmAberto           Int
+  totalEntregue           Int
+  totalTentativaInsucesso Int
+  totalDevolucao          Int
+  totalCancelado          Int
+  finalizadosNoPrazo      Int
+  finalizadosForaDoPrazo  Int
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  submission              DailyReportSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("current_day_preview_metrics")
+}
+
+model PreviousDayUFMetric {
+  id            String                @id @default(cuid())
+  submissionId  String
+  uf            String
+  dentroDoPrazo Int
+  foraDoPrazo   Int
+  total         Int
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  submission    DailyReportSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, uf])
+  @@map("previous_day_uf_metrics")
+}
+
+model AutomationLog {
+  id               String          @id @default(cuid())
+  transportadoraId String?
+  dataReport       DateTime
+  tipo             String
+  status           String
+  mensagem         String
+  payload          String?
+  createdAt        DateTime        @default(now())
+  transportadora   Transportadora? @relation(fields: [transportadoraId], references: [id], onDelete: SetNull)
+
+  @@index([transportadoraId, dataReport])
+  @@map("automation_logs")
+}
+
+model SubmissionQualityLog {
+  id               String          @id @default(cuid())
+  transportadoraId String
+  userId           String?
+  dataReport       DateTime
+  action           String
+  status           String          @default("blocked")
+  reasons          String
+  payloadSummary   String?
+  createdAt        DateTime        @default(now())
+  transportadora   Transportadora @relation(fields: [transportadoraId], references: [id], onDelete: Cascade)
+  user             AppUser?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([transportadoraId, dataReport])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("submission_quality_logs")
+}

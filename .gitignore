@@ -1,0 +1,16 @@
+node_modules
+.next
+dist
+coverage
+.env
+.agents
+.generated
+.next-dev.log
+.impeccable/**/*.png
+.impeccable/live/sessions
+skills-lock.json
+tsconfig.tsbuildinfo
+p.())
+*.db
+*.db-journal
+prisma/dev.db
