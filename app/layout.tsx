@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LogOut } from "lucide-react";
 import { logout } from "@/app/auth-actions";
 import { getCurrentUser, isInternalAdmin, isInternalRole } from "@/lib/auth";
 import "./globals.css";
@@ -20,29 +21,48 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <header className="topbar">
           <div className="topbar-inner">
-            <strong>Relatório Transportador</strong>
+            <Link className="brand-lockup" href={isInternal ? "/" : currentUser ? "/portal" : "/login"}>
+              <span className="brand-mark" aria-hidden="true">RT</span>
+              <span>
+                <strong>Relatório Transportador</strong>
+                <small>Controle operacional</small>
+              </span>
+            </Link>
             <nav className="nav">
               {currentUser ? (
                 <>
                   {mustChangePassword ? (
-                    <Link href="/alterar-senha">Alterar senha</Link>
+                    <div className="nav-section">
+                      <span className="nav-section-label">Acesso</span>
+                      <Link href="/alterar-senha">Alterar senha</Link>
+                    </div>
                   ) : isInternal ? (
-                    <>
+                    <div className="nav-section">
+                      <span className="nav-section-label">Operação</span>
                       <Link href="/">Admin</Link>
                       {canManage ? <Link href="/transportadoras/nova">Nova transportadora</Link> : null}
                       {canManage ? <Link href="/usuarios">Usuários</Link> : null}
                       <Link href="/automacoes/logs">Logs</Link>
-                    </>
+                    </div>
                   ) : (
-                    <Link href="/portal">Portal</Link>
+                    <div className="nav-section">
+                      <span className="nav-section-label">Portal</span>
+                      <Link href="/portal">Início</Link>
+                    </div>
                   )}
-                  <span className="nav-user">{currentUser.nome}</span>
-                  <form action={logout}>
-                    <button className="nav-button" type="submit">Sair</button>
-                  </form>
+                  <div className="nav-session">
+                    <span className="nav-user">{currentUser.nome}</span>
+                    <form action={logout}>
+                      <button className="nav-button" type="submit">
+                        <LogOut size={16} /> Sair
+                      </button>
+                    </form>
+                  </div>
                 </>
               ) : (
-                <Link href="/login">Entrar</Link>
+                <div className="nav-session">
+                  <Link href="/login">Entrar</Link>
+                </div>
               )}
             </nav>
           </div>
