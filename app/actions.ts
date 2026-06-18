@@ -315,9 +315,12 @@ async function upsertDailySubmissionForTransportadora(
   });
 
   await prisma.previousDayUFMetric.deleteMany({ where: { submissionId: submission.id } });
-  await prisma.previousDayUFMetric.createMany({
-    data: ufRows.map((row) => ({ submissionId: submission.id, ...row })),
-  });
+  const ufRowsWithVolume = ufRows.filter((row) => row.total > 0);
+  if (ufRowsWithVolume.length) {
+    await prisma.previousDayUFMetric.createMany({
+      data: ufRowsWithVolume.map((row) => ({ submissionId: submission.id, ...row })),
+    });
+  }
   await auditLog({
     tipo: "audit",
     transportadoraId: transportadora.id,
