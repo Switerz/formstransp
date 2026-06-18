@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Manual de Uso - Relatorio Transportador</title>
+  <style>
+    :root {
+      --navy: #0f2742;
+      --blue: #2563eb;
+      --green: #16a34a;
+      --orange: #f59e0b;
+      --red: #dc2626;
+      --gray: #64748b;
+      --line: #d8dee8;
+      --bg: #f4f7fb;
+      --text: #172033;
+      --surface: #ffffff;
+      --table-header: #eef4fb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background: var(--bg);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.5;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .topbar {
+      background: var(--navy);
+      color: white;
+      border-bottom: 4px solid #38bdf8;
+    }
+
+    .topbar-inner,
+    .shell {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .topbar-inner {
+      min-height: 76px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border: 1px solid rgba(184, 199, 217, 0.36);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #dbeafe;
+      font-weight: 800;
+    }
+
+    .brand strong,
+    .brand span {
+      display: block;
+    }
+
+    .brand strong {
+      font-size: 20px;
+      line-height: 1.1;
+    }
+
+    .brand span {
+      margin-top: 3px;
+      color: #b8c7d9;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .doc-meta {
+      color: #dbeafe;
+      font-size: 13px;
+      text-align: right;
+    }
+
+    .shell {
+      padding: 28px 0 56px;
+    }
+
+    .hero {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      color: var(--navy);
+      line-height: 1.2;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 22px;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 17px;
+    }
+
+    p {
+      margin: 0 0 10px;
+    }
+
+    .muted {
+      color: var(--gray);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .toc {
+      position: sticky;
+      top: 16px;
+      display: grid;
+      gap: 6px;
+      padding: 16px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(15, 39, 66, 0.06);
+    }
+
+    .toc strong {
+      color: var(--navy);
+      margin-bottom: 4px;
+    }
+
+    .toc a {
+      color: #27415f;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .content {
+      display: grid;
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      box-shadow: 0 1px 3px rgba(15, 39, 66, 0.06);
+    }
+
+    .section-kicker {
+      display: inline-flex;
+      width: max-content;
+      margin-bottom: 8px;
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: #e2e8f0;
+      color: var(--navy);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .callout {
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 12px;
+      background: #eff6ff;
+      color: #17365f;
+    }
+
+    .warning {
+      border-color: #fbbf24;
+      background: #fffbeb;
+      color: #713f12;
+    }
+
+    .success {
+      border-color: #86efac;
+      background: #f0fdf4;
+      color: #14532d;
+    }
+
+    ol,
+    ul {
+      margin: 8px 0 0;
+      padding-left: 22px;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    code {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 2px 5px;
+      background: #f8fbff;
+      color: var(--navy);
+      font-family: Consolas, Monaco, monospace;
+      font-size: 0.95em;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 8px;
+    }
+
+    th {
+      color: var(--navy);
+      background: var(--table-header);
+    }
+
+    .status-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      background: #e2e8f0;
+      color: var(--navy);
+    }
+
+    .pill.ok {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .pill.pending {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .pill.critical {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .checklist {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .checklist label {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fbff;
+    }
+
+    .footer {
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      color: var(--gray);
+      font-size: 13px;
+    }
+
+    @media (max-width: 860px) {
+      .topbar-inner {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 14px 0;
+      }
+
+      .doc-meta {
+        text-align: left;
+      }
+
+      .layout,
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .toc {
+        position: static;
+      }
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+
+      .topbar {
+        border-bottom-color: var(--line);
+      }
+
+      .layout {
+        display: block;
+      }
+
+      .toc {
+        position: static;
+        margin-bottom: 18px;
+        box-shadow: none;
+      }
+
+      .card {
+        break-inside: avoid;
+        box-shadow: none;
+      }
+
+      a {
+        color: var(--navy);
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark">RT</span>
+        <div>
+          <strong>Relatorio Transportador</strong>
+          <span>Manual operacional</span>
+        </div>
+      </div>
+      <div class="doc-meta">
+        Versao 1.0<br />
+        Atualizado em 18/06/2026
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <h1>Manual de uso do formulario e do admin</h1>
+      <p class="muted">
+        Este manual orienta a rotina diaria das transportadoras e do time interno de operacoes.
+        Use como referencia para preencher, conferir, auditar e acompanhar os reports diarios.
+      </p>
+      <div class="status-row">
+        <span class="pill ok">Portal autenticado</span>
+        <span class="pill">Admin interno</span>
+        <span class="pill pending">Senha temporaria</span>
+        <span class="pill critical">Validacoes obrigatorias</span>
+      </div>
+    </section>
+
+    <div class="layout">
+      <aside class="toc" aria-label="Sumario">
+        <strong>Sumario</strong>
+        <a href="#visao-geral">1. Visao geral</a>
+        <a href="#acesso">2. Acesso e senha</a>
+        <a href="#manual-formulario">3. Manual da transportadora</a>
+        <a href="#campos-formulario">4. Campos do formulario</a>
+        <a href="#validacoes">5. Validacoes e erros</a>
+        <a href="#manual-admin">6. Manual do admin</a>
+        <a href="#usuarios">7. Usuarios e credenciais</a>
+        <a href="#reports">8. Reports e historico</a>
+        <a href="#rotina">9. Rotina recomendada</a>
+        <a href="#suporte">10. Suporte rapido</a>
+      </aside>
+
+      <div class="content">
+        <section class="card" id="visao-geral">
+          <span class="section-kicker">1. Visao geral</span>
+          <h2>Para que serve o sistema</h2>
+          <p>
+            O Relatorio Transportador centraliza o envio diario de indicadores operacionais das transportadoras.
+            A transportadora preenche o formulario no portal; o time interno acompanha recebimento, pendencias,
+            SLA, devolucoes, tentativas sem sucesso e observacoes em telas de admin.
+          </p>
+          <div class="grid-2">
+            <div class="callout">
+              <h3>Transportadora</h3>
+              <p>Preenche dados do dia anterior e uma previa do dia atual, salva rascunho se necessario e envia o report final.</p>
+            </div>
+            <div class="callout">
+              <h3>Time interno</h3>
+              <p>Confere quem enviou, analisa risco por transportadora, abre historico, exporta report e gerencia usuarios.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" id="acesso">
+          <span class="section-kicker">2. Acesso e senha</span>
+          <h2>Login e troca de senha</h2>
+          <ol>
+            <li>Acesse <code>/login</code>.</li>
+            <li>Informe o usuario e a senha recebidos.</li>
+            <li>Se a conta estiver com senha temporaria, o sistema redireciona para <code>/alterar-senha</code>.</li>
+            <li>Defina uma senha propria com pelo menos 10 caracteres.</li>
+            <li>Depois da troca, o acesso ao portal ou admin fica liberado conforme o perfil.</li>
+          </ol>
+          <div class="callout warning">
+            <strong>Importante:</strong> a senha temporaria aparece apenas no momento de criacao ou reset.
+            Se ela for perdida antes do envio, o admin deve resetar a senha do usuario.
+          </div>
+        </section>
+
+        <section class="card" id="manual-formulario">
+          <span class="section-kicker">3. Manual da transportadora</span>
+          <h2>Como preencher o formulario diario</h2>
+          <ol>
+            <li>Entre no sistema pela tela de login.</li>
+            <li>No menu, acesse <code>Portal</code>.</li>
+            <li>Clique em <code>Preencher formulario</code> ou abra <code>/portal/formulario</code>.</li>
+            <li>Confira as datas do report, do resultado do dia anterior e da previa do dia atual.</li>
+            <li>Preencha todos os totais operacionais.</li>
+            <li>Acompanhe os alertas de consistencia exibidos durante o preenchimento.</li>
+            <li>Use <strong>Salvar rascunho</strong> se ainda precisar revisar numeros.</li>
+            <li>Use <strong>Enviar report</strong> quando os dados estiverem conferidos.</li>
+          </ol>
+          <div class="callout success">
+            <strong>Boa pratica:</strong> antes de enviar, compare os totais do formulario com a fonte operacional da transportadora.
+            O envio final bloqueia a edicao daquele report.
+          </div>
+        </section>
+
+        <section class="card" id="campos-formulario">
+          <span class="section-kicker">4. Campos do formulario</span>
+          <h2>O que cada bloco representa</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Bloco</th>
+                <th>Como preencher</th>
+                <th>Conferencia esperada</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Identificacao</td>
+                <td>Responsavel, e-mail, data do report e observacoes.</td>
+                <td>Responsavel deve ser quem esta prestando a informacao naquele dia.</td>
+              </tr>
+              <tr>
+                <td>Resultado do dia anterior</td>
+                <td>Total de pedidos, entregues, em aberto, tentativa sem sucesso, devolucao e cancelado.</td>
+                <td>A soma dos status deve bater com o total de pedidos.</td>
+              </tr>
+              <tr>
+                <td>Prazo do dia anterior</td>
+                <td>Total no prazo e total fora do prazo.</td>
+                <td>No prazo + fora do prazo deve bater com o total de pedidos do dia anterior.</td>
+              </tr>
+              <tr>
+                <td>Pedidos por UF</td>
+                <td>Dentro do prazo e fora do prazo por CE, RN, PB, PE e BA.</td>
+                <td>A soma por UF deve bater com o total de pedidos do dia anterior.</td>
+              </tr>
+              <tr>
+                <td>Previa do dia atual</td>
+                <td>Total de pedidos, finalizados, em aberto e status parciais do dia.</td>
+                <td>A soma dos status do dia atual deve bater com o total de pedidos atual.</td>
+              </tr>
+              <tr>
+                <td>Finalizados no prazo</td>
+                <td>Finalizados no prazo e finalizados fora do prazo.</td>
+                <td>A soma nao pode ser maior que o total finalizado.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="card" id="validacoes">
+          <span class="section-kicker">5. Validacoes e erros</span>
+          <h2>Quando o sistema bloqueia o envio</h2>
+          <p>O sistema bloqueia o envio final quando encontra inconsistencias nos totais. Exemplos:</p>
+          <ul>
+            <li>Total por UF diferente do total de pedidos do dia anterior.</li>
+            <li>Soma dos status do dia anterior diferente do total de pedidos.</li>
+            <li>No prazo + fora do prazo diferente do total de pedidos.</li>
+            <li>Soma dos status do dia atual diferente do total de pedidos.</li>
+            <li>Finalizados no prazo + fora do prazo acima do total finalizado.</li>
+            <li>Valores negativos ou nao numericos.</li>
+          </ul>
+          <div class="callout warning">
+            <strong>Como resolver:</strong> volte ao bloco indicado pela mensagem, ajuste o numero divergente e envie novamente.
+            As tentativas bloqueadas por inconsistencia ficam registradas para auditoria de qualidade.
+          </div>
+        </section>
+
+        <section class="card" id="manual-admin">
+          <span class="section-kicker">6. Manual do admin</span>
+          <h2>Telas principais do time interno</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Tela</th>
+                <th>Endereco</th>
+                <th>Uso principal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Dashboard geral</td>
+                <td><code>/</code></td>
+                <td>Ver status do dia, rankings, pendencias, calendario e qualidade do envio.</td>
+              </tr>
+              <tr>
+                <td>Diagnostico da transportadora</td>
+                <td><code>/transportadoras/[id]</code></td>
+                <td>Aprofundar SLA, risco, pendencias, responsaveis, observacoes e bloqueios recentes.</td>
+              </tr>
+              <tr>
+                <td>Cadastro de transportadora</td>
+                <td><code>/transportadoras/nova</code></td>
+                <td>Criar nova transportadora.</td>
+              </tr>
+              <tr>
+                <td>Editar transportadora</td>
+                <td><code>/transportadoras/[id]/editar</code></td>
+                <td>Alterar nome, CNPJ, slug, origem, status ativo e e-mails.</td>
+              </tr>
+              <tr>
+                <td>Usuarios</td>
+                <td><code>/usuarios</code></td>
+                <td>Criar contas, resetar senha, copiar usuario e marcar credencial enviada.</td>
+              </tr>
+              <tr>
+                <td>Historico</td>
+                <td><code>/historico/[transportadoraId]</code></td>
+                <td>Pesquisar reports por periodo e status.</td>
+              </tr>
+              <tr>
+                <td>Report diario</td>
+                <td><code>/reports/[transportadoraId]/[data]</code></td>
+                <td>Analisar o diario de bordo da transportadora em uma data especifica.</td>
+              </tr>
+              <tr>
+                <td>Logs</td>
+                <td><code>/automacoes/logs</code></td>
+                <td>Consultar auditorias, job manual, exportacao PDF e registros operacionais.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="card" id="usuarios">
+          <span class="section-kicker">7. Usuarios e credenciais</span>
+          <h2>Como administrar acessos</h2>
+          <h3>Criar usuario</h3>
+          <ol>
+            <li>Acesse <code>/usuarios</code>.</li>
+            <li>Preencha nome, usuario, e-mail, perfil e transportadora quando aplicavel.</li>
+            <li>Clique em <strong>Criar usuario</strong>.</li>
+            <li>Copie a senha temporaria exibida na tela.</li>
+            <li>Envie o usuario e senha temporaria por canal seguro.</li>
+            <li>Depois do envio, clique em <strong>Marcar enviada</strong>.</li>
+          </ol>
+
+          <h3>Perfis</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Perfil</th>
+                <th>Uso</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Administrador interno</td>
+                <td>Acesso ao admin, cadastro, usuarios e acoes administrativas.</td>
+              </tr>
+              <tr>
+                <td>Leitor interno</td>
+                <td>Acesso interno para acompanhamento, sem gestao de usuarios.</td>
+              </tr>
+              <tr>
+                <td>Admin da transportadora</td>
+                <td>Acesso ao portal da transportadora vinculada.</td>
+              </tr>
+              <tr>
+                <td>Operador da transportadora</td>
+                <td>Preenchimento diario no portal da transportadora vinculada.</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="callout warning">
+            <strong>Seguranca:</strong> nunca envie senha temporaria em grupo publico. A senha deve ser trocada no primeiro acesso.
+          </div>
+        </section>
+
+        <section class="card" id="reports">
+          <span class="section-kicker">8. Reports e historico</span>
+          <h2>Como acompanhar os envios</h2>
+          <div class="grid-2">
+            <div>
+              <h3>Dashboard geral</h3>
+              <ul>
+                <li>Confira transportadoras pendentes no dia.</li>
+                <li>Observe ranking de risco e deterioracao.</li>
+                <li>Use calendario para ver ausencia de envio.</li>
+                <li>Abra o diagnostico quando uma transportadora exigir atencao.</li>
+              </ul>
+            </div>
+            <div>
+              <h3>Report diario</h3>
+              <ul>
+                <li>Verifique SLA acumulado, insucessos e devolucoes.</li>
+                <li>Analise tabelas por UF e por status.</li>
+                <li>Use navegacao de report anterior/proximo.</li>
+                <li>Use exportacao PDF quando precisar compartilhar.</li>
+              </ul>
+            </div>
+          </div>
+          <h3>Como interpretar status</h3>
+          <div class="status-row">
+            <span class="pill ok">Dentro da meta</span>
+            <span class="pill pending">Atencao</span>
+            <span class="pill critical">Critico</span>
+          </div>
+          <p class="muted">
+            As cores ajudam a priorizar, mas o texto do status sempre deve ser lido junto com o indicador.
+          </p>
+        </section>
+
+        <section class="card" id="rotina">
+          <span class="section-kicker">9. Rotina recomendada</span>
+          <h2>Checklist diario</h2>
+          <div class="grid-2">
+            <div>
+              <h3>Transportadora</h3>
+              <div class="checklist">
+                <label><input type="checkbox" /> Entrar no portal no inicio do dia.</label>
+                <label><input type="checkbox" /> Conferir dados do dia anterior.</label>
+                <label><input type="checkbox" /> Preencher previa do dia atual.</label>
+                <label><input type="checkbox" /> Resolver alertas de consistencia.</label>
+                <label><input type="checkbox" /> Enviar o report final.</label>
+              </div>
+            </div>
+            <div>
+              <h3>Admin interno</h3>
+              <div class="checklist">
+                <label><input type="checkbox" /> Abrir dashboard geral.</label>
+                <label><input type="checkbox" /> Verificar pendencias do dia.</label>
+                <label><input type="checkbox" /> Abrir diagnostico das transportadoras em atencao.</label>
+                <label><input type="checkbox" /> Conferir bloqueios e observacoes recentes.</label>
+                <label><input type="checkbox" /> Cobrar transportadoras pendentes quando necessario.</label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" id="suporte">
+          <span class="section-kicker">10. Suporte rapido</span>
+          <h2>Problemas comuns</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Problema</th>
+                <th>Provavel causa</th>
+                <th>Acao recomendada</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Usuario nao consegue entrar</td>
+                <td>Senha incorreta, conta inativa ou usuario errado.</td>
+                <td>Admin deve conferir a conta em <code>/usuarios</code> e resetar senha se necessario.</td>
+              </tr>
+              <tr>
+                <td>Sistema pede troca de senha</td>
+                <td>A conta esta com senha temporaria.</td>
+                <td>Definir nova senha em <code>/alterar-senha</code>.</td>
+              </tr>
+              <tr>
+                <td>Formulario nao envia</td>
+                <td>Totais inconsistentes ou valor invalido.</td>
+                <td>Ler a mensagem de erro e corrigir o bloco indicado.</td>
+              </tr>
+              <tr>
+                <td>Report ja enviado nao edita</td>
+                <td>Reports enviados ficam bloqueados para preservar auditoria.</td>
+                <td>Se houver erro operacional, registrar observacao e alinhar correcao com o admin.</td>
+              </tr>
+              <tr>
+                <td>Transportadora nao aparece no portal</td>
+                <td>Usuario sem vinculo ou transportadora inativa.</td>
+                <td>Admin deve revisar vinculo do usuario e status da transportadora.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <footer class="footer">
+          Manual criado para o MVP do Relatorio Transportador. Para uso em producao, revise nomes de usuarios,
+          canais de envio de credenciais e regras internas de operacao antes de compartilhar externamente.
+        </footer>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
