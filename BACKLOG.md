@@ -12,6 +12,7 @@ Atualizado em 2026-06-17.
 - Visao detalhada por transportadora em `/transportadoras/[id]`: funcional.
 - Logs de qualidade do formulario: persistidos em `submission_quality_logs`.
 - Onboarding de credenciais: controle de credencial enviada criado em `/usuarios`.
+- Prisma baseline no Supabase: alinhado; `prisma migrate deploy` roda sem pendencias.
 
 ## O que falta da lista atual
 
@@ -85,3 +86,15 @@ Prioridade recomendada: media.
 3. Adicionar auditoria detalhada para criacao/reset/inativacao de usuario.
 4. Criar rotina de limpeza de sessoes expiradas.
 5. Remover ou neutralizar o campo legado `tokenPublicoFormulario` em migracao futura.
+
+## Revisao visual de 2026-06-18
+
+Rota revisada: `/transportadoras/[id]`.
+
+Resultado:
+
+- desktop e mobile sem overflow horizontal;
+- botoes principais com alvos adequados no mobile;
+- legenda visivel para leitura de SLA por cor;
+- estado vazio explicito para transportadoras sem usuarios vinculados;
+- screenshots locais salvos em `.impeccable/review/` e ignorados no Git.

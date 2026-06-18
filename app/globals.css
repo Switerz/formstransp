@@ -411,8 +411,18 @@ th {
   color: #14532d;
 }
 
+.status-ok.neutral {
+  border-color: var(--line);
+  background: #f8fbff;
+  color: var(--navy);
+}
+
 .status-ok svg {
   color: var(--green);
+}
+
+.status-ok.neutral svg {
+  color: var(--navy);
 }
 
 .rank {
@@ -572,7 +582,7 @@ th {
 
 .carrier-trend-row {
   display: grid;
-  grid-template-columns: 76px minmax(160px, 1fr) 72px;
+  grid-template-columns: 76px minmax(160px, 1fr) 108px;
   align-items: center;
   gap: 12px;
 }
@@ -605,6 +615,52 @@ th {
 
 .trend-sla.critical {
   background: var(--red);
+}
+
+.trend-legend {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  color: #3d536e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.trend-legend span,
+.trend-result {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.legend-dot.ok {
+  background: var(--green);
+}
+
+.legend-dot.warning {
+  background: var(--orange);
+}
+
+.legend-dot.critical {
+  background: var(--red);
+}
+
+.trend-result {
+  justify-content: flex-end;
+}
+
+.trend-result span {
+  color: #3d536e;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .uf-strip {
@@ -1198,6 +1254,12 @@ th {
 
   .btn {
     width: 100%;
+    min-height: 44px;
+  }
+
+  .nav a,
+  .nav-button {
+    min-height: 40px;
   }
 
   .actions {
@@ -1233,6 +1295,10 @@ th {
     align-items: flex-start;
     grid-template-columns: 1fr;
     flex-direction: column;
+  }
+
+  .trend-result {
+    justify-content: flex-start;
   }
 
   .quality-grid {

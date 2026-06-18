@@ -271,8 +271,9 @@ Observacao importante: uma captura anterior ficou com graficos em branco porque 
 - O envio diario agora acontece pelo portal autenticado da transportadora.
 - Auth proprio esta ativo com usuarios, sessoes, senha temporaria e troca obrigatoria no primeiro acesso/reset.
 - A migracao `require_password_change` foi aplicada no Supabase via MCP.
+- O baseline do Prisma foi alinhado no Supabase; `npx prisma migrate deploy` agora reporta `No pending migrations to apply`.
 - O front estava aberto em `http://localhost:3001`.
-- Proximo passo recomendado: rerodar critica visual/acessibilidade da nova `/transportadoras/[id]` e expor agregados de qualidade no dashboard cross-transportadora.
+- Proximo passo recomendado: expor agregados de qualidade no dashboard cross-transportadora e fazer smoke test com usuario real de transportadora.
 
 Ultima validacao tecnica executada:
 
@@ -292,6 +293,7 @@ Tambem foi executado smoke end-to-end com conta descartavel para validar login c
 - Atualizar Recharts para v3 e revisar vulnerabilidades de dependencias.
 - Rerodar critica do `$impeccable` apos P1/P2 para confirmar nova pontuacao.
 - Fazer auditoria de acessibilidade/foco visivel antes de qualquer uso externo.
+- Warning Supabase remanescente: funcao legada `public.set_updated_at` sem `search_path` fixo.
 
 ## Auth - senha temporaria concluido
 

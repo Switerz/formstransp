@@ -49,6 +49,13 @@ function slaClass(value: number | null) {
   return "critical";
 }
 
+function slaLabel(value: number | null) {
+  if (value === null) return "Sem volume";
+  if (value >= 0.93) return "Dentro da meta";
+  if (value >= 0.9) return "Atenção";
+  return "Crítico";
+}
+
 function riskClass(score: number) {
   if (score >= 60) return "critical";
   if (score >= 30) return "warning";
@@ -236,6 +243,11 @@ export default async function TransportadoraDetailPage({
             </div>
             <span className="pill">Meta 93%</span>
           </div>
+          <div className="trend-legend" aria-label="Legenda do SLA">
+            <span><i className="legend-dot ok" /> Dentro da meta</span>
+            <span><i className="legend-dot warning" /> Atenção</span>
+            <span><i className="legend-dot critical" /> Crítico</span>
+          </div>
           <div className="carrier-trend-list">
             {dailyTrend.map((item) => (
               <div className="carrier-trend-row" key={dateKey(item.date)}>
@@ -246,7 +258,10 @@ export default async function TransportadoraDetailPage({
                 <div className="trend-bars">
                   <span className={`trend-sla ${slaClass(item.sla)}`} style={{ width: `${Math.max(4, item.sla * 100)}%` }} />
                 </div>
-                <strong>{asPercent(item.sla, 1)}</strong>
+                <div className="trend-result">
+                  <strong>{asPercent(item.sla, 1)}</strong>
+                  <span>{slaLabel(item.sla)}</span>
+                </div>
               </div>
             ))}
           </div>
@@ -309,17 +324,24 @@ export default async function TransportadoraDetailPage({
             <UsersRound size={22} aria-hidden="true" />
           </div>
           <div className="responsible-list">
-            {transportadora.users.map((user) => (
-              <div className="responsible-row" key={user.id}>
-                <div>
-                  <strong>{user.nome}</strong>
-                  <span>{user.username ?? user.email}</span>
+            {transportadora.users.length ? (
+              transportadora.users.map((user) => (
+                <div className="responsible-row" key={user.id}>
+                  <div>
+                    <strong>{user.nome}</strong>
+                    <span>{user.username ?? user.email}</span>
+                  </div>
+                  <span className={`pill ${user.credentialSentAt ? "ok" : "pending"}`}>
+                    {user.credentialSentAt ? "Credencial enviada" : "Credencial pendente"}
+                  </span>
                 </div>
-                <span className={`pill ${user.credentialSentAt ? "ok" : "pending"}`}>
-                  {user.credentialSentAt ? "Credencial enviada" : "Credencial pendente"}
-                </span>
+              ))
+            ) : (
+              <div className="status-ok neutral">
+                <UsersRound size={20} />
+                <span>Nenhum usuário vinculado a esta transportadora.</span>
               </div>
-            ))}
+            )}
           </div>
           {credentialPendingUsers.length ? (
             <p className="metric-note">{credentialPendingUsers.length} conta(s) ainda precisam de confirmação de entrega.</p>

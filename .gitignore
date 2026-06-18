@@ -6,6 +6,7 @@ coverage
 .agents
 .generated
 .next-dev.log
+.next-visual-review*.log
 .impeccable/**/*.png
 .impeccable/live/sessions
 skills-lock.json
