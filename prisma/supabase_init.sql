@@ -173,7 +173,11 @@ create table if not exists public.previous_day_uf_metrics (
     on delete cascade
     on update cascade,
   constraint "previous_day_uf_metrics_uf_check"
-    check (uf in ('CE', 'RN', 'PB', 'PE', 'BA'))
+    check (uf in (
+      'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
+      'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI',
+      'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+    ))
 );
 
 create unique index if not exists "previous_day_uf_metrics_submissionId_uf_key"

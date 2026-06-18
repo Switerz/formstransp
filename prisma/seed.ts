@@ -1,9 +1,9 @@
 import { PrismaClient } from "@prisma/client";
+import { BRAZILIAN_UFS } from "../lib/ufs";
 
 const prisma = new PrismaClient();
 
 const oneDay = 24 * 60 * 60 * 1000;
-const ufRows = ["CE", "RN", "PB", "PE", "BA"] as const;
 
 type CarrierSeed = {
   nome: string;
@@ -148,11 +148,12 @@ async function createSubmission(carrier: CarrierSeed, transportadoraId: string, 
     },
   });
 
-  const totalPorUf = Math.floor(totalPedidos / ufRows.length);
+  const totalPorUf = Math.floor(totalPedidos / BRAZILIAN_UFS.length);
+  const remainder = totalPedidos - totalPorUf * BRAZILIAN_UFS.length;
 
-  for (const [index, uf] of ufRows.entries()) {
+  for (const [index, uf] of BRAZILIAN_UFS.entries()) {
     const ufSla = boundedSla(sla + (index - 2) * 0.007);
-    const total = uf === "BA" ? totalPedidos - totalPorUf * 4 : totalPorUf;
+    const total = totalPorUf + (index === BRAZILIAN_UFS.length - 1 ? remainder : 0);
     const dentroDoPrazo = Math.round(total * ufSla);
     await prisma.previousDayUFMetric.create({
       data: {

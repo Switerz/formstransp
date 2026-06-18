@@ -21,10 +21,10 @@ import {
 import { isInternalAdmin, requireTransportadoraAccess } from "@/lib/auth";
 import { formatBrazilianDate, startOfLocalDay } from "@/lib/dates";
 import { prisma } from "@/lib/prisma";
+import { BRAZILIAN_UFS } from "@/lib/ufs";
 
 const HISTORY_DAYS = 30;
 const PENDING_WINDOW_DAYS = 14;
-const UFS = ["CE", "RN", "PB", "PE", "BA"];
 
 export const dynamic = "force-dynamic";
 
@@ -155,7 +155,7 @@ export default async function TransportadoraDetailPage({
       totalPedidos: submission.previousDayMetrics!.totalPedidos,
     }));
 
-  const ufRows = UFS.map((uf) => {
+  const ufRows = BRAZILIAN_UFS.map((uf) => {
     const rows = transportadora.submissions.flatMap((submission) => submission.ufMetrics.filter((metric) => metric.uf === uf));
     const dentro = rows.reduce((sum, row) => sum + row.dentroDoPrazo, 0);
     const total = rows.reduce((sum, row) => sum + row.total, 0);

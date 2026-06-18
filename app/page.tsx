@@ -15,11 +15,11 @@ import { EmptyState } from "@/components/EmptyState";
 import { isInternalAdmin, requireInternalUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatBrazilianDate, startOfLocalDay } from "@/lib/dates";
+import { BRAZILIAN_UFS } from "@/lib/ufs";
 
 const HISTORY_DAYS = 14;
 const GOOD_SLA_THRESHOLD = 93;
 const WARNING_SLA_THRESHOLD = 90;
-const UFS = ["CE", "RN", "PB", "PE", "BA"];
 
 export const dynamic = "force-dynamic";
 
@@ -269,7 +269,7 @@ export default async function Home({
     .sort((a, b) => (a.slaDelta ?? 0) - (b.slaDelta ?? 0))
     .slice(0, 5);
   const heatmapRows = carrierRows.map((row) => {
-    const ufValues = UFS.map((uf) => {
+    const ufValues = BRAZILIAN_UFS.map((uf) => {
       const ufMetrics = row.transportadora.submissions.flatMap((submission) =>
         submission.ufMetrics.filter((metric) => metric.uf === uf),
       );
@@ -601,7 +601,7 @@ export default async function Home({
               <thead>
                 <tr>
                   <th>Transportadora</th>
-                  {UFS.map((uf) => (
+                  {BRAZILIAN_UFS.map((uf) => (
                     <th key={uf}>{uf}</th>
                   ))}
                 </tr>
@@ -616,7 +616,7 @@ export default async function Home({
                       <td key={value.uf}>
                         <span className={`heat-cell ${heatClass(value.sla)}`}>
                           {value.sla !== null ? `${value.sla.toFixed(0)}%` : "-"}
-                          <small>{value.total ? `${value.total} ped.` : "sem volume"}</small>
+                          <small>{value.total ? `${value.total} ped.` : "sem vol."}</small>
                         </span>
                       </td>
                     ))}

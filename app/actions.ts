@@ -8,6 +8,7 @@ import { requireCarrierUser, requireInternalAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseDateInput, startOfLocalDay } from "@/lib/dates";
 import { assertSameOrigin } from "@/lib/request-security";
+import { BRAZILIAN_UFS } from "@/lib/ufs";
 
 function intFrom(formData: FormData, key: string) {
   const value = Number(formData.get(key) ?? 0);
@@ -202,7 +203,7 @@ async function upsertDailySubmissionForTransportadora(
     totalCancelado: intFrom(formData, "cur_totalCancelado"),
   };
 
-  const ufRows = ["CE", "RN", "PB", "PE", "BA"].map((uf) => {
+  const ufRows = BRAZILIAN_UFS.map((uf) => {
     const dentroDoPrazo = intFrom(formData, `uf_${uf}_dentro`);
     const foraDoPrazo = intFrom(formData, `uf_${uf}_fora`);
     return { uf, dentroDoPrazo, foraDoPrazo, total: dentroDoPrazo + foraDoPrazo };

@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-const ufs = ["CE", "RN", "PB", "PE", "BA"];
+import { BRAZILIAN_UFS } from "@/lib/ufs";
 
 function readNumber(form: HTMLFormElement, name: string) {
   const input = form.elements.namedItem(name) as HTMLInputElement | null;
@@ -34,7 +33,7 @@ export function FormConsistencyAlerts() {
         readNumber(currentForm, "cur_totalTentativaInsucesso") +
         readNumber(currentForm, "cur_totalDevolucao") +
         readNumber(currentForm, "cur_totalCancelado");
-      const ufTotal = ufs.reduce(
+      const ufTotal = BRAZILIAN_UFS.reduce(
         (sum, uf) => sum + readNumber(currentForm, `uf_${uf}_dentro`) + readNumber(currentForm, `uf_${uf}_fora`),
         0,
       );

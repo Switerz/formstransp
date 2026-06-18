@@ -8,8 +8,7 @@ import type {
 } from "@prisma/client";
 import { FormConsistencyAlerts } from "@/components/FormConsistencyAlerts";
 import { formatDateInput } from "@/lib/dates";
-
-const ufs = ["CE", "RN", "PB", "PE", "BA"];
+import { BRAZILIAN_UFS } from "@/lib/ufs";
 
 export type DailyReportFormLastSubmission = DailyReportSubmission & {
   previousDayMetrics: DailyPreviousDayMetrics | null;
@@ -171,7 +170,7 @@ export function DailyReportForm({
                   </tr>
                 </thead>
                 <tbody>
-                  {ufs.map((uf) => {
+                  {BRAZILIAN_UFS.map((uf) => {
                     const row = last?.ufMetrics.find((item) => item.uf === uf);
                     return (
                       <tr key={uf}>
