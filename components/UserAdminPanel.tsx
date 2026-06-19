@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
-import { CheckCircle2, Clipboard, KeyRound, Plus, UserRound } from "lucide-react";
+import { useActionState, useMemo, useState } from "react";
+import { CheckCircle2, Clipboard, KeyRound, MoreHorizontal, Plus, Search, UserRound } from "lucide-react";
 import { createAppUser, resetAppUserPassword, type UserActionState } from "@/app/user-actions";
 
 type TransportadoraOption = {
@@ -84,7 +84,31 @@ export function UserAdminPanel({
   markCredentialSentAction,
 }: UserAdminPanelProps) {
   const [createState, createAction] = useActionState(createAppUser, initialState);
+  const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("todos");
+  const [statusFilter, setStatusFilter] = useState("todos");
   const pendingCredentialUsers = users.filter((user) => user.passwordMustChange && !user.credentialSentAt);
+  const activeUsers = users.filter((user) => user.ativo).length;
+  const carrierUsers = users.filter((user) => user.role.startsWith("carrier_")).length;
+  const visibleUsers = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return users.filter((user) => {
+      const statusMatches =
+        statusFilter === "todos" ||
+        (statusFilter === "ativos" && user.ativo) ||
+        (statusFilter === "inativos" && !user.ativo) ||
+        (statusFilter === "credencial_pendente" && user.passwordMustChange && !user.credentialSentAt);
+      const roleMatches = roleFilter === "todos" || user.role === roleFilter;
+      const textMatches =
+        !normalizedQuery ||
+        [user.nome, user.username, user.email, user.transportadoraNome]
+          .filter(Boolean)
+          .some((value) => value!.toLowerCase().includes(normalizedQuery));
+
+      return statusMatches && roleMatches && textMatches;
+    });
+  }, [query, roleFilter, statusFilter, users]);
 
   return (
     <div className="user-admin-layout">
@@ -186,6 +210,39 @@ export function UserAdminPanel({
           <span className="pill">{users.length} contas</span>
         </div>
 
+        <div className="user-admin-summary" aria-label="Resumo de usuários">
+          <span><strong>{activeUsers}</strong> ativos</span>
+          <span><strong>{carrierUsers}</strong> transportadora</span>
+          <span><strong>{pendingCredentialUsers.length}</strong> credenciais pendentes</span>
+        </div>
+
+        <div className="user-toolbar">
+          <label className="user-search">
+            <Search size={16} />
+            <span className="sr-only">Buscar usuário</span>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar nome, usuário, e-mail ou transportadora"
+            />
+          </label>
+          <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)} aria-label="Filtrar perfil">
+            <option value="todos">Todos os perfis</option>
+            {Object.entries(roleLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filtrar status">
+            <option value="todos">Todos os status</option>
+            <option value="ativos">Ativos</option>
+            <option value="inativos">Inativos</option>
+            <option value="credencial_pendente">Credencial pendente</option>
+          </select>
+          <span className="pill">{visibleUsers.length} visíveis</span>
+        </div>
+
         <div className="table-wrap" style={{ marginTop: 14 }}>
           <table>
             <thead>
@@ -201,7 +258,7 @@ export function UserAdminPanel({
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
+              {visibleUsers.map((user) => (
                 <tr key={user.id}>
                   <td>
                     <div className="user-cell">
@@ -240,7 +297,12 @@ export function UserAdminPanel({
                     {user.id === currentUserId ? (
                       <span className="pill">Conta atual</span>
                     ) : (
-                      <div className="actions">
+                      <details className="row-action-menu">
+                        <summary>
+                          <MoreHorizontal size={16} />
+                          <span>Ações</span>
+                        </summary>
+                        <div className="row-action-panel">
                         <button className="btn secondary compact" type="button" onClick={() => copyText(user.username ?? user.email)}>
                           <Clipboard size={16} /> Copiar usuário
                         </button>
@@ -258,11 +320,22 @@ export function UserAdminPanel({
                             {user.ativo ? "Inativar" : "Ativar"}
                           </button>
                         </form>
-                      </div>
+                        </div>
+                      </details>
                     )}
                   </td>
                 </tr>
               ))}
+              {!visibleUsers.length ? (
+                <tr>
+                  <td colSpan={8}>
+                    <div className="status-ok neutral">
+                      <CheckCircle2 size={20} />
+                      <span>Nenhum usuário encontrado com os filtros atuais.</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

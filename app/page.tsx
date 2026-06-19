@@ -191,18 +191,24 @@ export default async function Home({
     .sort((a, b) => (b.averageSla ?? 0) - (a.averageSla ?? 0))
     .slice(0, 3);
   const pendentesHoje = carrierRows.filter((row) => !row.todaySubmission);
+  const pendingPreviewRows = pendentesHoje.slice(0, 5);
+  const hiddenPendingCount = Math.max(0, pendentesHoje.length - pendingPreviewRows.length);
+  const hasOperationalHistory = carrierRows.some((row) => row.sentDays > 0);
   const coberturaPeriodo =
     carrierRows.length > 0 ? carrierRows.reduce((sum, row) => sum + row.adherence, 0) / carrierRows.length : 0;
   const riskRows = carrierRows
     .map((row) => {
       const factors: string[] = [];
       let score = 0;
+      const hasHistory = row.sentDays > 0;
 
       if (!row.todaySubmission) {
         score += 35;
         factors.push("pendente hoje");
       }
-      if (row.adherence < 70) {
+      if (!hasHistory) {
+        factors.push("sem histórico no período");
+      } else if (row.adherence < 70) {
         score += 25;
         factors.push("baixa cobertura");
       } else if (row.adherence < 90) {
@@ -210,7 +216,7 @@ export default async function Home({
         factors.push("cobertura parcial");
       }
       if (row.averageSla === null) {
-        score += 15;
+        if (hasHistory) score += 10;
         factors.push("sem SLA no período");
       } else if (row.averageSla < WARNING_SLA_THRESHOLD) {
         score += 25;
@@ -390,7 +396,7 @@ export default async function Home({
 
           {pendentesHoje.length ? (
             <div className="focus-list">
-              {pendentesHoje.map(({ transportadora, last, consecutiveMisses }) => (
+              {pendingPreviewRows.map(({ transportadora, last, consecutiveMisses }) => (
                 <div className="focus-row" key={transportadora.id}>
                   <AlertTriangle size={18} />
                   <div>
@@ -411,6 +417,12 @@ export default async function Home({
                   </Link>
                 </div>
               ))}
+              {hiddenPendingCount ? (
+                <div className="queue-more">
+                  <span>Mais {hiddenPendingCount} transportadora{hiddenPendingCount > 1 ? "s" : ""} pendente{hiddenPendingCount > 1 ? "s" : ""}.</span>
+                  <a href="#transportadoras">Ver tabela completa</a>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="status-ok">
@@ -441,11 +453,31 @@ export default async function Home({
                 </div>
               ))
             ) : (
-              <p className="muted">Sem dados suficientes para comparar SLA.</p>
+              <div className="status-ok neutral">
+                <CheckCircle2 size={20} />
+                <span>Aguardando os primeiros envios para comparar SLA no período.</span>
+              </div>
             )}
           </div>
         </div>
       </section>
+
+      {!hasOperationalHistory && activeTransportadoras.length ? (
+        <section className="ops-brief">
+          <div>
+            <h2 className="section-title">Operação aguardando primeiros envios</h2>
+            <p className="muted">
+              O painel já está pronto para leitura diária. Como ainda não há histórico no recorte, os alertas priorizam
+              apenas a fila de envio de hoje e deixam SLA, heatmap e calendário em segundo plano.
+            </p>
+          </div>
+          <div className="ops-brief-stats" aria-label="Resumo do estado inicial">
+            <span><strong>{ativas}</strong> ativas</span>
+            <span><strong>{pendentesHoje.length}</strong> pendentes</span>
+            <span><strong>{relatoriosHoje}</strong> recebidas</span>
+          </div>
+        </section>
+      ) : null}
 
       <section className="card risk-panel">
         <div className="panel-heading">
@@ -528,6 +560,12 @@ export default async function Home({
           </div>
         )}
       </section>
+
+      <details className="analysis-disclosure" open={hasOperationalHistory}>
+        <summary>
+          <span>Análises detalhadas</span>
+          <strong>{hasOperationalHistory ? "Tendência, UF, qualidade e calendário" : "Abrir dados de acompanhamento"}</strong>
+        </summary>
 
       <section className="analytics-grid">
         <div className="card trend-panel">
@@ -717,8 +755,9 @@ export default async function Home({
           </div>
         )}
       </section>
+      </details>
 
-      <section className="card" style={{ marginTop: 18 }}>
+      <section className="card" id="transportadoras" style={{ marginTop: 18 }}>
         <div className="panel-heading">
           <div>
             <h2 className="section-title">Transportadoras</h2>

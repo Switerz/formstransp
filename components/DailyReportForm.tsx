@@ -38,6 +38,16 @@ function numberField(name: string, label: string, value = 0) {
   );
 }
 
+function formatDateTime(value?: Date | null) {
+  if (!value) return "Horário não informado";
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(value);
+}
+
 export function DailyReportForm({
   transportadora,
   action,
@@ -79,6 +89,9 @@ export function DailyReportForm({
     ["cur_finalizadosNoPrazo", "Finalizados no prazo", cur?.finalizadosNoPrazo],
     ["cur_finalizadosForaDoPrazo", "Finalizados fora do prazo", cur?.finalizadosForaDoPrazo],
   ] as const;
+  const lockedUfWithVolume =
+    last?.ufMetrics.filter((item) => item.dentroDoPrazo + item.foraDoPrazo > 0).length ?? 0;
+  const lockedSubmitter = last?.submittedByName || last?.submittedByEmail || "Responsável não informado";
 
   return (
     <>
@@ -104,12 +117,55 @@ export function DailyReportForm({
       ) : null}
 
       {lockedToday ? (
-        <section className="card">
-          <h2 className="section-title">Relatório já enviado</h2>
-          <p className="muted">
-            O relatório de hoje foi recebido e está bloqueado para edição. Para corrigir dados enviados, acione o time
-            interno.
-          </p>
+        <section className="card locked-report-card">
+          <div className="locked-report-heading">
+            <div>
+              <h2 className="section-title">Relatório recebido</h2>
+              <p className="muted">
+                O envio de hoje foi concluído e está bloqueado para edição. Use este resumo como comprovante do registro.
+              </p>
+            </div>
+            <span className="pill ok">{last?.status ?? "enviado"}</span>
+          </div>
+
+          <div className="locked-report-grid" aria-label="Resumo do relatório enviado">
+            <div>
+              <span>Dia anterior</span>
+              <strong>{prev?.totalPedidos ?? 0}</strong>
+              <small>{prev?.totalNoPrazo ?? 0} no prazo · {prev?.totalForaDoPrazo ?? 0} fora</small>
+            </div>
+            <div>
+              <span>Prévia atual</span>
+              <strong>{cur?.totalPedidos ?? 0}</strong>
+              <small>{cur?.totalFinalizado ?? 0} finalizados · {cur?.totalEmAberto ?? 0} em aberto</small>
+            </div>
+            <div>
+              <span>UFs preenchidas</span>
+              <strong>{lockedUfWithVolume}</strong>
+              <small>com volume informado</small>
+            </div>
+            <div>
+              <span>Enviado por</span>
+              <strong>{lockedSubmitter}</strong>
+              <small>{formatDateTime(last?.submittedAt)}</small>
+            </div>
+          </div>
+
+          {last?.observacoes ? (
+            <div className="locked-report-note">
+              <span>Observação enviada</span>
+              <p>{last.observacoes}</p>
+            </div>
+          ) : null}
+
+          <div className="locked-report-footer">
+            <p className="muted">Para corrigir dados já enviados, acione o time interno informando data, UF e total correto.</p>
+            {backHref ? (
+              <Link className="btn secondary" href={backHref}>
+                Voltar ao portal
+              </Link>
+            ) : null}
+          </div>
         </section>
       ) : null}
 
