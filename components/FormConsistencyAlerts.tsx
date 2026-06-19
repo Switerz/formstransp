@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BRAZILIAN_UFS } from "@/lib/ufs";
 
 function readNumber(form: HTMLFormElement, name: string) {
@@ -10,10 +10,11 @@ function readNumber(form: HTMLFormElement, name: string) {
 }
 
 export function FormConsistencyAlerts() {
+  const rootRef = useRef<HTMLDivElement>(null);
   const [alerts, setAlerts] = useState<string[]>([]);
 
   useEffect(() => {
-    const form = document.querySelector<HTMLFormElement>("[data-daily-report-form]");
+    const form = rootRef.current?.closest<HTMLFormElement>("[data-daily-report-form]");
     if (!form) return;
     const currentForm = form;
 
@@ -63,19 +64,23 @@ export function FormConsistencyAlerts() {
 
     validate();
     currentForm.addEventListener("input", validate);
-    return () => currentForm.removeEventListener("input", validate);
+    const interval = window.setInterval(validate, 500);
+    return () => {
+      currentForm.removeEventListener("input", validate);
+      window.clearInterval(interval);
+    };
   }, []);
 
   if (!alerts.length) {
     return (
-      <div className="alert ok">
+      <div ref={rootRef} className="alert ok">
         Totais consistentes até aqui.
       </div>
     );
   }
 
   return (
-    <div className="alert">
+    <div ref={rootRef} className="alert">
       <strong>Verifique antes de enviar:</strong>
       <ul>
         {alerts.map((alert) => (

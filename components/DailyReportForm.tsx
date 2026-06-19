@@ -58,10 +58,31 @@ export function DailyReportForm({
   const todayInput = formatDateInput(today);
   const lockedToday =
     last?.dataReport.toISOString().slice(0, 10) === todayInput && ["submitted", "validated", "sent"].includes(last.status);
+  const previousFields = [
+    ["prev_totalPedidos", "Total de pedidos", prev?.totalPedidos],
+    ["prev_totalNoPrazo", "No prazo", prev?.totalNoPrazo],
+    ["prev_totalForaDoPrazo", "Fora do prazo", prev?.totalForaDoPrazo],
+    ["prev_totalEntregue", "Entregue", prev?.totalEntregue],
+    ["prev_totalEmAberto", "Em aberto", prev?.totalEmAberto],
+    ["prev_totalTentativaInsucesso", "Tentativa sem sucesso", prev?.totalTentativaInsucesso],
+    ["prev_totalDevolucao", "Devolução", prev?.totalDevolucao],
+    ["prev_totalCancelado", "Cancelado", prev?.totalCancelado],
+  ] as const;
+  const currentFields = [
+    ["cur_totalPedidos", "Total de pedidos", cur?.totalPedidos],
+    ["cur_totalFinalizado", "Finalizado", cur?.totalFinalizado],
+    ["cur_totalEmAberto", "Em aberto", cur?.totalEmAberto],
+    ["cur_totalEntregue", "Entregue", cur?.totalEntregue],
+    ["cur_totalTentativaInsucesso", "Tentativa sem sucesso", cur?.totalTentativaInsucesso],
+    ["cur_totalDevolucao", "Devolução", cur?.totalDevolucao],
+    ["cur_totalCancelado", "Cancelado", cur?.totalCancelado],
+    ["cur_finalizadosNoPrazo", "Finalizados no prazo", cur?.finalizadosNoPrazo],
+    ["cur_finalizadosForaDoPrazo", "Finalizados fora do prazo", cur?.finalizadosForaDoPrazo],
+  ] as const;
 
   return (
     <>
-      <div className="page-title">
+      <div className="page-title form-page-title">
         <div>
           <h1>Formulário diário</h1>
           <p className="muted">{transportadora.nome}</p>
@@ -93,13 +114,15 @@ export function DailyReportForm({
       ) : null}
 
       {!lockedToday ? (
-        <form action={action} className="grid" data-daily-report-form>
+        <form action={action} className="grid compact-report-form" data-daily-report-form>
           {successPath ? <input type="hidden" name="successPath" value={successPath} /> : null}
           {draftPath ? <input type="hidden" name="draftPath" value={draftPath} /> : null}
           {errorPath ? <input type="hidden" name="errorPath" value={errorPath} /> : null}
-          <section className="card">
-            <h2 className="section-title">1. Identificação</h2>
-            <div className="form-grid">
+          <section className="card form-identity-card">
+            <div className="form-card-heading">
+              <h2 className="section-title">Identificação</h2>
+            </div>
+            <div className="identity-grid">
               <div className="field">
                 <label htmlFor="dataReport">Data do relatório</label>
                 <input id="dataReport" name="dataReport" type="date" defaultValue={todayInput} required />
@@ -132,7 +155,7 @@ export function DailyReportForm({
                   defaultValue={last?.submittedByName ?? defaultResponsibleName}
                 />
               </div>
-              <div className="field">
+              <div className="field identity-email">
                 <label htmlFor="submittedByEmail">E-mail do responsável</label>
                 <input
                   id="submittedByEmail"
@@ -144,87 +167,91 @@ export function DailyReportForm({
             </div>
           </section>
 
-          <section className="card">
-            <h2 className="section-title">2. Resultado do dia anterior</h2>
-            <div className="form-grid">
-              {numberField("prev_totalPedidos", "Total de pedidos", prev?.totalPedidos)}
-              {numberField("prev_totalNoPrazo", "Total no prazo", prev?.totalNoPrazo)}
-              {numberField("prev_totalForaDoPrazo", "Total fora do prazo", prev?.totalForaDoPrazo)}
-              {numberField("prev_totalEntregue", "Total entregue", prev?.totalEntregue)}
-              {numberField("prev_totalEmAberto", "Total em aberto", prev?.totalEmAberto)}
-              {numberField("prev_totalTentativaInsucesso", "Tentativa sem sucesso", prev?.totalTentativaInsucesso)}
-              {numberField("prev_totalDevolucao", "Devolução", prev?.totalDevolucao)}
-              {numberField("prev_totalCancelado", "Cancelado", prev?.totalCancelado)}
+          <div className="daily-metrics-grid">
+            <section className="card">
+              <div className="form-card-heading">
+                <h2 className="section-title">Dia anterior</h2>
+                <span className="section-tag">Resultado fechado</span>
+              </div>
+              <div className="compact-field-grid">
+                {previousFields.map(([name, label, value]) => (
+                  <div key={name}>{numberField(name, label, value)}</div>
+                ))}
+              </div>
+            </section>
+
+            <section className="card">
+              <div className="form-card-heading">
+                <h2 className="section-title">Prévia atual</h2>
+                <span className="section-tag">Parcial do dia</span>
+              </div>
+              <div className="compact-field-grid">
+                {currentFields.map(([name, label, value]) => (
+                  <div key={name}>{numberField(name, label, value)}</div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <section className="card uf-compact-section">
+            <div className="form-card-heading">
+              <h2 className="section-title">Pedidos por UF do dia anterior</h2>
+              <span className="section-tag">Dentro / fora do prazo</span>
+            </div>
+            <div className="uf-compact-grid">
+              {BRAZILIAN_UFS.map((uf) => {
+                const row = last?.ufMetrics.find((item) => item.uf === uf);
+                return (
+                  <div className="uf-compact-row" key={uf}>
+                    <strong>{uf}</strong>
+                    <label>
+                      <span>D</span>
+                      <input
+                        name={`uf_${uf}_dentro`}
+                        type="number"
+                        min="0"
+                        defaultValue={row?.dentroDoPrazo ?? 0}
+                        required
+                        aria-label={`${uf} dentro do prazo`}
+                      />
+                    </label>
+                    <label>
+                      <span>F</span>
+                      <input
+                        name={`uf_${uf}_fora`}
+                        type="number"
+                        min="0"
+                        defaultValue={row?.foraDoPrazo ?? 0}
+                        required
+                        aria-label={`${uf} fora do prazo`}
+                      />
+                    </label>
+                  </div>
+                );
+              })}
             </div>
           </section>
 
-          <section className="card">
-            <h2 className="section-title">3. Pedidos por UF do dia anterior</h2>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>UF</th>
-                    <th>Dentro do prazo</th>
-                    <th>Fora do prazo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {BRAZILIAN_UFS.map((uf) => {
-                    const row = last?.ufMetrics.find((item) => item.uf === uf);
-                    return (
-                      <tr key={uf}>
-                        <td>
-                          <strong>{uf}</strong>
-                        </td>
-                        <td>
-                          <input name={`uf_${uf}_dentro`} type="number" min="0" defaultValue={row?.dentroDoPrazo ?? 0} required />
-                        </td>
-                        <td>
-                          <input name={`uf_${uf}_fora`} type="number" min="0" defaultValue={row?.foraDoPrazo ?? 0} required />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className="card">
-            <h2 className="section-title">4. Prévia do SLA do dia atual</h2>
-            <div className="form-grid">
-              {numberField("cur_totalPedidos", "Total de pedidos", cur?.totalPedidos)}
-              {numberField("cur_totalFinalizado", "Total finalizado", cur?.totalFinalizado)}
-              {numberField("cur_totalEmAberto", "Total em aberto", cur?.totalEmAberto)}
-              {numberField("cur_totalEntregue", "Total entregue", cur?.totalEntregue)}
-              {numberField("cur_totalTentativaInsucesso", "Tentativa sem sucesso", cur?.totalTentativaInsucesso)}
-              {numberField("cur_totalDevolucao", "Devolução", cur?.totalDevolucao)}
-              {numberField("cur_totalCancelado", "Cancelado", cur?.totalCancelado)}
-              {numberField("cur_finalizadosNoPrazo", "Finalizados no prazo", cur?.finalizadosNoPrazo)}
-              {numberField("cur_finalizadosForaDoPrazo", "Finalizados fora do prazo", cur?.finalizadosForaDoPrazo)}
-            </div>
-          </section>
-
-          <section className="card">
-            <h2 className="section-title">5. Observações</h2>
+          <section className="form-footer-grid">
+            <div className="card">
+              <h2 className="section-title">Observações</h2>
             <div className="field">
               <label htmlFor="observacoes">Observações operacionais</label>
               <textarea id="observacoes" name="observacoes" defaultValue={last?.observacoes ?? ""} />
             </div>
-            <div style={{ marginTop: 14 }}>
+            </div>
+            <div className="card form-submit-panel">
               <FormConsistencyAlerts />
+              <div className="actions form-actions">
+                <button className="btn secondary" name="intent" value="draft" type="submit">
+                  Salvar rascunho
+                </button>
+                <button className="btn" name="intent" value="submit" type="submit">
+                  Enviar relatório
+                </button>
+              </div>
             </div>
           </section>
-
-          <div className="actions">
-            <button className="btn secondary" name="intent" value="draft" type="submit">
-              Salvar rascunho
-            </button>
-            <button className="btn" name="intent" value="submit" type="submit">
-              Enviar relatório
-            </button>
-          </div>
         </form>
       ) : null}
     </>
