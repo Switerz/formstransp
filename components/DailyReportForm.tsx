@@ -8,6 +8,7 @@ import type {
   Transportadora,
 } from "@prisma/client";
 import { FormConsistencyAlerts } from "@/components/FormConsistencyAlerts";
+import { SubmitButton } from "@/components/SubmitButton";
 import { formatDateInput } from "@/lib/dates";
 import { BRAZILIAN_UFS } from "@/lib/ufs";
 
@@ -212,12 +213,12 @@ export function DailyReportForm({
                   <input id="arquivo" name="arquivo" type="file" accept=".xlsx" required />
                 </div>
                 <div className="actions">
-                  <button className="btn secondary" name="intent" value="draft" type="submit">
+                  <SubmitButton className="btn secondary" name="intent" value="draft" pendingLabel="Salvando...">
                     Salvar rascunho
-                  </button>
-                  <button className="btn" name="intent" value="submit" type="submit">
+                  </SubmitButton>
+                  <SubmitButton className="btn" name="intent" value="submit" pendingLabel="Enviando...">
                     Enviar planilha
-                  </button>
+                  </SubmitButton>
                 </div>
               </form>
             </section>
