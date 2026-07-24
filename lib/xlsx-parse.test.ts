@@ -104,4 +104,26 @@ describe("parseDailyReportXlsx", () => {
     if (result.ok) return;
     expect(result.errors.some((message) => message.includes("Total de pedidos"))).toBe(true);
   });
+
+  it("does not itself validate cross-field sums, so a structurally valid but inconsistent file still parses ok", async () => {
+    // The parser's job is structure and cell types only. Sum-consistency (UF total vs. previous-day
+    // total, status breakdown vs. total, etc.) is validated exactly once, downstream, by
+    // validateSubmissionConsistency in app/actions.ts — the same function the manual form uses.
+    // If this test ever fails because the parser starts rejecting inconsistent sums itself, that is
+    // a sign the validation got duplicated instead of reused, which is the one thing this feature's
+    // design explicitly set out to avoid.
+    const buffer = await buildDailyReportTemplate(baseInput);
+    const workbook = new ExcelJS.Workbook();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await workbook.xlsx.load(buffer as any);
+    // Break the "UF total == prev_totalPedidos" business rule without breaking cell structure/types.
+    workbook.getWorksheet("Dia anterior")!.getRow(2).getCell(1).value = 999;
+    const mutatedBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
+
+    const result = await parseDailyReportXlsx(mutatedBuffer, "transp-1");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.values.prev_totalPedidos).toBe("999");
+    expect(result.values.uf_BA_dentro).toBe("12");
+  });
 });
