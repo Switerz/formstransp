@@ -36,11 +36,16 @@ Todas as correções validadas com `npx tsc --noEmit`, `npm test`, `npm run buil
 
 Todas validadas com `tsc`/`test`/`build` e teste real no navegador (incluindo criação e desativação de um usuário descartável para confirmar o botão de copiar senha).
 
-### P1/P2 ainda abertos (candidatos à próxima rodada)
-- Usuários: ações de resetar senha/inativar sem confirmação antes de executar (matam sessão ativa do usuário).
-- Automações/Logs: payload capturado nunca é exibido; sem busca/paginação além das últimas 100 linhas.
-- Histórico: sem validação de range de data invertido; sem resumo do filtro aplicado.
-- Contraste da borda dos inputs (`--input-line`) abaixo do mínimo WCAG em várias telas (achado repetido nas críticas do formulário e do histórico).
+### Rodada 3 concluída (2026-07-24, mesmo dia)
+- **Usuários**: resetar senha e inativar agora exigem confirmação em dois cliques (`components/ConfirmSubmitButton.tsx`) — primeiro clique só troca o texto/cor do botão para um estado de aviso, segundo clique de fato submete. "Ativar" (não destrutivo) continua em um clique só.
+- **Automações/Logs**: filtro por transportadora adicionado; paginação via "Carregar mais" (100 em 100, até 1000) com nota "Mostrando N registros".
+- **Histórico**: intervalo de data invertido agora mostra alerta explícito em vez de silenciosamente não retornar nada; estado vazio diferencia "sem histórico" de "sem resultado para este filtro".
+- **Contraste**: `--input-line` (borda dos inputs) e `--focus-ring` (anel de foco) escurecidos para passar do mínimo WCAG 1.4.11 (3:1) — medido e confirmado no navegador.
+
+Validado com `tsc`/`test`/`build` e teste real no navegador (dois cliques no botão de confirmação, filtro de transportadora nos logs, range de data invertido no histórico, contraste medido via `getComputedStyle`).
+
+### Pendente
+- Automações/Logs: payload capturado (`AutomationLog.payload`) ainda não é exibido na UI, só usado internamente.
 
 ## Contexto
 

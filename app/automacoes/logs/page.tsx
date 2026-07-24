@@ -25,23 +25,40 @@ function pillClassForLogStatus(status: string) {
   return "pending";
 }
 
+const PAGE_SIZE = 100;
+const MAX_LIMIT = 1000;
+
 export default async function AutomationLogsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; tipo?: string }>;
+  searchParams: Promise<{ status?: string; tipo?: string; transportadoraId?: string; limite?: string }>;
 }) {
   await requireInternalUser("/automacoes/logs");
 
   const filters = await searchParams;
-  const logs = await prisma.automationLog.findMany({
-    where: {
-      ...(filters.status ? { status: filters.status } : {}),
-      ...(filters.tipo ? { tipo: filters.tipo } : {}),
-    },
-    include: { transportadora: true },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
+  const limit = Math.min(Number(filters.limite) || PAGE_SIZE, MAX_LIMIT);
+
+  const [logs, transportadoras] = await Promise.all([
+    prisma.automationLog.findMany({
+      where: {
+        ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.tipo ? { tipo: filters.tipo } : {}),
+        ...(filters.transportadoraId ? { transportadoraId: filters.transportadoraId } : {}),
+      },
+      include: { transportadora: true },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    }),
+    prisma.transportadora.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+  ]);
+
+  const hasMore = logs.length === limit;
+  const loadMoreHref = `/automacoes/logs?${new URLSearchParams({
+    ...(filters.status ? { status: filters.status } : {}),
+    ...(filters.tipo ? { tipo: filters.tipo } : {}),
+    ...(filters.transportadoraId ? { transportadoraId: filters.transportadoraId } : {}),
+    limite: String(limit + PAGE_SIZE),
+  }).toString()}`;
 
   return (
     <main className="shell">
@@ -74,6 +91,17 @@ export default async function AutomationLogsPage({
             <option value="audit">Auditoria</option>
           </select>
         </div>
+        <div className="field">
+          <label htmlFor="transportadoraId">Transportadora</label>
+          <select id="transportadoraId" name="transportadoraId" defaultValue={filters.transportadoraId ?? ""}>
+            <option value="">Todas</option>
+            {transportadoras.map((transportadora) => (
+              <option key={transportadora.id} value={transportadora.id}>
+                {transportadora.nome}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="actions" style={{ alignItems: "end" }}>
           <button className="btn" type="submit">Filtrar</button>
           <Link className="btn secondary" href="/automacoes/logs">Limpar</Link>
@@ -88,6 +116,7 @@ export default async function AutomationLogsPage({
             action={{ href: "/automacoes/logs", label: "Limpar filtros" }}
           />
         ) : (
+        <>
         <div className="table-wrap">
           <table>
             <thead>
@@ -114,6 +143,19 @@ export default async function AutomationLogsPage({
             </tbody>
           </table>
         </div>
+        <p className="muted" style={{ marginTop: 12 }}>
+          {hasMore
+            ? `Mostrando os últimos ${logs.length} registros. Pode haver mais.`
+            : `Mostrando ${logs.length} registro${logs.length === 1 ? "" : "s"}.`}
+        </p>
+        {hasMore ? (
+          <div className="actions">
+            <Link className="btn secondary compact" href={loadMoreHref}>
+              Carregar mais
+            </Link>
+          </div>
+        ) : null}
+        </>
         )}
       </section>
     </main>

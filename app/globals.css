@@ -14,8 +14,8 @@
   --surface: #ffffff;
   --surface-muted: #f8fbff;
   --table-header: #eef4fb;
-  --input-line: #cbd5e1;
-  --focus-ring: rgba(37, 99, 235, 0.28);
+  --input-line: #64748b;
+  --focus-ring: rgba(37, 99, 235, 0.85);
   --success-bg: #dcfce7;
   --success-soft: #f0fdf4;
   --success-text: #166534;

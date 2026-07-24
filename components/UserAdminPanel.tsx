@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import { CheckCircle2, Clipboard, KeyRound, MoreHorizontal, Plus, Search, UserRound } from "lucide-react";
 import { createAppUser, resetAppUserPassword, type UserActionState } from "@/app/user-actions";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 
 type TransportadoraOption = {
   id: string;
@@ -77,9 +78,9 @@ function ResetPasswordForm({ userId }: { userId: string }) {
   return (
     <form action={action} className="inline-form">
       <input type="hidden" name="userId" value={userId} />
-      <button className="btn secondary compact" type="submit">
+      <ConfirmSubmitButton className="btn secondary compact" confirmLabel="Confirmar reset de senha?">
         <KeyRound size={16} /> Resetar senha
-      </button>
+      </ConfirmSubmitButton>
       <ActionMessage state={state} />
     </form>
   );
@@ -325,9 +326,15 @@ export function UserAdminPanel({
                         <form action={setStatusAction}>
                           <input type="hidden" name="userId" value={user.id} />
                           <input type="hidden" name="ativo" value={String(!user.ativo)} />
-                          <button className="btn secondary compact" type="submit">
-                            {user.ativo ? "Inativar" : "Ativar"}
-                          </button>
+                          {user.ativo ? (
+                            <ConfirmSubmitButton className="btn secondary compact" confirmLabel="Confirmar inativação?">
+                              Inativar
+                            </ConfirmSubmitButton>
+                          ) : (
+                            <button className="btn secondary compact" type="submit">
+                              Ativar
+                            </button>
+                          )}
                         </form>
                         </div>
                       </details>

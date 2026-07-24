@@ -28,12 +28,16 @@ export default async function HistoricoPage({
   await requireTransportadoraAccess(transportadoraId, `/historico/${transportadoraId}`);
 
   const filters = await searchParams;
+  const inicioDate = filters.dataInicio ? parseDateInput(filters.dataInicio) : null;
+  const fimDate = filters.dataFim ? parseDateInput(filters.dataFim) : null;
+  const invertedRange = Boolean(inicioDate && fimDate && inicioDate > fimDate);
+
   const dateFilter: { gte?: Date; lt?: Date } = {};
-  if (filters.dataInicio) {
-    dateFilter.gte = parseDateInput(filters.dataInicio);
+  if (inicioDate && !invertedRange) {
+    dateFilter.gte = inicioDate;
   }
-  if (filters.dataFim) {
-    const end = parseDateInput(filters.dataFim);
+  if (fimDate && !invertedRange) {
+    const end = new Date(fimDate);
     end.setDate(end.getDate() + 1);
     dateFilter.lt = end;
   }
@@ -43,15 +47,19 @@ export default async function HistoricoPage({
   });
   if (!transportadora) notFound();
 
-  const submissions = await prisma.dailyReportSubmission.findMany({
-    where: {
-      transportadoraId,
-      ...(Object.keys(dateFilter).length ? { dataReport: dateFilter } : {}),
-      ...(filters.status ? { status: filters.status } : {}),
-    },
-    orderBy: { dataReport: "desc" },
-    include: { previousDayMetrics: true },
-  });
+  const hasAnyFilter = Boolean(filters.dataInicio || filters.dataFim || filters.status);
+
+  const submissions = invertedRange
+    ? []
+    : await prisma.dailyReportSubmission.findMany({
+        where: {
+          transportadoraId,
+          ...(Object.keys(dateFilter).length ? { dataReport: dateFilter } : {}),
+          ...(filters.status ? { status: filters.status } : {}),
+        },
+        orderBy: { dataReport: "desc" },
+        include: { previousDayMetrics: true },
+      });
 
   return (
     <main className="shell">
@@ -88,11 +96,21 @@ export default async function HistoricoPage({
         </div>
       </form>
 
+      {invertedRange ? (
+        <div className="alert" style={{ marginBottom: 16 }}>
+          <strong>Intervalo de datas inválido:</strong> a data inicial é depois da data final. Ajuste o filtro.
+        </div>
+      ) : null}
+
       <section className="card">
         {!submissions.length ? (
           <EmptyState
-            title="Nenhum relatório encontrado"
-            description="Ajuste os filtros ou aguarde o primeiro envio da transportadora."
+            title={hasAnyFilter ? "Nenhum relatório encontrado para este filtro" : "Nenhum relatório encontrado"}
+            description={
+              hasAnyFilter
+                ? "Ajuste ou limpe os filtros para ver o histórico completo desta transportadora."
+                : "Aguarde o primeiro envio da transportadora."
+            }
             action={{ href: `/historico/${transportadora.id}`, label: "Limpar filtros" }}
           />
         ) : (
