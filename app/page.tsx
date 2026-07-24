@@ -1,6 +1,5 @@
 import Link from "next/link";
 import {
-  AlertTriangle,
   CalendarDays,
   CheckCircle2,
   ClipboardList,
@@ -95,14 +94,6 @@ function localHour(date: Date) {
   return Number(hour ?? 0);
 }
 
-function formatBrazilianDateTime(date: Date) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-    timeZone: "America/Sao_Paulo",
-  }).format(date);
-}
-
 function heatClass(value: number | null) {
   if (value === null) return "empty";
   if (value >= GOOD_SLA_THRESHOLD) return "ok";
@@ -113,12 +104,13 @@ function heatClass(value: number | null) {
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ origem?: string; transportadoraId?: string }>;
+  searchParams: Promise<{ origem?: string; transportadoraId?: string; pendentes?: string }>;
 }) {
   const [currentUser, filters] = await Promise.all([requireInternalUser("/"), searchParams]);
   const canManage = isInternalAdmin(currentUser.role);
   const origemFilter = filters.origem === "demo" || filters.origem === "todos" ? filters.origem : "real";
   const transportadoraFilter = filters.transportadoraId ?? "";
+  const pendentesOnly = filters.pendentes === "1";
 
   const today = startOfLocalDay(new Date());
   const tomorrow = addDays(today, 1);
@@ -191,8 +183,6 @@ export default async function Home({
     .sort((a, b) => (b.averageSla ?? 0) - (a.averageSla ?? 0))
     .slice(0, 3);
   const pendentesHoje = carrierRows.filter((row) => !row.todaySubmission);
-  const pendingPreviewRows = pendentesHoje.slice(0, 5);
-  const hiddenPendingCount = Math.max(0, pendentesHoje.length - pendingPreviewRows.length);
   const hasOperationalHistory = carrierRows.some((row) => row.sentDays > 0);
   const coberturaPeriodo =
     carrierRows.length > 0 ? carrierRows.reduce((sum, row) => sum + row.adherence, 0) / carrierRows.length : 0;
@@ -244,13 +234,20 @@ export default async function Home({
         ...row,
         riskScore: Math.min(100, score),
         riskFactors: factors.length ? factors : ["sem alerta relevante"],
+        hasHistory,
       };
     })
-    .sort((a, b) => b.riskScore - a.riskScore || a.transportadora.nome.localeCompare(b.transportadora.nome));
+    .sort((a, b) => {
+      if (b.riskScore !== a.riskScore) return b.riskScore - a.riskScore;
+      if (b.consecutiveMisses !== a.consecutiveMisses) return b.consecutiveMisses - a.consecutiveMisses;
+      return a.transportadora.nome.localeCompare(b.transportadora.nome);
+    });
+  const riskRowsToShow = pendentesOnly ? riskRows.filter((row) => !row.todaySubmission) : riskRows;
   const riskSummary = {
-    critical: riskRows.filter((row) => riskClass(row.riskScore) === "critical").length,
-    warning: riskRows.filter((row) => riskClass(row.riskScore) === "warning").length,
-    ok: riskRows.filter((row) => riskClass(row.riskScore) === "ok").length,
+    critical: riskRows.filter((row) => row.hasHistory && riskClass(row.riskScore) === "critical").length,
+    warning: riskRows.filter((row) => row.hasHistory && riskClass(row.riskScore) === "warning").length,
+    ok: riskRows.filter((row) => row.hasHistory && riskClass(row.riskScore) === "ok").length,
+    semDado: riskRows.filter((row) => !row.hasHistory).length,
   };
   const dailyTrend = days.map((day) => {
     const sentSubmissions = activeTransportadoras
@@ -382,83 +379,32 @@ export default async function Home({
         </div>
       </section>
 
-      <section className="operations-grid">
-        <div className="card control-panel">
-          <div className="panel-heading">
-            <div>
-              <h2 className="section-title">Fila de hoje</h2>
-              <p className="muted">Transportadoras ativas que ainda não enviaram o relatório de {formatBrazilianDate(today)}.</p>
-            </div>
-            <span className={`health-pill ${pendentesHoje.length ? "warning" : "ok"}`}>
-              {pendentesHoje.length === 1 ? "1 pendente" : pendentesHoje.length ? `${pendentesHoje.length} pendentes` : "Tudo recebido"}
-            </span>
+      <section className="card control-panel" style={{ marginTop: 18 }}>
+        <div className="panel-heading">
+          <div>
+            <h2 className="section-title">Melhor SLA no período</h2>
+            <p className="muted">Média ponderada dos relatórios enviados nos últimos {HISTORY_DAYS} dias.</p>
           </div>
-
-          {pendentesHoje.length ? (
-            <div className="focus-list">
-              {pendingPreviewRows.map(({ transportadora, last, consecutiveMisses }) => (
-                <div className="focus-row" key={transportadora.id}>
-                  <AlertTriangle size={18} />
-                  <div>
-                    <strong>{transportadora.nome}</strong>
-                    <span>
-                      {consecutiveMisses > 1 ? `${consecutiveMisses} dias sem envio` : "pendente hoje"} · Último envio:{" "}
-                      {last ? formatBrazilianDate(last.dataReport) : "sem histórico"}
-                    </span>
-                    {last?.submittedByName || last?.submittedAt ? (
-                      <span>
-                        {last.submittedByName ? `Responsável: ${last.submittedByName}` : "Responsável não informado"}
-                        {last.submittedAt ? ` · ${formatBrazilianDateTime(last.submittedAt)}` : ""}
-                      </span>
-                    ) : null}
-                  </div>
-                  <Link className="btn secondary compact" href={`/historico/${transportadora.id}`}>
-                    <History size={16} /> Histórico
-                  </Link>
-                </div>
-              ))}
-              {hiddenPendingCount ? (
-                <div className="queue-more">
-                  <span>Mais {hiddenPendingCount} transportadora{hiddenPendingCount > 1 ? "s" : ""} pendente{hiddenPendingCount > 1 ? "s" : ""}.</span>
-                  <a href="#transportadoras">Ver tabela completa</a>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="status-ok">
-              <CheckCircle2 size={20} />
-              <span>Todos os relatórios esperados para hoje foram recebidos.</span>
-            </div>
-          )}
         </div>
 
-        <div className="card control-panel">
-          <div className="panel-heading">
-            <div>
-              <h2 className="section-title">Melhor SLA no período</h2>
-              <p className="muted">Média ponderada dos relatórios enviados nos últimos {HISTORY_DAYS} dias.</p>
-            </div>
-          </div>
-
-          <div className="ranking-list">
-            {melhoresSla.length ? (
-              melhoresSla.map((row, index) => (
-                <div className="ranking-row" key={row.transportadora.id}>
-                  <span className="rank">{index + 1}</span>
-                  <div>
-                    <strong>{row.transportadora.nome}</strong>
-                    <span>{row.sentDays}/{HISTORY_DAYS} dias enviados</span>
-                  </div>
-                  <span className={`health-pill ${slaClass(row.averageSla)}`}>{row.averageSla?.toFixed(1)}%</span>
+        <div className="ranking-list">
+          {melhoresSla.length ? (
+            melhoresSla.map((row, index) => (
+              <div className="ranking-row" key={row.transportadora.id}>
+                <span className="rank">{index + 1}</span>
+                <div>
+                  <strong>{row.transportadora.nome}</strong>
+                  <span>{row.sentDays}/{HISTORY_DAYS} dias enviados</span>
                 </div>
-              ))
-            ) : (
-              <div className="status-ok neutral">
-                <CheckCircle2 size={20} />
-                <span>Aguardando os primeiros envios para comparar SLA no período.</span>
+                <span className={`health-pill ${slaClass(row.averageSla)}`}>{row.averageSla?.toFixed(1)}%</span>
               </div>
-            )}
-          </div>
+            ))
+          ) : (
+            <div className="status-ok neutral">
+              <CheckCircle2 size={20} />
+              <span>Aguardando os primeiros envios para comparar SLA no período.</span>
+            </div>
+          )}
         </div>
       </section>
 
@@ -491,13 +437,28 @@ export default async function Home({
             <span className="health-pill critical">{riskSummary.critical} crítico</span>
             <span className="health-pill warning">{riskSummary.warning} atenção</span>
             <span className="health-pill ok">{riskSummary.ok} saudável</span>
+            {riskSummary.semDado ? <span className="health-pill neutral">{riskSummary.semDado} sem dado</span> : null}
           </div>
         </div>
 
-        {!riskRows.length ? (
+        {pendentesHoje.length ? (
+          <Link
+            className={`btn secondary compact${pendentesOnly ? " active" : ""}`}
+            href={`/?origem=${origemFilter}${transportadoraFilter ? `&transportadoraId=${transportadoraFilter}` : ""}${pendentesOnly ? "" : "&pendentes=1"}`}
+            style={{ marginTop: 12 }}
+          >
+            {pendentesOnly ? "Ver todas" : `Ver só pendentes (${pendentesHoje.length})`}
+          </Link>
+        ) : null}
+
+        {!riskRowsToShow.length ? (
           <EmptyState
-            title="Sem transportadoras para calcular risco"
-            description="Ajuste os filtros ou cadastre transportadoras ativas para ver a matriz de risco operacional."
+            title={pendentesOnly ? "Nenhuma transportadora pendente" : "Sem transportadoras para calcular risco"}
+            description={
+              pendentesOnly
+                ? "Todos os relatórios esperados para hoje foram recebidos."
+                : "Ajuste os filtros ou cadastre transportadoras ativas para ver a matriz de risco operacional."
+            }
             action={{ href: "/", label: "Ver base real" }}
           />
         ) : (
@@ -516,7 +477,7 @@ export default async function Home({
                 </tr>
               </thead>
               <tbody>
-                {riskRows.map((row) => (
+                {riskRowsToShow.map((row) => (
                   <tr key={row.transportadora.id}>
                     <td>
                       <strong>{row.transportadora.nome}</strong>
@@ -524,8 +485,14 @@ export default async function Home({
                     </td>
                     <td>
                       <div className="risk-score">
-                        <span className={`health-pill ${riskClass(row.riskScore)}`}>{riskLabel(row.riskScore)}</span>
-                        <strong>{row.riskScore}</strong>
+                        {row.hasHistory ? (
+                          <>
+                            <span className={`health-pill ${riskClass(row.riskScore)}`}>{riskLabel(row.riskScore)}</span>
+                            <strong>{row.riskScore}</strong>
+                          </>
+                        ) : (
+                          <span className="health-pill neutral">Sem dado suficiente</span>
+                        )}
                       </div>
                     </td>
                     <td>

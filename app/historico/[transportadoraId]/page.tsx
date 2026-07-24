@@ -13,6 +13,10 @@ const statusLabels: Record<string, string> = {
   sent: "Disparado",
 };
 
+function pillClassForStatus(status: string) {
+  return status === "draft" ? "pending" : "ok";
+}
+
 export default async function HistoricoPage({
   params,
   searchParams,
@@ -107,7 +111,7 @@ export default async function HistoricoPage({
               {submissions.map((report) => (
                 <tr key={report.id}>
                   <td>{formatBrazilianDate(report.dataReport)}</td>
-                  <td><span className="pill ok">{statusLabels[report.status] ?? report.status}</span></td>
+                  <td><span className={`pill ${pillClassForStatus(report.status)}`}>{statusLabels[report.status] ?? report.status}</span></td>
                   <td>{report.previousDayMetrics?.totalPedidos ?? "-"}</td>
                   <td>{report.submittedAt ? formatBrazilianDate(report.submittedAt) : "-"}</td>
                   <td>

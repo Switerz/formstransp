@@ -2,6 +2,10 @@
 
 Atualizado em 2026-06-17.
 
+## Iniciativas em planejamento
+
+- Melhoria de UI/UX geral + importação de relatório diário via XLSX: ver `PLANO_UX_IMPORTACAO_XLSX.md`. Fase A (auditoria de todas as telas) concluída em 2026-07-24, com 5 bugs reais já corrigidos e validados (pill de status incorreto, cor de erro ausente, crash em nome vazio, perda de dados no formulário, ranking de risco sem diferenciação). Decisões em aberto da importação XLSX ainda pendentes antes de implementar.
+
 ## Status curto
 
 - Dashboard cross-transportadora: forte e funcional.

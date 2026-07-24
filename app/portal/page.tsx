@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CheckCircle2, ClipboardList, FileBarChart, History, Send, XCircle } from "lucide-react";
+import { CheckCircle2, ClipboardList, Clock, FileBarChart, History, Send } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { requireCarrierUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -50,8 +50,8 @@ export default async function PortalPage() {
           <h1>Portal da transportadora</h1>
           <p className="muted">{transportadora.nome}</p>
         </div>
-        <Link className="btn" href={formPath}>
-          <Send size={18} /> Enviar relatório
+        <Link className={sentToday ? "btn secondary" : "btn"} href={formPath}>
+          <Send size={18} /> {sentToday ? "Ver formulário" : "Preencher relatório de hoje"}
         </Link>
       </div>
 
@@ -59,7 +59,7 @@ export default async function PortalPage() {
         <div className={`card metric-card ${sentToday ? "green" : "orange"}`}>
           <div className="metric-label">Status de hoje</div>
           <div className="portal-status">
-            {sentToday ? <CheckCircle2 size={28} /> : <XCircle size={28} />}
+            {sentToday ? <CheckCircle2 size={28} /> : <Clock size={28} />}
             <strong>{sentToday ? "Recebido" : "Pendente"}</strong>
           </div>
           <p className="muted">Relatório de {formatBrazilianDate(today)}.</p>
@@ -85,7 +85,7 @@ export default async function PortalPage() {
           <span className={`pill ${sentToday ? "ok" : "pending"}`}>{sentToday ? "Hoje enviado" : "Aguardando envio"}</span>
         </div>
         <div className="actions" style={{ marginTop: 14 }}>
-          <Link className="btn" href={formPath}>
+          <Link className="btn secondary" href={formPath}>
             <ClipboardList size={16} /> Abrir formulário
           </Link>
           <Link className="btn secondary" href={`/historico/${transportadora.id}`}>

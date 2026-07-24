@@ -19,6 +19,12 @@ const typeLabels: Record<string, string> = {
   audit: "Auditoria",
 };
 
+function pillClassForLogStatus(status: string) {
+  if (status === "success") return "ok";
+  if (status === "error") return "error";
+  return "pending";
+}
+
 export default async function AutomationLogsPage({
   searchParams,
 }: {
@@ -101,7 +107,7 @@ export default async function AutomationLogsPage({
                   <td>{log.transportadora?.nome ?? "-"}</td>
                   <td>{formatBrazilianDate(log.dataReport)}</td>
                   <td>{typeLabels[log.tipo] ?? log.tipo}</td>
-                  <td><span className={`pill ${log.status === "success" ? "ok" : "pending"}`}>{statusLabels[log.status] ?? log.status}</span></td>
+                  <td><span className={`pill ${pillClassForLogStatus(log.status)}`}>{statusLabels[log.status] ?? log.status}</span></td>
                   <td>{log.mensagem}</td>
                 </tr>
               ))}

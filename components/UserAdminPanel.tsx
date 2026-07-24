@@ -54,8 +54,17 @@ function ActionMessage({ state }: { state: UserActionState }) {
       <strong>{state.ok ? "Pronto." : "Atenção."}</strong> {state.message}
       {state.temporaryPassword ? (
         <div className="credential-box">
-          <span>Senha temporária</span>
-          <code>{state.temporaryPassword}</code>
+          <span>Senha temporária — só aparece agora, copie e envie antes de sair desta tela.</span>
+          <div className="credential-box-row">
+            <code>{state.temporaryPassword}</code>
+            <button
+              type="button"
+              className="btn secondary compact"
+              onClick={() => copyText(state.temporaryPassword ?? null)}
+            >
+              <Clipboard size={14} /> Copiar senha
+            </button>
+          </div>
         </div>
       ) : null}
     </div>
@@ -310,7 +319,7 @@ export function UserAdminPanel({
                         <form action={markCredentialSentAction}>
                           <input type="hidden" name="userId" value={user.id} />
                           <button className="btn secondary compact" type="submit">
-                            <Clipboard size={16} /> Credencial enviada
+                            <CheckCircle2 size={16} /> Credencial enviada
                           </button>
                         </form>
                         <form action={setStatusAction}>

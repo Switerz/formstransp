@@ -59,11 +59,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     </form>
                   </div>
                 </>
-              ) : (
-                <div className="nav-session">
-                  <Link href="/login">Entrar</Link>
-                </div>
-              )}
+              ) : null}
             </nav>
           </div>
         </header>

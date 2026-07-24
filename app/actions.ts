@@ -3,12 +3,40 @@
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import type { AppUser, Transportadora } from "@prisma/client";
 import { requireCarrierUser, requireInternalAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseDateInput, startOfLocalDay } from "@/lib/dates";
 import { assertSameOrigin } from "@/lib/request-security";
 import { BRAZILIAN_UFS } from "@/lib/ufs";
+
+export type ConsistencySection = "previous" | "current" | "uf";
+type ConsistencyError = { message: string; sections: ConsistencySection[] };
+
+function draftErrorCookieName(transportadoraId: string) {
+  return `report_draft_error_${transportadoraId}`;
+}
+
+async function persistDraftErrorSnapshot(transportadoraId: string, formData: FormData, sections: ConsistencySection[]) {
+  const values: Record<string, string> = {};
+  for (const [key, value] of formData.entries()) {
+    if (typeof value === "string") values[key] = value;
+  }
+  const cookieStore = await cookies();
+  cookieStore.set(draftErrorCookieName(transportadoraId), JSON.stringify({ values, sections }), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/portal/formulario",
+    maxAge: 10 * 60,
+  });
+}
+
+async function clearDraftErrorSnapshot(transportadoraId: string) {
+  const cookieStore = await cookies();
+  cookieStore.delete(draftErrorCookieName(transportadoraId));
+}
 
 function intFrom(formData: FormData, key: string) {
   const value = Number(formData.get(key) ?? 0);
@@ -58,19 +86,44 @@ function validateSubmissionConsistency(input: {
   totalFinalizado: number;
   finalizadosNoPrazo: number;
   finalizadosForaDoPrazo: number;
-}) {
-  const errors: string[] = [];
+}): ConsistencyError[] {
+  const errors: ConsistencyError[] = [];
   const previousStatusTotal = Object.values(input.previousStatus).reduce((sum, value) => sum + value, 0);
   const currentStatusTotal = Object.values(input.currentStatus).reduce((sum, value) => sum + value, 0);
   const ufTotal = input.ufRows.reduce((sum, row) => sum + row.total, 0);
   const prazoTotal = input.totalNoPrazo + input.totalForaDoPrazo;
   const finalizadosPrazo = input.finalizadosNoPrazo + input.finalizadosForaDoPrazo;
 
-  if (ufTotal !== input.totalPedidosAnterior) errors.push("O total por UF está diferente do total de pedidos do dia anterior.");
-  if (previousStatusTotal !== input.totalPedidosAnterior) errors.push("A soma dos status do dia anterior está diferente do total de pedidos.");
-  if (prazoTotal !== input.totalPedidosAnterior) errors.push("A soma de no prazo + fora do prazo está diferente do total de pedidos.");
-  if (currentStatusTotal !== input.totalPedidosAtual) errors.push("A soma dos status do dia atual está diferente do total de pedidos.");
-  if (finalizadosPrazo > input.totalFinalizado) errors.push("Finalizados no prazo + fora do prazo está acima do total finalizado.");
+  if (ufTotal !== input.totalPedidosAnterior) {
+    errors.push({
+      message: "O total por UF está diferente do total de pedidos do dia anterior.",
+      sections: ["previous", "uf"],
+    });
+  }
+  if (previousStatusTotal !== input.totalPedidosAnterior) {
+    errors.push({
+      message: "A soma dos status do dia anterior está diferente do total de pedidos.",
+      sections: ["previous"],
+    });
+  }
+  if (prazoTotal !== input.totalPedidosAnterior) {
+    errors.push({
+      message: "A soma de no prazo + fora do prazo está diferente do total de pedidos.",
+      sections: ["previous"],
+    });
+  }
+  if (currentStatusTotal !== input.totalPedidosAtual) {
+    errors.push({
+      message: "A soma dos status do dia atual está diferente do total de pedidos.",
+      sections: ["current"],
+    });
+  }
+  if (finalizadosPrazo > input.totalFinalizado) {
+    errors.push({
+      message: "Finalizados no prazo + fora do prazo está acima do total finalizado.",
+      sections: ["current"],
+    });
+  }
 
   return errors;
 }
@@ -119,7 +172,7 @@ export async function createTransportadora(formData: FormData) {
   await requireInternalAdmin("/transportadoras/nova");
 
   const nome = textFrom(formData, "nome");
-  if (!nome) throw new Error("Informe o nome da transportadora.");
+  if (!nome) redirect("/transportadoras/nova?error=nome");
 
   const codigoSlug = slugify(textFrom(formData, "codigoSlug") || nome);
   await prisma.transportadora.create({
@@ -144,7 +197,7 @@ export async function updateTransportadora(id: string, formData: FormData) {
   await requireInternalAdmin(`/transportadoras/${id}/editar`);
 
   const nome = textFrom(formData, "nome");
-  if (!nome) throw new Error("Informe o nome da transportadora.");
+  if (!nome) redirect(`/transportadoras/${id}/editar?error=nome`);
 
   const codigoSlug = slugify(textFrom(formData, "codigoSlug") || nome);
   await prisma.transportadora.update({
@@ -233,7 +286,7 @@ async function upsertDailySubmissionForTransportadora(
         userId: user?.id,
         dataReport,
         action,
-        reasons: consistencyErrors,
+        reasons: consistencyErrors.map((error) => error.message),
         payloadSummary: {
           totalPedidosAnterior,
           totalPedidosAtual,
@@ -245,7 +298,9 @@ async function upsertDailySubmissionForTransportadora(
           totalFinalizado,
         },
       });
-      redirectWithFormError(consistencyErrors.join(" "), formData);
+      const affectedSections = [...new Set(consistencyErrors.flatMap((error) => error.sections))];
+      await persistDraftErrorSnapshot(transportadora.id, formData, affectedSections);
+      redirectWithFormError(consistencyErrors.map((error) => error.message).join(" "), formData);
     }
   }
 
@@ -327,6 +382,7 @@ async function upsertDailySubmissionForTransportadora(
     mensagem: status === "submitted" ? "Relatório enviado pela transportadora." : "Rascunho salvo pela transportadora.",
     payload: { dataReport: dataReport.toISOString().slice(0, 10), status },
   });
+  await clearDraftErrorSnapshot(transportadora.id);
 
   revalidatePath("/");
   const successPath = safeRedirectPath(textFrom(formData, "successPath", 220), "/portal/sucesso");

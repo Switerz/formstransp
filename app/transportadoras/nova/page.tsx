@@ -1,8 +1,13 @@
 import { createTransportadora } from "@/app/actions";
 import { requireInternalAdmin } from "@/lib/auth";
 
-export default async function NovaTransportadoraPage() {
+export default async function NovaTransportadoraPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   await requireInternalAdmin("/transportadoras/nova");
+  const { error } = await searchParams;
 
   return (
     <main className="shell">
@@ -12,6 +17,12 @@ export default async function NovaTransportadoraPage() {
           <p className="muted">Depois do cadastro, vincule usuários para que a transportadora envie pelo portal autenticado.</p>
         </div>
       </div>
+
+      {error === "nome" ? (
+        <div className="alert" style={{ marginBottom: 16 }}>
+          <strong>Não foi possível salvar:</strong> Informe o nome da transportadora.
+        </div>
+      ) : null}
 
       <form action={createTransportadora} className="card grid">
         <div className="form-grid">

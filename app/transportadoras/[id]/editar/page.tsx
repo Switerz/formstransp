@@ -3,10 +3,17 @@ import { updateTransportadora } from "@/app/actions";
 import { requireInternalAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export default async function EditarTransportadoraPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditarTransportadoraPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   await requireInternalAdmin("/transportadoras");
 
   const { id } = await params;
+  const { error } = await searchParams;
   const transportadora = await prisma.transportadora.findUnique({ where: { id } });
   if (!transportadora) notFound();
 
@@ -20,6 +27,12 @@ export default async function EditarTransportadoraPage({ params }: { params: Pro
           <p className="muted">{transportadora.nome}</p>
         </div>
       </div>
+
+      {error === "nome" ? (
+        <div className="alert" style={{ marginBottom: 16 }}>
+          <strong>Não foi possível salvar:</strong> Informe o nome da transportadora.
+        </div>
+      ) : null}
 
       <section>
         <form action={updateAction} className="card grid">

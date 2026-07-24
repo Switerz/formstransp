@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { LogIn } from "lucide-react";
 import { login } from "@/app/auth-actions";
 import { getCurrentUser, isInternalRole } from "@/lib/auth";
+import { LoginSubmitButton } from "@/components/LoginSubmitButton";
 
 export default async function LoginPage({
   searchParams,
@@ -50,6 +50,7 @@ export default async function LoginPage({
               name="identifier"
               autoComplete="username"
               defaultValue={params.login ?? ""}
+              autoFocus
               required
             />
           </div>
@@ -57,9 +58,7 @@ export default async function LoginPage({
             <label htmlFor="password">Senha</label>
             <input id="password" name="password" type="password" autoComplete="current-password" required />
           </div>
-          <button className="btn" type="submit">
-            <LogIn size={18} /> Entrar
-          </button>
+          <LoginSubmitButton />
         </form>
       </section>
     </main>

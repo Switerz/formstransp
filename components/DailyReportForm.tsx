@@ -27,9 +27,11 @@ type DailyReportFormProps = {
   successPath?: string;
   draftPath?: string;
   errorPath?: string;
+  draftValues?: Record<string, string>;
+  errorSections?: string[];
 };
 
-function numberField(name: string, label: string, value = 0) {
+function numberField(name: string, label: string, value: number | string = 0) {
   return (
     <div className="field">
       <label htmlFor={name}>{label}</label>
@@ -59,6 +61,8 @@ export function DailyReportForm({
   successPath,
   draftPath,
   errorPath,
+  draftValues,
+  errorSections = [],
 }: DailyReportFormProps) {
   const today = new Date();
   const yesterday = new Date(today);
@@ -68,26 +72,38 @@ export function DailyReportForm({
   const todayInput = formatDateInput(today);
   const lockedToday =
     last?.dataReport.toISOString().slice(0, 10) === todayInput && ["submitted", "validated", "sent"].includes(last.status);
+
+  function pick(name: string, fallback: number | string) {
+    if (draftValues && Object.prototype.hasOwnProperty.call(draftValues, name)) {
+      return draftValues[name];
+    }
+    return fallback;
+  }
+
+  const hasPreviousError = errorSections.includes("previous");
+  const hasCurrentError = errorSections.includes("current");
+  const hasUfError = errorSections.includes("uf");
+
   const previousFields = [
-    ["prev_totalPedidos", "Total de pedidos", prev?.totalPedidos],
-    ["prev_totalNoPrazo", "No prazo", prev?.totalNoPrazo],
-    ["prev_totalForaDoPrazo", "Fora do prazo", prev?.totalForaDoPrazo],
-    ["prev_totalEntregue", "Entregue", prev?.totalEntregue],
-    ["prev_totalEmAberto", "Em aberto", prev?.totalEmAberto],
-    ["prev_totalTentativaInsucesso", "Tentativa sem sucesso", prev?.totalTentativaInsucesso],
-    ["prev_totalDevolucao", "Devolução", prev?.totalDevolucao],
-    ["prev_totalCancelado", "Cancelado", prev?.totalCancelado],
+    ["prev_totalPedidos", "Total de pedidos", pick("prev_totalPedidos", prev?.totalPedidos ?? 0)],
+    ["prev_totalNoPrazo", "No prazo", pick("prev_totalNoPrazo", prev?.totalNoPrazo ?? 0)],
+    ["prev_totalForaDoPrazo", "Fora do prazo", pick("prev_totalForaDoPrazo", prev?.totalForaDoPrazo ?? 0)],
+    ["prev_totalEntregue", "Entregue", pick("prev_totalEntregue", prev?.totalEntregue ?? 0)],
+    ["prev_totalEmAberto", "Em aberto", pick("prev_totalEmAberto", prev?.totalEmAberto ?? 0)],
+    ["prev_totalTentativaInsucesso", "Tentativa sem sucesso", pick("prev_totalTentativaInsucesso", prev?.totalTentativaInsucesso ?? 0)],
+    ["prev_totalDevolucao", "Devolução", pick("prev_totalDevolucao", prev?.totalDevolucao ?? 0)],
+    ["prev_totalCancelado", "Cancelado", pick("prev_totalCancelado", prev?.totalCancelado ?? 0)],
   ] as const;
   const currentFields = [
-    ["cur_totalPedidos", "Total de pedidos", cur?.totalPedidos],
-    ["cur_totalFinalizado", "Finalizado", cur?.totalFinalizado],
-    ["cur_totalEmAberto", "Em aberto", cur?.totalEmAberto],
-    ["cur_totalEntregue", "Entregue", cur?.totalEntregue],
-    ["cur_totalTentativaInsucesso", "Tentativa sem sucesso", cur?.totalTentativaInsucesso],
-    ["cur_totalDevolucao", "Devolução", cur?.totalDevolucao],
-    ["cur_totalCancelado", "Cancelado", cur?.totalCancelado],
-    ["cur_finalizadosNoPrazo", "Finalizados no prazo", cur?.finalizadosNoPrazo],
-    ["cur_finalizadosForaDoPrazo", "Finalizados fora do prazo", cur?.finalizadosForaDoPrazo],
+    ["cur_totalPedidos", "Total de pedidos", pick("cur_totalPedidos", cur?.totalPedidos ?? 0)],
+    ["cur_totalFinalizado", "Finalizado", pick("cur_totalFinalizado", cur?.totalFinalizado ?? 0)],
+    ["cur_totalEmAberto", "Em aberto", pick("cur_totalEmAberto", cur?.totalEmAberto ?? 0)],
+    ["cur_totalEntregue", "Entregue", pick("cur_totalEntregue", cur?.totalEntregue ?? 0)],
+    ["cur_totalTentativaInsucesso", "Tentativa sem sucesso", pick("cur_totalTentativaInsucesso", cur?.totalTentativaInsucesso ?? 0)],
+    ["cur_totalDevolucao", "Devolução", pick("cur_totalDevolucao", cur?.totalDevolucao ?? 0)],
+    ["cur_totalCancelado", "Cancelado", pick("cur_totalCancelado", cur?.totalCancelado ?? 0)],
+    ["cur_finalizadosNoPrazo", "Finalizados no prazo", pick("cur_finalizadosNoPrazo", cur?.finalizadosNoPrazo ?? 0)],
+    ["cur_finalizadosForaDoPrazo", "Finalizados fora do prazo", pick("cur_finalizadosForaDoPrazo", cur?.finalizadosForaDoPrazo ?? 0)],
   ] as const;
   const lockedUfWithVolume =
     last?.ufMetrics.filter((item) => item.dentroDoPrazo + item.foraDoPrazo > 0).length ?? 0;
@@ -181,7 +197,7 @@ export function DailyReportForm({
             <div className="identity-grid">
               <div className="field">
                 <label htmlFor="dataReport">Data do relatório</label>
-                <input id="dataReport" name="dataReport" type="date" defaultValue={todayInput} required />
+                <input id="dataReport" name="dataReport" type="date" defaultValue={pick("dataReport", todayInput)} required />
               </div>
               <div className="field">
                 <label htmlFor="dataResultadoDiaAnterior">Data do resultado anterior</label>
@@ -189,7 +205,7 @@ export function DailyReportForm({
                   id="dataResultadoDiaAnterior"
                   name="dataResultadoDiaAnterior"
                   type="date"
-                  defaultValue={formatDateInput(yesterday)}
+                  defaultValue={pick("dataResultadoDiaAnterior", formatDateInput(yesterday))}
                   required
                 />
               </div>
@@ -199,7 +215,7 @@ export function DailyReportForm({
                   id="dataPreviaDiaAtual"
                   name="dataPreviaDiaAtual"
                   type="date"
-                  defaultValue={formatDateInput(today)}
+                  defaultValue={pick("dataPreviaDiaAtual", formatDateInput(today))}
                   required
                 />
               </div>
@@ -208,7 +224,7 @@ export function DailyReportForm({
                 <input
                   id="submittedByName"
                   name="submittedByName"
-                  defaultValue={last?.submittedByName ?? defaultResponsibleName}
+                  defaultValue={pick("submittedByName", last?.submittedByName ?? defaultResponsibleName)}
                 />
               </div>
               <div className="field identity-email">
@@ -217,17 +233,18 @@ export function DailyReportForm({
                   id="submittedByEmail"
                   name="submittedByEmail"
                   type="email"
-                  defaultValue={last?.submittedByEmail ?? defaultResponsibleEmail}
+                  defaultValue={pick("submittedByEmail", last?.submittedByEmail ?? defaultResponsibleEmail)}
                 />
               </div>
             </div>
           </section>
 
           <div className="daily-metrics-grid">
-            <section className="card">
+            <section className={`card${hasPreviousError ? " has-error" : ""}`}>
               <div className="form-card-heading">
                 <h2 className="section-title">Dia anterior</h2>
                 <span className="section-tag">Resultado fechado</span>
+                {hasPreviousError ? <span className="section-tag error">Verifique os totais</span> : null}
               </div>
               <div className="compact-field-grid">
                 {previousFields.map(([name, label, value]) => (
@@ -236,10 +253,11 @@ export function DailyReportForm({
               </div>
             </section>
 
-            <section className="card">
+            <section className={`card${hasCurrentError ? " has-error" : ""}`}>
               <div className="form-card-heading">
                 <h2 className="section-title">Prévia atual</h2>
                 <span className="section-tag">Parcial do dia</span>
+                {hasCurrentError ? <span className="section-tag error">Verifique os totais</span> : null}
               </div>
               <div className="compact-field-grid">
                 {currentFields.map(([name, label, value]) => (
@@ -249,10 +267,11 @@ export function DailyReportForm({
             </section>
           </div>
 
-          <section className="card uf-compact-section">
+          <section className={`card uf-compact-section${hasUfError ? " has-error" : ""}`}>
             <div className="form-card-heading">
               <h2 className="section-title">Pedidos por UF do dia anterior</h2>
               <span className="section-tag">Dentro / fora do prazo</span>
+              {hasUfError ? <span className="section-tag error">Verifique os totais</span> : null}
             </div>
             <div className="uf-compact-grid">
               {BRAZILIAN_UFS.map((uf) => {
@@ -266,7 +285,7 @@ export function DailyReportForm({
                         name={`uf_${uf}_dentro`}
                         type="number"
                         min="0"
-                        defaultValue={row?.dentroDoPrazo ?? 0}
+                        defaultValue={pick(`uf_${uf}_dentro`, row?.dentroDoPrazo ?? 0)}
                         required
                         aria-label={`${uf} dentro do prazo`}
                       />
@@ -277,7 +296,7 @@ export function DailyReportForm({
                         name={`uf_${uf}_fora`}
                         type="number"
                         min="0"
-                        defaultValue={row?.foraDoPrazo ?? 0}
+                        defaultValue={pick(`uf_${uf}_fora`, row?.foraDoPrazo ?? 0)}
                         required
                         aria-label={`${uf} fora do prazo`}
                       />
@@ -293,7 +312,7 @@ export function DailyReportForm({
               <h2 className="section-title">Observações</h2>
             <div className="field">
               <label htmlFor="observacoes">Observações operacionais</label>
-              <textarea id="observacoes" name="observacoes" defaultValue={last?.observacoes ?? ""} />
+              <textarea id="observacoes" name="observacoes" defaultValue={pick("observacoes", last?.observacoes ?? "")} />
             </div>
             </div>
             <div className="card form-submit-panel">
