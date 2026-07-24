@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Download } from "lucide-react";
 import type {
   DailyCurrentDayPreviewMetrics,
   DailyPreviousDayMetrics,
@@ -120,6 +121,11 @@ export function DailyReportForm({
           {backHref ? (
             <Link className="btn secondary" href={backHref}>
               Voltar
+            </Link>
+          ) : null}
+          {!lockedToday ? (
+            <Link className="btn secondary" href="/portal/formulario/modelo">
+              <Download size={16} /> Baixar modelo (.xlsx)
             </Link>
           ) : null}
           <span className="pill">Envio esperado até 11h</span>

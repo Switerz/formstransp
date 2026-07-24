@@ -105,11 +105,11 @@ O modelo deve sair **pré-preenchido** com nome da transportadora, datas sugerid
 5. **Erros**: se a estrutura estiver quebrada (aba faltando, célula não numérica, UF duplicada/desconhecida) ou a consistência falhar, devolver mensagem específica por célula/UF — reaproveitando os textos já usados em `FormConsistencyAlerts`.
 6. **Auditoria**: tentativas de importação bloqueadas devem gravar em `SubmissionQualityLog` como hoje acontece para o formulário manual (mesmo grão de auditoria, sem tabela nova).
 
-### Decisões em aberto (preciso da sua confirmação antes de implementar)
-1. **Biblioteca**: `exceljs` (mais pesado, mas gera e lê `.xlsx` com estilos — dá pra deixar o modelo com a cara do design system) vs `xlsx`/SheetJS (mais leve, leitura mais simples, estilo de geração mais limitado). Minha recomendação é `exceljs` por cobrir geração + leitura com um single lib, mas quero confirmar antes de adicionar a dependência.
-2. **Convivência com o formulário manual**: a importação por XLSX substitui o formulário ou os dois convivem como opções (abas/toggle "Preencher no site" vs "Enviar planilha")? Recomendo conviver, já que nem toda transportadora vai preferir XLSX.
-3. **Reenvio/edição**: hoje um relatório com status `submitted/validated/sent` fica bloqueado para edição. Isso vale igual para reimportação por XLSX (recomendado, para manter a mesma regra), certo?
-4. **Escopo do arquivo**: um XLSX por dia (equivalente 1:1 ao formulário atual) ou você já imagina permitir múltiplos dias num único arquivo (ex.: preencher a semana toda de uma vez)? Recomendo começar 1:1 por dia nesta primeira fase, para não aumentar a superfície de validação de uma vez.
+### Decisões confirmadas (2026-07-24)
+1. **Biblioteca**: `exceljs` — geração com estilo + leitura na mesma lib.
+2. **Convivência**: os dois convivem. Portal mostra as duas opções (preencher no site ou enviar planilha).
+3. **Reenvio/edição**: mesma trava do formulário — bloqueado se status já é `submitted`/`validated`/`sent`.
+4. **Escopo do arquivo**: 1 dia por arquivo, equivalente 1:1 ao formulário atual.
 
 ### Fora de escopo nesta primeira fase
 - Suporte a `.csv` ou outros formatos.
@@ -119,8 +119,8 @@ O modelo deve sair **pré-preenchido** com nome da transportadora, datas sugerid
 
 ## Fases sugeridas
 
-1. **Fase A — Auditoria UI/UX** (sem código): levantar e priorizar achados em todas as telas, incluindo o novo fluxo de upload já desenhado na proposta acima.
-2. **Fase B — Modelo XLSX**: geração do `.xlsx` pré-preenchido para download.
+1. **Fase A — Auditoria UI/UX** ✅ concluída em 2026-07-24 (todas as telas auditadas, bugs reais corrigidos em duas rodadas).
+2. **Fase B — Modelo XLSX** ✅ concluída em 2026-07-24. `lib/xlsx-template.ts` gera o `.xlsx` com `exceljs` (4 abas visíveis + 1 aba oculta `_meta` com `template_version`/`transportadora_id` para validação futura no parser). Rota `GET /portal/formulario/modelo` faz o download, pré-preenchido com o último envio. Botão "Baixar modelo (.xlsx)" adicionado em `components/DailyReportForm.tsx`. Validado com `tsc`/`test`/`build` e download real no navegador — conferi célula a célula contra os dados reais do banco (somas batendo, 27 UFs corretas).
 3. **Fase C — Upload + parser**: leitura do arquivo, validação de estrutura, reuso da função de upsert existente, tratamento de erro por célula.
 4. **Fase D — Auditoria e log**: gravação em `SubmissionQualityLog`/`AutomationLog` das tentativas de importação (sucesso e bloqueio).
 5. **Fase E — Polimento UI/UX aplicado**: aplicar os achados da Fase A, com foco na nova tela de upload e nos pontos de atrito já conhecidos do formulário manual.
