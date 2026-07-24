@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
-import { upsertAuthenticatedDailySubmission } from "@/app/actions";
+import { upsertAuthenticatedDailySubmission, uploadAuthenticatedDailyReportXlsx } from "@/app/actions";
 import { DailyReportForm } from "@/components/DailyReportForm";
 import { requireCarrierUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -56,6 +56,7 @@ export default async function PortalFormularioPage({
       <DailyReportForm
         transportadora={transportadora}
         action={upsertAuthenticatedDailySubmission}
+        uploadAction={uploadAuthenticatedDailyReportXlsx}
         error={query.error}
         last={transportadora.submissions[0]}
         defaultResponsibleName={user.nome}

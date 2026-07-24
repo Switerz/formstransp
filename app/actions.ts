@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { parseDateInput, startOfLocalDay } from "@/lib/dates";
 import { assertSameOrigin } from "@/lib/request-security";
 import { BRAZILIAN_UFS } from "@/lib/ufs";
+import { parseDailyReportXlsx } from "@/lib/xlsx-parse";
 
 export type ConsistencySection = "previous" | "current" | "uf";
 type ConsistencyError = { message: string; sections: ConsistencySection[] };
@@ -223,7 +224,7 @@ export async function updateTransportadora(id: string, formData: FormData) {
   redirect("/");
 }
 
-async function upsertDailySubmissionForTransportadora(
+export async function upsertDailySubmissionForTransportadora(
   transportadora: Transportadora,
   formData: FormData,
   user?: Pick<AppUser, "id">,
@@ -402,4 +403,44 @@ export async function upsertAuthenticatedDailySubmission(formData: FormData) {
   if (!transportadora || !transportadora.ativo) throw new Error("Transportadora inválida ou inativa.");
 
   return upsertDailySubmissionForTransportadora(transportadora, formData, user);
+}
+
+export async function uploadAuthenticatedDailyReportXlsx(formData: FormData) {
+  await assertSameOrigin();
+
+  const user = await requireCarrierUser("/portal/formulario");
+  const transportadora = await prisma.transportadora.findUnique({ where: { id: user.transportadoraId! } });
+  if (!transportadora || !transportadora.ativo) throw new Error("Transportadora inválida ou inativa.");
+
+  const intent = textFrom(formData, "intent") === "submit" ? "submit" : "draft";
+  const file = formData.get("arquivo");
+  if (!(file instanceof File) || file.size === 0) {
+    redirectWithFormError("Selecione um arquivo .xlsx preenchido antes de enviar.", formData, "/portal/formulario");
+  }
+
+  const buffer = Buffer.from(await (file as File).arrayBuffer());
+  const parsed = await parseDailyReportXlsx(buffer, transportadora.id);
+
+  if (!parsed.ok) {
+    await qualityLog({
+      transportadoraId: transportadora.id,
+      userId: user.id,
+      dataReport: startOfLocalDay(new Date()),
+      action: "upload_xlsx",
+      reasons: parsed.errors,
+      payloadSummary: { fileName: (file as File).name, fileSize: (file as File).size },
+    });
+    redirectWithFormError(parsed.errors.join(" "), formData, "/portal/formulario");
+  }
+
+  const derivedFormData = new FormData();
+  for (const [key, value] of Object.entries((parsed as { ok: true; values: Record<string, string> }).values)) {
+    derivedFormData.set(key, value);
+  }
+  derivedFormData.set("intent", intent);
+  derivedFormData.set("successPath", "/portal/sucesso");
+  derivedFormData.set("draftPath", "/portal/formulario");
+  derivedFormData.set("errorPath", "/portal/formulario");
+
+  return upsertDailySubmissionForTransportadora(transportadora, derivedFormData, user);
 }

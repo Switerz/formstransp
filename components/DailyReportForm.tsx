@@ -20,6 +20,7 @@ export type DailyReportFormLastSubmission = DailyReportSubmission & {
 type DailyReportFormProps = {
   transportadora: Pick<Transportadora, "nome">;
   action: (formData: FormData) => void | Promise<void>;
+  uploadAction?: (formData: FormData) => void | Promise<void>;
   error?: string;
   last?: DailyReportFormLastSubmission;
   defaultResponsibleName?: string;
@@ -54,6 +55,7 @@ function formatDateTime(value?: Date | null) {
 export function DailyReportForm({
   transportadora,
   action,
+  uploadAction,
   error,
   last,
   defaultResponsibleName = "",
@@ -192,6 +194,35 @@ export function DailyReportForm({
       ) : null}
 
       {!lockedToday ? (
+        <>
+          {uploadAction ? (
+            <section className="card xlsx-upload-card" style={{ marginBottom: 18 }}>
+              <div className="form-card-heading">
+                <h2 className="section-title">Enviar planilha preenchida</h2>
+                <span className="section-tag">Alternativa ao formulário</span>
+              </div>
+              <p className="muted">
+                Baixe o modelo acima, preencha no Excel/Sheets e envie o arquivo aqui — as mesmas regras de conferência do
+                formulário se aplicam.
+              </p>
+              <form action={uploadAction} className="xlsx-upload-form" encType="multipart/form-data">
+                {errorPath ? <input type="hidden" name="errorPath" value={errorPath} /> : null}
+                <div className="field">
+                  <label htmlFor="arquivo">Arquivo .xlsx</label>
+                  <input id="arquivo" name="arquivo" type="file" accept=".xlsx" required />
+                </div>
+                <div className="actions">
+                  <button className="btn secondary" name="intent" value="draft" type="submit">
+                    Salvar rascunho
+                  </button>
+                  <button className="btn" name="intent" value="submit" type="submit">
+                    Enviar planilha
+                  </button>
+                </div>
+              </form>
+            </section>
+          ) : null}
+
         <form action={action} className="grid compact-report-form" data-daily-report-form>
           {successPath ? <input type="hidden" name="successPath" value={successPath} /> : null}
           {draftPath ? <input type="hidden" name="draftPath" value={draftPath} /> : null}
@@ -334,6 +365,7 @@ export function DailyReportForm({
             </div>
           </section>
         </form>
+        </>
       ) : null}
     </>
   );

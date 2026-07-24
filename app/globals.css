@@ -1185,6 +1185,21 @@ th {
   padding: 14px;
 }
 
+.xlsx-upload-card p.muted {
+  margin: 4px 0 14px;
+}
+
+.xlsx-upload-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.xlsx-upload-form .field {
+  flex: 1 1 260px;
+}
+
 .identity-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
