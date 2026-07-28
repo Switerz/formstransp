@@ -1,4 +1,5 @@
-import { chromium } from "playwright";
+import chromium from "@sparticuz/chromium";
+import { chromium as playwrightChromium } from "playwright-core";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTransportadoraAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -6,6 +7,17 @@ import { parseDateInput } from "@/lib/dates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function launchBrowser() {
+  const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+  if (isServerless) {
+    return chromium.executablePath().then((executablePath) =>
+      playwrightChromium.launch({ args: chromium.args, executablePath, headless: true }),
+    );
+  }
+  // Local dev: launch the machine's installed Chrome instead of downloading a browser.
+  return playwrightChromium.launch({ channel: "chrome", headless: true });
+}
 
 export async function GET(
   request: NextRequest,
@@ -29,7 +41,7 @@ export async function GET(
   let browser;
 
   try {
-    browser = await chromium.launch({ headless: true });
+    browser = await launchBrowser();
     const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } });
     await page.goto(reportUrl, { waitUntil: "networkidle", timeout: 60_000 });
     await page.emulateMedia({ media: "print" });
