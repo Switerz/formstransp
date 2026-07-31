@@ -382,8 +382,8 @@
         </div>
       </div>
       <div class="doc-meta">
-        Versao 1.0<br />
-        Atualizado em 18/06/2026
+        Versao 1.1<br />
+        Atualizado em 28/07/2026
       </div>
     </div>
   </header>
@@ -395,6 +395,10 @@
         Este manual orienta a rotina diaria das transportadoras e do time interno de operacoes.
         Use como referencia para preencher, conferir, auditar e acompanhar os reports diarios.
       </p>
+      <div class="callout">
+        <strong>Endereco do sistema em producao:</strong>
+        <code>https://formstransp.vercel.app</code>
+      </div>
       <div class="status-row">
         <span class="pill ok">Portal autenticado</span>
         <span class="pill">Admin interno</span>
@@ -416,6 +420,8 @@
         <a href="#reports">8. Reports e historico</a>
         <a href="#rotina">9. Rotina recomendada</a>
         <a href="#suporte">10. Suporte rapido</a>
+        <a href="#planilha">11. Enviar planilha (XLSX)</a>
+        <a href="#onboarding">12. Colocar uma transportadora nova pra rodar</a>
       </aside>
 
       <div class="content">
@@ -637,6 +643,9 @@
 
           <div class="callout warning">
             <strong>Seguranca:</strong> nunca envie senha temporaria em grupo publico. A senha deve ser trocada no primeiro acesso.
+            Use o botao <strong>Copiar senha</strong> ao lado da senha exibida para evitar erro de digitacao ao repassar.
+            Resetar senha e inativar usuario agora pedem confirmacao em dois cliques (o botao muda de texto e cor antes de executar),
+            ja que ambas as acoes derrubam a sessao ativa do usuario.
           </div>
         </section>
 
@@ -740,6 +749,62 @@
               </tr>
             </tbody>
           </table>
+        </section>
+
+        <section class="card" id="planilha">
+          <span class="section-kicker">11. Enviar planilha (XLSX)</span>
+          <h2>Alternativa ao preenchimento manual</h2>
+          <p>
+            Quem preferir nao digitar direto no site pode preencher os dados numa planilha e enviar o arquivo.
+            As duas formas convivem na mesma tela e usam exatamente as mesmas regras de conferencia — uma planilha
+            com soma errada e bloqueada do mesmo jeito que o formulario manual seria.
+          </p>
+          <ol>
+            <li>Em <code>/portal/formulario</code>, clique em <strong>Baixar modelo (.xlsx)</strong>.</li>
+            <li>O arquivo baixado ja vem preenchido com os dados do ultimo envio, como ponto de partida.</li>
+            <li>Abra no Excel ou Google Sheets e ajuste os numeros nas abas <code>Dia anterior</code>,
+              <code>Previa atual</code> e <code>UF - Dia anterior</code>.</li>
+            <li>Nao renomeie abas, nao reordene colunas nem linhas da aba de UF — o sistema confere a estrutura
+              antes de aceitar o arquivo.</li>
+            <li>Volte na mesma tela, escolha o arquivo em <strong>Arquivo .xlsx</strong> e clique em
+              <strong>Salvar rascunho</strong> ou <strong>Enviar planilha</strong>.</li>
+          </ol>
+          <div class="callout warning">
+            <strong>Erros comuns:</strong> planilha gerada para outra transportadora, modelo antigo (baixe um novo
+            se o sistema avisar que esta desatualizado), celula com texto onde deveria ter numero, ou aba removida.
+            O sistema informa exatamente qual aba e campo esta com problema.
+          </div>
+        </section>
+
+        <section class="card" id="onboarding">
+          <span class="section-kicker">12. Colocar uma transportadora nova pra rodar</span>
+          <h2>Sequencia completa, do cadastro ao primeiro envio</h2>
+          <ol>
+            <li>Se a transportadora ainda nao existe no sistema, cadastre em <code>/transportadoras/nova</code>.</li>
+            <li>Em <code>/usuarios</code>, crie o usuario dela: perfil <strong>Admin da transportadora</strong>
+              (ou <strong>Operador</strong> se for so preencher, sem gerenciar outros usuarios), vinculado a
+              transportadora certa.</li>
+            <li>Copie usuario e senha temporaria exibidos na tela (use o botao <strong>Copiar senha</strong>
+              — ela so aparece uma vez).</li>
+            <li>Envie por um canal seguro e direto (WhatsApp individual, e-mail — nunca grupo publico), junto com o
+              endereco <code>https://formstransp.vercel.app/login</code>.</li>
+            <li>Volte em <code>/usuarios</code> e clique em <strong>Credencial enviada</strong> para registrar que
+              o envio foi feito.</li>
+            <li>A transportadora acessa, troca a senha temporaria em <code>/alterar-senha</code> e preenche o
+              primeiro relatorio (formulario manual ou planilha, secao 11).</li>
+            <li><strong>Acompanhamento:</strong> no dashboard geral (<code>/</code>), a transportadora aparece com
+              status <strong>Sem dado suficiente</strong> no ranking de risco ate o primeiro envio valido — isso e
+              esperado, nao e erro. Depois do primeiro envio, o risco passa a ser calculado normalmente.</li>
+            <li>Se nao enviar no prazo, use o filtro <strong>Ver so pendentes</strong> no painel de risco para
+              cobrar rapido quem falta.</li>
+            <li>Para diagnostico mais profundo de uma transportadora especifica, abra
+              <code>/transportadoras/[id]</code> a partir da tabela.</li>
+          </ol>
+          <div class="callout success">
+            <strong>Dica:</strong> o botao <strong>Baixar modelo (.xlsx)</strong> na tela de formulario ja vem
+            pre-preenchido com o ultimo envio — vale oferecer essa opcao para transportadoras que preferem trabalhar
+            em planilha antes de decidir qual caminho (site ou planilha) cada uma vai usar no dia a dia.
+          </div>
         </section>
 
         <footer class="footer">
