@@ -71,7 +71,7 @@ function safeRedirectPath(value: string, fallback: string) {
   return value.startsWith("/") && !value.startsWith("//") ? value : fallback;
 }
 
-function redirectWithFormError(message: string, formData: FormData, fallback = "/portal/formulario") {
+function redirectWithFormError(message: string, formData: FormData, fallback = "/portal/formulario"): never {
   const errorPath = formData ? safeRedirectPath(textFrom(formData, "errorPath", 220), fallback) : fallback;
   redirect(`${errorPath}?error=${encodeURIComponent(message)}`);
 }
@@ -230,43 +230,74 @@ export async function upsertDailySubmissionForTransportadora(
   user?: Pick<AppUser, "id">,
 ) {
   const action = textFrom(formData, "intent");
-  const dataReport = startOfLocalDay(parseDateInput(textFrom(formData, "dataReport")));
-  const status = action === "submit" ? "submitted" : "draft";
+
+  let dataReport: Date;
+  let status: string;
+  let totalPedidosAnterior: number;
+  let totalPedidosAtual: number;
+  type StatusMetrics = {
+    totalEntregue: number;
+    totalEmAberto: number;
+    totalTentativaInsucesso: number;
+    totalDevolucao: number;
+    totalCancelado: number;
+  };
+  let previousStatus: StatusMetrics;
+  let currentStatus: StatusMetrics;
+  let ufRows: Array<{ uf: string; dentroDoPrazo: number; foraDoPrazo: number; total: number }>;
+  let totalNoPrazo: number;
+  let totalForaDoPrazo: number;
+  let totalFinalizado: number;
+  let finalizadosNoPrazo: number;
+  let finalizadosForaDoPrazo: number;
+
+  try {
+    dataReport = startOfLocalDay(parseDateInput(textFrom(formData, "dataReport")));
+    if (Number.isNaN(dataReport.getTime())) throw new Error("Data do relatório inválida.");
+    status = action === "submit" ? "submitted" : "draft";
+
+    totalPedidosAnterior = intFrom(formData, "prev_totalPedidos");
+    totalPedidosAtual = intFrom(formData, "cur_totalPedidos");
+
+    previousStatus = {
+      totalEntregue: intFrom(formData, "prev_totalEntregue"),
+      totalEmAberto: intFrom(formData, "prev_totalEmAberto"),
+      totalTentativaInsucesso: intFrom(formData, "prev_totalTentativaInsucesso"),
+      totalDevolucao: intFrom(formData, "prev_totalDevolucao"),
+      totalCancelado: intFrom(formData, "prev_totalCancelado"),
+    };
+    currentStatus = {
+      totalEntregue: intFrom(formData, "cur_totalEntregue"),
+      totalEmAberto: intFrom(formData, "cur_totalEmAberto"),
+      totalTentativaInsucesso: intFrom(formData, "cur_totalTentativaInsucesso"),
+      totalDevolucao: intFrom(formData, "cur_totalDevolucao"),
+      totalCancelado: intFrom(formData, "cur_totalCancelado"),
+    };
+
+    ufRows = BRAZILIAN_UFS.map((uf) => {
+      const dentroDoPrazo = intFrom(formData, `uf_${uf}_dentro`);
+      const foraDoPrazo = intFrom(formData, `uf_${uf}_fora`);
+      return { uf, dentroDoPrazo, foraDoPrazo, total: dentroDoPrazo + foraDoPrazo };
+    });
+    totalNoPrazo = intFrom(formData, "prev_totalNoPrazo");
+    totalForaDoPrazo = intFrom(formData, "prev_totalForaDoPrazo");
+    totalFinalizado = intFrom(formData, "cur_totalFinalizado");
+    finalizadosNoPrazo = intFrom(formData, "cur_finalizadosNoPrazo");
+    finalizadosForaDoPrazo = intFrom(formData, "cur_finalizadosForaDoPrazo");
+  } catch {
+    await persistDraftErrorSnapshot(transportadora.id, formData, ["previous", "current", "uf"]);
+    redirectWithFormError(
+      "Verifique se todas as datas e números foram preenchidos corretamente (sem vírgula, texto ou valor negativo). Nada foi salvo, seus dados foram mantidos no formulário.",
+      formData,
+    );
+  }
+
   const existingSubmission = await prisma.dailyReportSubmission.findUnique({
     where: { transportadoraId_dataReport: { transportadoraId: transportadora.id, dataReport } },
   });
   if (existingSubmission && ["submitted", "validated", "sent"].includes(existingSubmission.status)) {
     redirectWithFormError("Este relatório já foi enviado e está bloqueado para edição.", formData);
   }
-
-  const totalPedidosAnterior = intFrom(formData, "prev_totalPedidos");
-  const totalPedidosAtual = intFrom(formData, "cur_totalPedidos");
-
-  const previousStatus = {
-    totalEntregue: intFrom(formData, "prev_totalEntregue"),
-    totalEmAberto: intFrom(formData, "prev_totalEmAberto"),
-    totalTentativaInsucesso: intFrom(formData, "prev_totalTentativaInsucesso"),
-    totalDevolucao: intFrom(formData, "prev_totalDevolucao"),
-    totalCancelado: intFrom(formData, "prev_totalCancelado"),
-  };
-  const currentStatus = {
-    totalEntregue: intFrom(formData, "cur_totalEntregue"),
-    totalEmAberto: intFrom(formData, "cur_totalEmAberto"),
-    totalTentativaInsucesso: intFrom(formData, "cur_totalTentativaInsucesso"),
-    totalDevolucao: intFrom(formData, "cur_totalDevolucao"),
-    totalCancelado: intFrom(formData, "cur_totalCancelado"),
-  };
-
-  const ufRows = BRAZILIAN_UFS.map((uf) => {
-    const dentroDoPrazo = intFrom(formData, `uf_${uf}_dentro`);
-    const foraDoPrazo = intFrom(formData, `uf_${uf}_fora`);
-    return { uf, dentroDoPrazo, foraDoPrazo, total: dentroDoPrazo + foraDoPrazo };
-  });
-  const totalNoPrazo = intFrom(formData, "prev_totalNoPrazo");
-  const totalForaDoPrazo = intFrom(formData, "prev_totalForaDoPrazo");
-  const totalFinalizado = intFrom(formData, "cur_totalFinalizado");
-  const finalizadosNoPrazo = intFrom(formData, "cur_finalizadosNoPrazo");
-  const finalizadosForaDoPrazo = intFrom(formData, "cur_finalizadosForaDoPrazo");
 
   if (status === "submitted") {
     const consistencyErrors = validateSubmissionConsistency({
