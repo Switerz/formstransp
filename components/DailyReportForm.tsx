@@ -71,11 +71,15 @@ export function DailyReportForm({
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
-  const prev = last?.previousDayMetrics;
-  const cur = last?.currentDayPreviewMetrics;
   const todayInput = formatDateInput(today);
-  const lockedToday =
-    last?.dataReport.toISOString().slice(0, 10) === todayInput && ["submitted", "validated", "sent"].includes(last.status);
+  const isTodaysSubmission = last?.dataReport.toISOString().slice(0, 10) === todayInput;
+  // Only reuse last submission's numbers when it's today's own (in-progress) draft being
+  // resumed - otherwise they're a previous day's numbers and would just be stale noise to
+  // clear out by hand.
+  const prev = isTodaysSubmission ? last?.previousDayMetrics : undefined;
+  const cur = isTodaysSubmission ? last?.currentDayPreviewMetrics : undefined;
+  const ufMetrics = isTodaysSubmission ? last?.ufMetrics : undefined;
+  const lockedToday = isTodaysSubmission && ["submitted", "validated", "sent"].includes(last!.status);
 
   function pick(name: string, fallback: number | string) {
     if (draftValues && Object.prototype.hasOwnProperty.call(draftValues, name)) {
@@ -313,7 +317,7 @@ export function DailyReportForm({
             </div>
             <div className="uf-compact-grid">
               {BRAZILIAN_UFS.map((uf) => {
-                const row = last?.ufMetrics.find((item) => item.uf === uf);
+                const row = ufMetrics?.find((item) => item.uf === uf);
                 return (
                   <div className="uf-compact-row" key={uf}>
                     <strong>{uf}</strong>

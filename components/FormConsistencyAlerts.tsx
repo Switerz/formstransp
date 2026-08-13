@@ -52,8 +52,8 @@ export function FormConsistencyAlerts() {
       if (prevTotal > 0 && prazoTotal !== prevTotal) {
         nextAlerts.push(`No prazo + fora do prazo somam ${prazoTotal}, mas o total do dia anterior é ${prevTotal}.`);
       }
-      if (curTotal > 0 && curStatusTotal !== curTotal) {
-        nextAlerts.push(`Status do dia atual somam ${curStatusTotal}, mas o total atual é ${curTotal}.`);
+      if (curStatusTotal > curTotal) {
+        nextAlerts.push(`Status do dia atual somam ${curStatusTotal}, acima do total atual ${curTotal}.`);
       }
       if (totalFinalizado > 0 && finalizadosPrazo > totalFinalizado) {
         nextAlerts.push(`Finalizados por prazo somam ${finalizadosPrazo}, acima do total finalizado ${totalFinalizado}.`);

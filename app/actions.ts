@@ -113,9 +113,9 @@ function validateSubmissionConsistency(input: {
       sections: ["previous"],
     });
   }
-  if (currentStatusTotal !== input.totalPedidosAtual) {
+  if (currentStatusTotal > input.totalPedidosAtual) {
     errors.push({
-      message: "A soma dos status do dia atual está diferente do total de pedidos.",
+      message: "A soma dos status do dia atual está acima do total de pedidos.",
       sections: ["current"],
     });
   }

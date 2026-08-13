@@ -29,6 +29,9 @@ export async function GET() {
   const today = startOfLocalDay(new Date());
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
+  // Only reuse last submission's numbers when it's today's own (in-progress) draft -
+  // otherwise they're a previous day's numbers and would just be stale noise in the template.
+  const isTodaysSubmission = last && startOfLocalDay(last.dataReport).getTime() === today.getTime();
 
   const buffer = await buildDailyReportTemplate({
     transportadoraId: transportadora.id,
@@ -38,10 +41,10 @@ export async function GET() {
     dataPreviaDiaAtual: today,
     responsavelNome: last?.submittedByName || user.nome,
     responsavelEmail: last?.submittedByEmail || user.email,
-    observacoes: last?.observacoes ?? "",
-    previousDayMetrics: last?.previousDayMetrics,
-    currentDayPreviewMetrics: last?.currentDayPreviewMetrics,
-    ufMetrics: last?.ufMetrics ?? [],
+    observacoes: isTodaysSubmission ? last?.observacoes ?? "" : "",
+    previousDayMetrics: isTodaysSubmission ? last?.previousDayMetrics : undefined,
+    currentDayPreviewMetrics: isTodaysSubmission ? last?.currentDayPreviewMetrics : undefined,
+    ufMetrics: isTodaysSubmission ? last?.ufMetrics ?? [] : [],
   });
 
   const filename = `modelo-relatorio-${transportadora.codigoSlug}-${today.toISOString().slice(0, 10)}.xlsx`;
