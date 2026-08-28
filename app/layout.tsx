@@ -40,6 +40,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     <div className="nav-section">
                       <span className="nav-section-label">Operação</span>
                       <Link href="/">Admin</Link>
+                      <Link href="/base-completa">Base Completa</Link>
                       {canManage ? <Link href="/transportadoras/nova">Nova transportadora</Link> : null}
                       {canManage ? <Link href="/usuarios">Usuários</Link> : null}
                       <Link href="/automacoes/logs">Logs</Link>
@@ -48,6 +49,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     <div className="nav-section">
                       <span className="nav-section-label">Portal</span>
                       <Link href="/portal">Início</Link>
+                      <Link href="/portal/minha-base">Minha Base</Link>
                     </div>
                   )}
                   <div className="nav-session">

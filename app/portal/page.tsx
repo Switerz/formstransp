@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CheckCircle2, ClipboardList, Clock, FileBarChart, History, Send } from "lucide-react";
+import { CheckCircle2, ClipboardList, Clock, FileBarChart, History, Package, Send } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { requireCarrierUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -87,6 +87,9 @@ export default async function PortalPage() {
         <div className="actions" style={{ marginTop: 14 }}>
           <Link className="btn secondary" href={formPath}>
             <ClipboardList size={16} /> Abrir formulário
+          </Link>
+          <Link className="btn secondary" href="/portal/minha-base">
+            <Package size={16} /> Minha Base
           </Link>
           <Link className="btn secondary" href={`/historico/${transportadora.id}`}>
             <History size={16} /> Ver histórico
