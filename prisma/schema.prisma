@@ -23,6 +23,9 @@ model Transportadora {
   automationLogs         AutomationLog[]
   qualityLogs            SubmissionQualityLog[]
   users                  AppUser[]
+  pedidos                Pedido[]
+  pedidoChangeAttempts   PedidoFieldChangeAttempt[]
+  aliases                TransportadoraAlias[]
 
   @@map("transportadoras")
 }
@@ -47,6 +50,7 @@ model AppUser {
   transportadora     Transportadora? @relation(fields: [transportadoraId], references: [id], onDelete: SetNull)
   sessions           AppSession[]
   qualityLogs        SubmissionQualityLog[]
+  pedidoChangeAttempts PedidoFieldChangeAttempt[]
 
   @@index([transportadoraId])
   @@index([role])
@@ -173,4 +177,109 @@ model SubmissionQualityLog {
   @@index([userId])
   @@index([createdAt])
   @@map("submission_quality_logs")
+}
+
+// Pedido individual da base Forms Transp (carga diária Intelipost + resposta operacional
+// da transportadora). Chave única de negócio: `pedido`.
+model Pedido {
+  id String @id @default(cuid())
+
+  pedido String @unique
+
+  // ---- Campos de origem (upsert diário via API da Intelipost) ----
+  nomeDestinatario   String
+  canalVendas        String
+  cidadeDestinatario String
+  uf                 String
+  cepDestinatario    String
+  pedidoDeVenda      String
+  codigoRastreio     String?
+  notaFiscal         String?
+  metodoEnvio        String?
+  transportadoraId   String
+  transportadora     Transportadora @relation(fields: [transportadoraId], references: [id])
+  valorNota          Decimal?       @db.Decimal(12, 2)
+  pesoFisico         Decimal?       @db.Decimal(10, 3)
+  chaveNota          String?
+
+  // Data Criação da Intelipost. Define a janela dos 45 dias da Base Completa.
+  // NÃO confundir com `createdAt` (data em que o registro foi criado no nosso banco).
+  dataCriacaoPedido DateTime
+
+  // Data Entrega da Intelipost. Não é editável pela transportadora.
+  // Determina se o pedido está finalizado (IS NOT NULL = finalizado, some da
+  // visão da transportadora no ciclo seguinte; a Base Completa continua trazendo
+  // enquanto dataCriacaoPedido estiver dentro da janela de 45 dias).
+  dataEntregaOrigem DateTime?
+
+  origemAtualizadoEm DateTime @default(now())
+
+  // ---- Campos operacionais (preenchidos pela transportadora, upload de devolução) ----
+  dataColetaProcessamento DateTime?
+  dataPrevisao            DateTime?
+  prazoEntregaDiasUteis   Int?
+  dataEntrega             DateTime? // DATA DE ENTREGA operacional, preenchida pela transportadora
+  statusAtual             String?
+  ocorrencia              String?
+  motivoDevolucao         String?
+  slaStatus               String?
+  justificativaAtraso     String?
+  novaDataPrevisao        DateTime?
+  dataResolucaoDevolucao  DateTime?
+
+  operacionalAtualizadoEm DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  changeAttempts PedidoFieldChangeAttempt[]
+
+  @@index([transportadoraId, dataEntregaOrigem])
+  @@index([dataCriacaoPedido])
+  @@map("pedidos")
+}
+
+// Item 7: registro de tentativa de alterar um campo operacional que já havia
+// sido preenchido anteriormente. A alteração é bloqueada (status = "blocked");
+// o valor salvo em Pedido é preservado.
+model PedidoFieldChangeAttempt {
+  id String @id @default(cuid())
+
+  pedidoId         String
+  pedido           Pedido         @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  transportadoraId String
+  transportadora   Transportadora @relation(fields: [transportadoraId], references: [id])
+  userId           String?
+  user             AppUser?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  campo        String
+  valorAtual   String?
+  valorTentado String?
+  status       String @default("blocked")
+
+  createdAt DateTime @default(now())
+
+  @@index([pedidoId])
+  @@index([transportadoraId, createdAt])
+  @@map("pedido_field_change_attempts")
+}
+
+// DE/PARA de nomes que a Intelipost (ou outra origem futura) pode usar
+// para uma transportadora já cadastrada. `Transportadora.nome` continua
+// sendo o cadastro oficial - isto é só um apelido adicional que resolve
+// para ela. `aliasNormalizado` é único no banco: um mesmo texto (ignorando
+// caixa/acento) nunca pode apontar para duas transportadoras diferentes.
+model TransportadoraAlias {
+  id String @id @default(cuid())
+
+  transportadoraId String
+  transportadora   Transportadora @relation(fields: [transportadoraId], references: [id], onDelete: Cascade)
+
+  alias            String // como a origem manda, ex.: "Diálogo Logística" (guardado para exibição/auditoria)
+  aliasNormalizado String @unique // normalizado (maiúsculo, sem acento) - usado no matching
+
+  createdAt DateTime @default(now())
+
+  @@index([transportadoraId])
+  @@map("transportadora_aliases")
 }
