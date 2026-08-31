@@ -82,21 +82,6 @@ export default async function MinhaBasePage() {
 
   return (
     <div className="mb-html">
-      <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark">FT</div>
-          <div>
-            <div className="brand-title">Portal de Transportes</div>
-            <div className="brand-sub">Gestão operacional de bases</div>
-          </div>
-        </div>
-        <div className="top-actions">
-          <span>Operação</span>
-          <span>Transportadoras</span>
-          <span className="user-pill">{user.username}</span>
-        </div>
-      </header>
-
       <main className="page">
         <div className="page-header">
           <div>
