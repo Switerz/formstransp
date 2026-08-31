@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Download } from "lucide-react";
 import { PedidosTable } from "@/components/pedidos/PedidosTable";
 import type { LinhaTabela } from "@/lib/pedidos-table-row";
 import type { DevolucaoResumo } from "@/app/portal/minha-base/actions";
@@ -171,7 +172,7 @@ export function BasePanel({
 
         <div className="panel-download">
           <a href={downloadHref} className="btn-transporter">
-            Baixar minha base
+            <Download size={15} /> Baixar minha base
           </a>
           {/* Base Completa é recurso interno - nunca liberado aqui (mesma regra da Minha Base atual). */}
         </div>
