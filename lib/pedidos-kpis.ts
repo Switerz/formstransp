@@ -96,12 +96,15 @@ export interface KpisDerivaveis {
  * dataEntregaOrigem IS NULL (mesma regra de negócio de Minha Base) -
  * calculada fora daqui, no chamador, para não duplicar a regra de acesso.
  */
+export function calcularPercentualAbertoTotal(totalPedidos: number, pedidosAbertos: number): number {
+  return totalPedidos > 0 ? Math.round((pedidosAbertos / totalPedidos) * 1000) / 10 : 0;
+}
+
 export function calcularKpisDerivaveis(totalPedidos: number, pedidosAbertos: number, abertos: PedidoOperacional[]): KpisDerivaveis {
-  const percentualAbertoTotal = totalPedidos > 0 ? Math.round((pedidosAbertos / totalPedidos) * 1000) / 10 : 0;
   return {
     totalPedidos,
     pedidosAbertos,
-    percentualAbertoTotal,
+    percentualAbertoTotal: calcularPercentualAbertoTotal(totalPedidos, pedidosAbertos),
     preenchimento: summarizeFillStatus(abertos),
   };
 }

@@ -1,24 +1,16 @@
 import { requireCarrierUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { formatBrazilianDate } from "@/lib/dates";
-import { KpiCarousel, type KpiCard } from "@/components/pedidos/KpiCarousel";
+import { KpiCarousel } from "@/components/pedidos/KpiCarousel";
 import { BasePanel } from "@/components/pedidos/BasePanel";
 import { HelpPanel } from "@/components/pedidos/HelpPanel";
 import { PeriodoFilter } from "@/components/pedidos/PeriodoFilter";
 import { pedidoParaLinhaTabela, type PedidoParaTabela } from "@/lib/pedidos-table-row";
-import { calcularKpisDerivaveis } from "@/lib/pedidos-kpis";
-import { parsePeriodoFilters, periodoParaIntervaloDatas } from "@/lib/pedidos-periodo";
+import { summarizeFillStatus } from "@/lib/pedidos-kpis";
+import { montarDadosKpiCarousel } from "@/lib/pedidos-kpi-carousel";
 import { uploadDevolucaoTransportadora } from "@/app/portal/minha-base/actions";
 import "@/components/pedidos/minha-base.css";
 
 export const dynamic = "force-dynamic";
-
-const SEM_REGRA: KpiCard = { icon: "", label: "", value: "—", hint: "Aguardando dados" };
-
-function formatarUltimaAtualizacao(data: Date | null): string {
-  if (!data) return "Aguardando carga";
-  return formatBrazilianDate(data);
-}
 
 export default async function MinhaBasePage({
   searchParams,
@@ -28,76 +20,20 @@ export default async function MinhaBasePage({
   const user = await requireCarrierUser("/portal/minha-base");
   const transportadoraId = user.transportadoraId!;
   const raw = await searchParams;
-  const periodo = parsePeriodoFilters(raw);
-  const intervaloPeriodo = periodoParaIntervaloDatas(periodo);
 
-  const [pedidosDb, totalPedidos, pedidosAbertosCount, pedidosVencidosCount, ultimaCarga, ultimaDevolucao] = await Promise.all([
-    prisma.pedido.findMany({
-      where: { transportadoraId, dataEntregaOrigem: null },
-      include: { transportadora: { select: { nome: true } } },
-      orderBy: { dataCriacaoPedido: "desc" },
-      take: 1000,
-    }),
-    prisma.pedido.count({ where: { transportadoraId } }),
-    prisma.pedido.count({ where: { transportadoraId, dataEntregaOrigem: null } }),
-    prisma.pedido.count({
-      where: { transportadoraId, dataEntregaOrigem: null, dataPrevisao: intervaloPeriodo },
-    }),
-    prisma.automationLog.findFirst({
-      where: { tipo: "pedidos_import" },
-      orderBy: { createdAt: "desc" },
-      select: { createdAt: true },
-    }),
-    prisma.automationLog.findFirst({
-      where: { tipo: "pedidos_devolucao", transportadoraId },
-      orderBy: { createdAt: "desc" },
-      select: { createdAt: true },
-    }),
-  ]);
+  // Mesma função usada pela aba Início - única fonte de verdade dos
+  // Big Numbers, sem duplicar consulta/lógica entre as duas telas.
+  const dadosKpi = await montarDadosKpiCarousel(transportadoraId, raw);
+
+  const pedidosDb = await prisma.pedido.findMany({
+    where: { transportadoraId, dataEntregaOrigem: null },
+    include: { transportadora: { select: { nome: true } } },
+    orderBy: { dataCriacaoPedido: "desc" },
+    take: 1000,
+  });
 
   const linhas = (pedidosDb as unknown as PedidoParaTabela[]).map(pedidoParaLinhaTabela);
-  const kpis = calcularKpisDerivaveis(totalPedidos, pedidosAbertosCount, pedidosDb as unknown as PedidoParaTabela[]);
-
-  const totalPedidosCard: KpiCard = {
-    icon: "▥",
-    label: "Total de Pedidos",
-    value: kpis.totalPedidos.toLocaleString("pt-BR"),
-    hint: "Todos os pedidos da transportadora",
-  };
-  const pedidosAbertosCard: KpiCard = {
-    icon: "□",
-    label: "Pedidos em Aberto",
-    value: kpis.pedidosAbertos.toLocaleString("pt-BR"),
-    hint: "dataEntregaOrigem em aberto",
-  };
-  const abertoTotalCard: KpiCard = {
-    icon: "□",
-    label: "% Aberto/Total",
-    value: `${kpis.percentualAbertoTotal}%`,
-    hint: "Sobre o total da transportadora",
-  };
-
-  const pedidosVencidosCard: KpiCard = {
-    icon: "◷",
-    label: "Pedidos Vencidos",
-    value: pedidosVencidosCount.toLocaleString("pt-BR"),
-    hint: `Promessa Transporte entre ${formatBrazilianDate(intervaloPeriodo.gte)} e ${periodo.ate.split("-").reverse().join("/")}`,
-  };
-
-  const integridadeCard: KpiCard = {
-    icon: "✓",
-    label: "Integridade da devolução",
-    value: "Aguardando",
-    hint: "Envie a devolução da base",
-    id: "iIntegrity",
-  };
-  const statusCard: KpiCard = {
-    icon: "•",
-    label: "Status",
-    value: ultimaDevolucao ? "Recebida" : "Aguardando",
-    hint: ultimaDevolucao ? formatBrazilianDate(ultimaDevolucao.createdAt) : "Nenhuma devolução recebida ainda",
-    id: "mStatus",
-  };
+  const preenchimento = summarizeFillStatus(pedidosDb as unknown as PedidoParaTabela[]);
 
   return (
     <div className="mb-html">
@@ -112,33 +48,18 @@ export default async function MinhaBasePage({
           </div>
         </div>
 
-        <PeriodoFilter action="/portal/minha-base" de={periodo.de} ate={periodo.ate} />
+        <PeriodoFilter action="/portal/minha-base" de={dadosKpi.periodo.de} ate={dadosKpi.periodo.ate} />
 
         <section className="grid">
-          <KpiCarousel
-            slaAjusteTransporte={{ ...SEM_REGRA, icon: "◎", label: "SLA Ajuste Transporte" }}
-            slaTransporte={{ ...SEM_REGRA, icon: "▣", label: "SLA Transporte" }}
-            slaCliente={{ ...SEM_REGRA, icon: "●", label: "SLA Cliente" }}
-            taxaInsucesso={{ ...SEM_REGRA, icon: "!", label: "Taxa de Insucesso" }}
-            taxaDevolucao={{ ...SEM_REGRA, icon: "↺", label: "Taxa de Devolução" }}
-            pedidosAbertos={pedidosAbertosCard}
-            tratativaCx={{ ...SEM_REGRA, icon: "×", label: "Tratativa CX" }}
-            riscoAtraso={pedidosVencidosCard}
-            processado={{ ...SEM_REGRA, icon: "↗", label: "Processado" }}
-            perdas={{ ...SEM_REGRA, icon: "◇", label: "Perdas Extr/Sint/Avar" }}
-            totalPedidos={totalPedidosCard}
-            abertoTotal={abertoTotalCard}
-            integridade={integridadeCard}
-            status={statusCard}
-          />
+          <KpiCarousel {...dadosKpi.props} />
 
           <BasePanel
             linhas={linhas}
-            lastBaseUpdateLabel={formatarUltimaAtualizacao(ultimaCarga?.createdAt ?? null)}
-            hasBaseUpdate={Boolean(ultimaCarga)}
-            fillPending={kpis.preenchimento.pending}
-            fillPartial={kpis.preenchimento.partial}
-            fillDone={kpis.preenchimento.done}
+            lastBaseUpdateLabel={dadosKpi.ultimaCargaLabel}
+            hasBaseUpdate={dadosKpi.hasBaseUpdate}
+            fillPending={preenchimento.pending}
+            fillPartial={preenchimento.partial}
+            fillDone={preenchimento.done}
             downloadHref="/portal/minha-base/download"
             uploadAction={uploadDevolucaoTransportadora}
           />

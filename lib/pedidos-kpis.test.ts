@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { calcularKpisDerivaveis, rowFillStatus, summarizeFillStatus, isPedidoVencidoNoPeriodo, type PedidoOperacional } from "./pedidos-kpis";
+import {
+  calcularKpisDerivaveis,
+  calcularPercentualAbertoTotal,
+  rowFillStatus,
+  summarizeFillStatus,
+  isPedidoVencidoNoPeriodo,
+  type PedidoOperacional,
+} from "./pedidos-kpis";
 
 const vazio: PedidoOperacional = {
   dataColetaProcessamento: null,
@@ -82,5 +89,21 @@ describe("isPedidoVencidoNoPeriodo — TESTE 7/8 (pedido vencido D-1 entra/não 
 
   it("não entra: sem Promessa Transporte definida", () => {
     expect(isPedidoVencidoNoPeriodo({ dataPrevisao: null, dataEntregaOrigem: null }, gte, lt)).toBe(false);
+  });
+});
+
+describe("calcularPercentualAbertoTotal — extraída para reaproveitar em lib/pedidos-kpi-carousel.ts", () => {
+  it("calcula o percentual normalmente", () => {
+    expect(calcularPercentualAbertoTotal(200, 50)).toBe(25);
+  });
+
+  it("não divide por zero quando não há pedidos", () => {
+    expect(calcularPercentualAbertoTotal(0, 0)).toBe(0);
+  });
+
+  it("mesma fórmula usada por calcularKpisDerivaveis (não diverge)", () => {
+    const direto = calcularPercentualAbertoTotal(80, 20);
+    const viaDerivaveis = calcularKpisDerivaveis(80, 20, []).percentualAbertoTotal;
+    expect(direto).toBe(viaDerivaveis);
   });
 });
