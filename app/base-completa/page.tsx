@@ -3,11 +3,12 @@ import { Download } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { requireInternalUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { formatBrazilianDate } from "@/lib/dates";
 import { BRAZILIAN_UFS } from "@/lib/ufs";
 import { parsePedidosFilters, filtersToSearchParams, buildPedidosWhere } from "@/lib/pedidos-query";
 import { parsePeriodoFilters, periodoParaIntervaloDatas } from "@/lib/pedidos-periodo";
 import { PeriodoFilter } from "@/components/pedidos/PeriodoFilter";
+import { PedidosTablePanel } from "@/components/pedidos/PedidosTablePanel";
+import { pedidoParaLinhaTabela, type PedidoParaTabela } from "@/lib/pedidos-table-row";
 import "@/components/pedidos/minha-base.css";
 
 const PAGE_SIZE = 100;
@@ -30,19 +31,11 @@ export default async function BaseCompletaPage({
   // Sem regra fixa de transportadoraId nem de dataEntregaOrigem: Base
   // Completa mostra todos os pedidos, abertos e finalizados, de todas as
   // transportadoras (o filtro de transportadora abaixo é opcional, da UI).
-  // NENHUMA restrição de Minha Base foi copiada para cá - só o visual.
+  // NENHUMA restrição de Minha Base foi copiada para cá - só a tabela e o
+  // visual são reaproveitados, os dados continuam sendo a população
+  // completa definida pela regra da Base Completa.
   const where = buildPedidosWhere(filters);
 
-  interface PedidoListItem {
-    id: string;
-    pedido: string;
-    uf: string;
-    cidadeDestinatario: string;
-    dataCriacaoPedido: Date;
-    statusAtual: string | null;
-    dataEntregaOrigem: Date | null;
-    transportadora: { id: string; nome: string };
-  }
   interface TransportadoraOption {
     id: string;
     nome: string;
@@ -54,8 +47,15 @@ export default async function BaseCompletaPage({
   // Big Numbers.
   const kpiWhereBase = filters.transportadoraId ? { transportadoraId: filters.transportadoraId } : {};
 
-  const [pedidos, transportadoras, totalPedidosKpi, pedidosAbertosKpi, pedidosVencidosKpi]: [
-    PedidoListItem[],
+  // Paginação server-side (a mesma estratégia já usada aqui antes desta
+  // mudança: filtros aplicados no banco via "where" + "take" limitado,
+  // com "Carregar mais" incrementando o limite) - necessária porque a
+  // Base Completa pode ter centenas de milhares de pedidos, diferente da
+  // Minha Base (só a transportadora logada). Não carregamos tudo de uma
+  // vez no navegador em nenhum dos dois casos, mas cada tela usa a
+  // estratégia de paginação já validada para o próprio volume de dados.
+  const [pedidosDb, transportadoras, totalPedidosKpi, pedidosAbertosKpi, pedidosVencidosKpi]: [
+    PedidoParaTabela[],
     TransportadoraOption[],
     number,
     number,
@@ -63,7 +63,7 @@ export default async function BaseCompletaPage({
   ] = await Promise.all([
     prisma.pedido.findMany({
       where,
-      include: { transportadora: { select: { id: true, nome: true } } },
+      include: { transportadora: { select: { nome: true } } },
       orderBy: { dataCriacaoPedido: "desc" },
       take: limit,
     }),
@@ -75,7 +75,9 @@ export default async function BaseCompletaPage({
     }),
   ]);
 
-  const hasMore = pedidos.length === limit;
+  const linhas = pedidosDb.map(pedidoParaLinhaTabela);
+
+  const hasMore = pedidosDb.length === limit;
   const baseParams = filtersToSearchParams(filters);
   const loadMoreHref = `/base-completa?${filtersToSearchParams(filters, { limite: String(limit + PAGE_SIZE) })}`;
   const downloadHref = `/base-completa/download?${baseParams}`;
@@ -84,11 +86,12 @@ export default async function BaseCompletaPage({
   return (
     <div className="mb-html">
       <main className="page">
-        {/* Mesmo padrão visual de /portal/minha-base: mesmo wrapper .mb-html,
-            mesmas classes (page-header, kpi-card, btn-transporter,
-            table-wrap) - a diferença entre as duas telas é só de
-            ACESSO/DADOS (requireInternalUser + sem filtro fixo de
-            transportadora/dataEntregaOrigem), nunca de identidade visual. */}
+        {/* Mesmo padrão visual/estrutural de /portal/minha-base: mesmo
+            wrapper .mb-html, mesma PedidosTable (25 colunas, mesma
+            distinção primária/preenchível/protegida), mesmo PeriodoFilter.
+            A diferença entre as duas telas é só de ACESSO/DADOS
+            (requireInternalUser + sem filtro fixo de transportadora/
+            dataEntregaOrigem), nunca de identidade visual ou de colunas. */}
         <div className="page-header">
           <div>
             <h1>Base Completa</h1>
@@ -200,7 +203,7 @@ export default async function BaseCompletaPage({
         </form>
 
         <section className="card">
-          {!pedidos.length ? (
+          {!linhas.length ? (
             <EmptyState
               title="Nenhum pedido encontrado"
               description="Não há pedidos para os filtros selecionados."
@@ -208,42 +211,15 @@ export default async function BaseCompletaPage({
             />
           ) : (
             <>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Pedido</th>
-                      <th>Transportadora</th>
-                      <th>UF</th>
-                      <th>Cidade</th>
-                      <th>Data Criação</th>
-                      <th>Status Atual</th>
-                      <th>Situação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pedidos.map((pedido) => (
-                      <tr key={pedido.id}>
-                        <td>{pedido.pedido}</td>
-                        <td>{pedido.transportadora.nome}</td>
-                        <td>{pedido.uf}</td>
-                        <td>{pedido.cidadeDestinatario}</td>
-                        <td>{formatBrazilianDate(pedido.dataCriacaoPedido)}</td>
-                        <td>{pedido.statusAtual ?? "-"}</td>
-                        <td>
-                          <span className={`pill ${pedido.dataEntregaOrigem ? "ok" : "pending"}`}>
-                            {pedido.dataEntregaOrigem ? "Finalizado" : "Em aberto"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <PedidosTablePanel
+                linhas={linhas}
+                title="Base Completa"
+                hint={`${linhas.length.toLocaleString("pt-BR")} pedido(s) carregado(s) nesta página.`}
+              />
               <p className="muted" style={{ marginTop: 12 }}>
                 {hasMore
-                  ? `Mostrando os últimos ${pedidos.length} pedidos. Pode haver mais.`
-                  : `Mostrando ${pedidos.length} pedido${pedidos.length === 1 ? "" : "s"}.`}
+                  ? `Mostrando os últimos ${linhas.length} pedidos. Pode haver mais.`
+                  : `Mostrando ${linhas.length} pedido${linhas.length === 1 ? "" : "s"}.`}
               </p>
               {hasMore ? (
                 <div className="actions">
