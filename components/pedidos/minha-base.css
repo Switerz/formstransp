@@ -117,6 +117,40 @@
       font-weight:700;font-size:13px;cursor:pointer;font-family:inherit
     }
 
+/* Adaptação necessária: "Baixar minha base" é um link real de download
+   (precisa do atributo href para o navegador baixar o arquivo, não um
+   <button> com onClick), mas deve ter exatamente o mesmo visual dos
+   botões do HTML oficial. Reaplica aqui, para <a>, os mesmos valores
+   já usados em ".mb-html button" acima - nenhum valor novo inventado. */
+.mb-html a.btn-transporter,
+.mb-html a.btn-primary,
+.mb-html a.btn-secondary,
+.mb-html a.btn-blue {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      height:38px;border-radius:8px;border:1px solid transparent;padding:0 12px;
+      font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;
+      text-decoration:none;
+      -webkit-tap-highlight-color:transparent;
+      gap:6px;
+    }
+.mb-html a.btn-transporter:hover,
+.mb-html a.btn-primary:hover,
+.mb-html a.btn-blue:hover {
+      filter:brightness(1.08);
+    }
+.mb-html a.btn-secondary:hover {
+      background:#f4f7fb;
+    }
+.mb-html a.btn-transporter:focus-visible,
+.mb-html a.btn-primary:focus-visible,
+.mb-html a.btn-secondary:focus-visible,
+.mb-html a.btn-blue:focus-visible {
+      outline:2px solid var(--blue);
+      outline-offset:2px;
+    }
+
 .mb-html .btn-primary {background:var(--navy);color:white}
 
 .mb-html .btn-secondary {background:white;color:var(--navy);border-color:var(--navy)}
