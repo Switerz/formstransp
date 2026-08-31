@@ -15,27 +15,32 @@ export interface DadosKpiCarousel {
 
 /**
  * Monta TODOS os dados do carrossel "Números" (mesmas 14 cards, mesmas
- * regras) para uma transportadora e período. Única fonte de verdade,
- * chamada tanto por /portal/minha-base quanto por /portal (Início) - os
- * dois exibem exatamente os mesmos números para a mesma transportadora/
- * período, porque usam a mesma função, não duas implementações.
+ * regras) para uma transportadora (ou todas, se null) e período. Única
+ * fonte de verdade, chamada por /portal/minha-base, /portal (Início) e
+ * /base-completa - todos exibem exatamente os mesmos números para o
+ * mesmo escopo/período, porque usam a mesma função, não implementações
+ * separadas.
  *
  * A transportadora é sempre recebida como parâmetro já resolvido pelo
- * chamador via sessão (user.transportadoraId) - esta função não decide
- * isolamento, só consulta o que já foi determinado.
+ * chamador (via sessão em Minha Base/Início, ou via filtro opcional de
+ * UI + requireInternalUser em Base Completa) - esta função não decide
+ * isolamento, só consulta o escopo que já foi determinado.
+ * transportadoraId === null significa "todas as transportadoras" (usado
+ * exclusivamente pela Base Completa).
  */
 export async function montarDadosKpiCarousel(
-  transportadoraId: string,
+  transportadoraId: string | null,
   rawSearchParams: Record<string, string | undefined>,
 ): Promise<DadosKpiCarousel> {
   const periodo = parsePeriodoFilters(rawSearchParams);
   const intervaloPeriodo = periodoParaIntervaloDatas(periodo);
+  const escopoTransportadora = transportadoraId ? { transportadoraId } : {};
 
   const [totalPedidos, pedidosAbertosCount, pedidosVencidosCount, ultimaCarga, ultimaDevolucao] = await Promise.all([
-    prisma.pedido.count({ where: { transportadoraId } }),
-    prisma.pedido.count({ where: { transportadoraId, dataEntregaOrigem: null } }),
+    prisma.pedido.count({ where: escopoTransportadora }),
+    prisma.pedido.count({ where: { ...escopoTransportadora, dataEntregaOrigem: null } }),
     prisma.pedido.count({
-      where: { transportadoraId, dataEntregaOrigem: null, dataPrevisao: intervaloPeriodo },
+      where: { ...escopoTransportadora, dataEntregaOrigem: null, dataPrevisao: intervaloPeriodo },
     }),
     prisma.automationLog.findFirst({
       where: { tipo: "pedidos_import" },
@@ -43,7 +48,7 @@ export async function montarDadosKpiCarousel(
       select: { createdAt: true },
     }),
     prisma.automationLog.findFirst({
-      where: { tipo: "pedidos_devolucao", transportadoraId },
+      where: { tipo: "pedidos_devolucao", ...escopoTransportadora },
       orderBy: { createdAt: "desc" },
       select: { createdAt: true },
     }),
@@ -55,7 +60,7 @@ export async function montarDadosKpiCarousel(
     icon: "▥",
     label: "Total de Pedidos",
     value: totalPedidos.toLocaleString("pt-BR"),
-    hint: "Todos os pedidos da transportadora",
+    hint: transportadoraId ? "Todos os pedidos da transportadora" : "Consolidado de todas as transportadoras",
   };
   const pedidosAbertosCard: KpiCard = {
     icon: "□",
@@ -67,7 +72,7 @@ export async function montarDadosKpiCarousel(
     icon: "□",
     label: "% Aberto/Total",
     value: `${percentualAbertoTotal}%`,
-    hint: "Sobre o total da transportadora",
+    hint: transportadoraId ? "Sobre o total da transportadora" : "Sobre o total consolidado",
   };
   const pedidosVencidosCard: KpiCard = {
     icon: "◷",
