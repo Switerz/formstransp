@@ -66,8 +66,6 @@ export function PedidosTable({ linhas, busca, mostrarProtegidas, onToggleProtegi
         <table>
           <thead>
             <tr>
-              <th>Preench.</th>
-              <th>Ofensor GB</th>
               {colunasVisiveis.map((col) => (
                 <th key={col} className={classeColuna(col)}>
                   {col}
@@ -78,8 +76,6 @@ export function PedidosTable({ linhas, busca, mostrarProtegidas, onToggleProtegi
           <tbody>
             {visiveis.map((linha) => (
               <tr key={linha.id}>
-                <td>{linha.fillStatus === "done" ? "Completo" : linha.fillStatus === "partial" ? "Parcial" : "Pendente"}</td>
-                <td>{linha.ofensorGb ?? "-"}</td>
                 {colunasVisiveis.map((col) => (
                   <td key={col} className={classeColuna(col)}>
                     {linha.colunas[col] || ""}
