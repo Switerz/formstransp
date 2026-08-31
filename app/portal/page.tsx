@@ -1,20 +1,25 @@
 import Link from "next/link";
-import { CheckCircle2, ClipboardList, Clock, FileBarChart, History, Package, Send } from "lucide-react";
+import { FileBarChart, History, Package } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { requireCarrierUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { formatBrazilianDate, startOfLocalDay } from "@/lib/dates";
+import { formatBrazilianDate } from "@/lib/dates";
+import { KpiCarousel } from "@/components/pedidos/KpiCarousel";
+import { PeriodoFilter } from "@/components/pedidos/PeriodoFilter";
+import { montarDadosKpiCarousel } from "@/lib/pedidos-kpi-carousel";
 
 function dateKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-export default async function PortalPage() {
+export default async function PortalPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const user = await requireCarrierUser("/portal");
   const transportadoraId = user.transportadoraId!;
-  const today = startOfLocalDay(new Date());
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  const raw = await searchParams;
 
   const transportadora = await prisma.transportadora.findUnique({
     where: { id: transportadoraId },
@@ -38,10 +43,9 @@ export default async function PortalPage() {
     );
   }
 
-  const sentToday = transportadora.submissions.some(
-    (submission) => submission.dataReport >= today && submission.dataReport < tomorrow,
-  );
-  const formPath = "/portal/formulario";
+  // Mesma função usada por /portal/minha-base - única fonte de verdade dos
+  // Big Numbers, sem duplicar consulta/lógica entre as duas telas.
+  const dadosKpi = await montarDadosKpiCarousel(transportadoraId, raw);
 
   return (
     <main className="shell">
@@ -50,44 +54,22 @@ export default async function PortalPage() {
           <h1>Portal da transportadora</h1>
           <p className="muted">{transportadora.nome}</p>
         </div>
-        <Link className={sentToday ? "btn secondary" : "btn"} href={formPath}>
-          <Send size={18} /> {sentToday ? "Ver formulário" : "Preencher relatório de hoje"}
-        </Link>
       </div>
 
-      <section className="grid grid-3">
-        <div className={`card metric-card ${sentToday ? "green" : "orange"}`}>
-          <div className="metric-label">Status de hoje</div>
-          <div className="portal-status">
-            {sentToday ? <CheckCircle2 size={28} /> : <Clock size={28} />}
-            <strong>{sentToday ? "Recebido" : "Pendente"}</strong>
-          </div>
-          <p className="muted">Relatório de {formatBrazilianDate(today)}.</p>
-        </div>
-        <div className="card metric-card">
-          <div className="metric-label">Últimos relatórios</div>
-          <div className="metric-value">{transportadora.submissions.length}</div>
-          <p className="muted">Registros recentes disponíveis para consulta.</p>
-        </div>
-        <div className="card metric-card">
-          <div className="metric-label">Conta</div>
-          <div className="metric-value">{user.nome}</div>
-          <p className="muted">Perfil: {user.role === "carrier_admin" ? "admin da transportadora" : "operador"}</p>
-        </div>
+      <PeriodoFilter action="/portal" de={dadosKpi.periodo.de} ate={dadosKpi.periodo.ate} />
+
+      <section className="card" style={{ marginBottom: 18 }}>
+        <h2 className="section-title">Números</h2>
+        <KpiCarousel {...dadosKpi.props} />
       </section>
 
-      <section className="card" style={{ marginTop: 18 }}>
+      <section className="card" style={{ marginBottom: 18 }}>
         <div className="panel-heading">
           <div>
             <h2 className="section-title">Rotina diária</h2>
-            <p className="muted">Use o formulário para salvar rascunho ou enviar o fechamento do dia.</p>
           </div>
-          <span className={`pill ${sentToday ? "ok" : "pending"}`}>{sentToday ? "Hoje enviado" : "Aguardando envio"}</span>
         </div>
         <div className="actions" style={{ marginTop: 14 }}>
-          <Link className="btn secondary" href={formPath}>
-            <ClipboardList size={16} /> Abrir formulário
-          </Link>
           <Link className="btn secondary" href="/portal/minha-base">
             <Package size={16} /> Minha Base
           </Link>
@@ -97,7 +79,7 @@ export default async function PortalPage() {
         </div>
       </section>
 
-      <section className="card" style={{ marginTop: 18 }}>
+      <section className="card">
         <div className="panel-heading">
           <div>
             <h2 className="section-title">Histórico recente</h2>
@@ -109,7 +91,6 @@ export default async function PortalPage() {
           <EmptyState
             title="Nenhum relatório enviado"
             description="Quando o primeiro relatório for salvo ou enviado, ele aparecerá aqui."
-            action={{ href: formPath, label: "Abrir formulário", icon: <ClipboardList size={16} /> }}
           />
         ) : (
           <div className="table-wrap">
@@ -124,7 +105,7 @@ export default async function PortalPage() {
                 </tr>
               </thead>
               <tbody>
-                {transportadora.submissions.map((submission) => (
+                {transportadora.submissions.map((submission: (typeof transportadora.submissions)[number]) => (
                   <tr key={submission.id}>
                     <td>{formatBrazilianDate(submission.dataReport)}</td>
                     <td>
