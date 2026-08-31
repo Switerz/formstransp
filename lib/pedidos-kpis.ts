@@ -8,6 +8,24 @@
  * regra".
  */
 
+export interface PedidoVencidoCheck {
+  dataPrevisao: Date | null;
+  dataEntregaOrigem: Date | null;
+}
+
+/**
+ * "Pedido vencido": a Promessa Transporte (dataPrevisao) cai dentro do
+ * período selecionado E o pedido ainda não foi finalizado (dataEntregaOrigem
+ * IS NULL - mesma referência de finalização já usada em toda a Minha Base/
+ * Base Completa, nunca dataEntrega). Espelha exatamente o WHERE usado nas
+ * consultas reais (Prisma), servindo também de especificação testável.
+ */
+export function isPedidoVencidoNoPeriodo(pedido: PedidoVencidoCheck, gte: Date, lt: Date): boolean {
+  if (pedido.dataEntregaOrigem !== null) return false;
+  if (!pedido.dataPrevisao) return false;
+  return pedido.dataPrevisao.getTime() >= gte.getTime() && pedido.dataPrevisao.getTime() < lt.getTime();
+}
+
 export interface PedidoOperacional {
   dataColetaProcessamento: Date | null;
   dataPrevisao: Date | null;
