@@ -16,7 +16,7 @@ interface KpiSlideDef {
   cards: KpiCard[];
 }
 
-interface KpiCarouselProps {
+export interface KpiCarouselProps {
   slaAjusteTransporte: KpiCard;
   slaTransporte: KpiCard;
   slaCliente: KpiCard;
