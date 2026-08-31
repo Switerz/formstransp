@@ -172,7 +172,7 @@ export function BasePanel({
 
         <div className="panel-download">
           <a href={downloadHref} className="btn-transporter">
-            <Download size={15} /> Baixar minha base
+            <Download size={13} /> Baixar minha base
           </a>
           {/* Base Completa é recurso interno - nunca liberado aqui (mesma regra da Minha Base atual). */}
         </div>
