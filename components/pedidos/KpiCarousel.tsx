@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 export interface KpiCard {
   icon: string;
@@ -83,6 +83,72 @@ export function KpiCarousel(props: KpiCarouselProps) {
 
   const [index, setIndex] = useState(0);
 
+  // ---- Arraste (mouse/touch/pen unificados via Pointer Events) ----
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+  const startXRef = useRef(0);
+  const startYRef = useRef(0);
+  const widthRef = useRef(1);
+  const axisLockedRef = useRef<"x" | "y" | null>(null);
+  const pointerIdRef = useRef<number | null>(null);
+
+  const THRESHOLD_RATIO = 0.18; // % da largura do slide para trocar
+  const EDGE_RESISTANCE = 0.35; // resistência ao tentar arrastar além da primeira/última
+
+  function clampOffset(offset: number) {
+    if (index === 0 && offset > 0) return offset * EDGE_RESISTANCE;
+    if (index === slides.length - 1 && offset < 0) return offset * EDGE_RESISTANCE;
+    return offset;
+  }
+
+  function onPointerDown(e: React.PointerEvent) {
+    // Ignora clique com botão secundário/terciário do mouse.
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    pointerIdRef.current = e.pointerId;
+    startXRef.current = e.clientX;
+    startYRef.current = e.clientY;
+    widthRef.current = viewportRef.current?.offsetWidth || 1;
+    axisLockedRef.current = null;
+    setDragging(true);
+  }
+
+  function onPointerMove(e: React.PointerEvent) {
+    if (pointerIdRef.current !== e.pointerId) return;
+    const dx = e.clientX - startXRef.current;
+    const dy = e.clientY - startYRef.current;
+
+    // Define o eixo do gesto na primeira movimentação relevante: se for
+    // majoritariamente vertical, libera o scroll da página (não arrasta o
+    // carrossel) - é o que o touch-action:pan-y do CSS já sinaliza.
+    if (!axisLockedRef.current && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+      axisLockedRef.current = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+    }
+    if (axisLockedRef.current !== "x") return;
+
+    e.preventDefault();
+    setDragOffset(clampOffset(dx));
+  }
+
+  function finishDrag() {
+    if (pointerIdRef.current === null) return;
+    pointerIdRef.current = null;
+
+    if (axisLockedRef.current === "x") {
+      const threshold = widthRef.current * THRESHOLD_RATIO;
+      if (dragOffset <= -threshold && index < slides.length - 1) setIndex((i) => i + 1);
+      else if (dragOffset >= threshold && index > 0) setIndex((i) => i - 1);
+    }
+
+    axisLockedRef.current = null;
+    setDragging(false);
+    setDragOffset(0);
+  }
+
+  const trackTransform = dragging
+    ? `translate3d(calc(-${index * 100}% + ${dragOffset}px),0,0)`
+    : `translate3d(-${index * 100}%,0,0)`;
+
   return (
     <section className="kpi-carousel" id="kpiCarousel" aria-label="Indicadores">
       <div className="kpi-carousel-head">
@@ -93,8 +159,18 @@ export function KpiCarousel(props: KpiCarouselProps) {
         <div className="kpi-carousel-view">{slides[index].title}</div>
       </div>
 
-      <div className="kpi-carousel-viewport">
-        <div className="kpi-carousel-track" style={{ transform: `translate3d(-${index * 100}%,0,0)` }}>
+      <div
+        className="kpi-carousel-viewport"
+        ref={viewportRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={finishDrag}
+        onPointerCancel={finishDrag}
+        onPointerLeave={(e) => {
+          if (pointerIdRef.current === e.pointerId) finishDrag();
+        }}
+      >
+        <div className={`kpi-carousel-track ${dragging ? "dragging" : ""}`} style={{ transform: trackTransform }}>
           {slides.map((slide) => (
             <div className="kpi-slide" data-title={slide.title} key={slide.title}>
               <div className="kpi-slide-grid" data-count={String(slide.cards.length)}>
