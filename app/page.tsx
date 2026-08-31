@@ -184,8 +184,6 @@ export default async function Home({
     .slice(0, 3);
   const pendentesHoje = carrierRows.filter((row) => !row.todaySubmission);
   const hasOperationalHistory = carrierRows.some((row) => row.sentDays > 0);
-  const coberturaPeriodo =
-    carrierRows.length > 0 ? carrierRows.reduce((sum, row) => sum + row.adherence, 0) / carrierRows.length : 0;
   const riskRows = carrierRows
     .map((row) => {
       const factors: string[] = [];
@@ -298,11 +296,6 @@ export default async function Home({
     reportsWithNotes: reportsWithNotes.length,
     pendingToday: pendentesHoje.length,
   };
-  const origemCounts = {
-    real: transportadoras.filter((item) => item.origem === "real").length,
-    demo: transportadoras.filter((item) => item.origem === "demo").length,
-    todos: transportadoras.length,
-  };
 
   return (
     <main className="shell">
@@ -324,22 +317,7 @@ export default async function Home({
       </div>
 
       <section className="card dashboard-filters">
-        <div>
-          <h2 className="section-title">Recorte operacional</h2>
-          <p className="muted">Por padrão, o painel mostra apenas transportadoras reais. Use a base demo para simular calendário e relatórios.</p>
-        </div>
         <div className="filter-row">
-          <div className="segmented-control" aria-label="Filtrar origem dos dados">
-            <Link className={origemFilter === "real" ? "active" : ""} href={`/?origem=real${transportadoraFilter ? `&transportadoraId=${transportadoraFilter}` : ""}`}>
-              Reais <span>{origemCounts.real}</span>
-            </Link>
-            <Link className={origemFilter === "demo" ? "active" : ""} href={`/?origem=demo${transportadoraFilter ? `&transportadoraId=${transportadoraFilter}` : ""}`}>
-              Demo <span>{origemCounts.demo}</span>
-            </Link>
-            <Link className={origemFilter === "todos" ? "active" : ""} href={`/?origem=todos${transportadoraFilter ? `&transportadoraId=${transportadoraFilter}` : ""}`}>
-              Todas <span>{origemCounts.todos}</span>
-            </Link>
-          </div>
           <form className="filter-form">
             <input type="hidden" name="origem" value={origemFilter} />
             <label className="sr-only" htmlFor="transportadoraId">Transportadora</label>
@@ -360,7 +338,7 @@ export default async function Home({
         </div>
       </section>
 
-      <section className="grid grid-4">
+      <section className="grid grid-3">
         <div className="card metric-card">
           <div className="metric-label">Transportadoras ativas</div>
           <div className="metric-value">{ativas}</div>
@@ -372,10 +350,6 @@ export default async function Home({
         <div className="card metric-card orange">
           <div className="metric-label">Relatórios pendentes hoje</div>
           <div className="metric-value">{pendentes}</div>
-        </div>
-        <div className="card metric-card">
-          <div className="metric-label">Cobertura em {HISTORY_DAYS} dias</div>
-          <div className="metric-value">{carrierRows.length ? `${coberturaPeriodo.toFixed(0)}%` : "-"}</div>
         </div>
       </section>
 
