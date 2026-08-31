@@ -16,7 +16,18 @@ interface BasePanelProps {
   fillPartial: number;
   fillDone: number;
   downloadHref: string;
-  uploadAction: (formData: FormData) => Promise<DevolucaoResumo>;
+  /**
+   * Opcional. Quando ausente (caso da Base Completa/acesso interno), o
+   * fluxo de devolução inteiro (accordion "Input de bases" + abas "Visão
+   * atualizada"/"Comparativo") é ocultado: devolução é uma ação por
+   * transportadora - a Server Action resolve a transportadora pela sessão
+   * (requireCarrierUser), então não existe "a transportadora" num
+   * contexto interno que enxerga todas ao mesmo tempo. Funcionalidade
+   * exclusiva do fluxo da transportadora, reportada explicitamente.
+   */
+  uploadAction?: (formData: FormData) => Promise<DevolucaoResumo>;
+  downloadLabel?: string;
+  backendNote?: string;
 }
 
 const TAB_INFO: Record<Tab, { title: string; hint: (n: number) => string }> = {
@@ -34,7 +45,10 @@ export function BasePanel({
   fillDone,
   downloadHref,
   uploadAction,
+  downloadLabel = "Baixar minha base",
+  backendNote = "Você está autenticado como transportadora - os downloads e a devolução acima só afetam os pedidos vinculados à sua sessão.",
 }: BasePanelProps) {
+  const permiteDevolucao = Boolean(uploadAction);
   const [accordionOpen, setAccordionOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("original");
   const [busca, setBusca] = useState("");
@@ -45,6 +59,7 @@ export function BasePanel({
   const [alertOpen, setAlertOpen] = useState(false);
 
   function onSubmit(formData: FormData) {
+    if (!uploadAction) return;
     setErro(null);
     startTransition(async () => {
       try {
@@ -65,7 +80,11 @@ export function BasePanel({
   return (
     <>
       {/* ---- Input de bases (accordion, 2 dropzones) ---- */}
-      <div className={`upload-accordion ${accordionOpen ? "open" : ""}`} id="uploadAccordion">
+      {/* Só existe quando há uploadAction: devolução é uma ação por
+          transportadora (resolvida pela sessão), sem sentido num contexto
+          interno que enxerga todas ao mesmo tempo. */}
+      {permiteDevolucao ? (
+        <div className={`upload-accordion ${accordionOpen ? "open" : ""}`} id="uploadAccordion">
         <button className="upload-toggle" type="button" onClick={() => setAccordionOpen((v) => !v)}>
           <div className="upload-toggle-main">
             <div className="upload-toggle-icon">↥</div>
@@ -121,6 +140,7 @@ export function BasePanel({
           </div>
         </div>
       </div>
+      ) : null}
 
       {erro ? (
         <div className="compact-alert open">
@@ -134,14 +154,18 @@ export function BasePanel({
       <div className="card panel">
         <div className="tabs">
           <button className={`tab ${activeTab === "original" ? "active" : ""}`} type="button" onClick={() => setActiveTab("original")}>
-            Visão original
+            {permiteDevolucao ? "Visão original" : "Base"}
           </button>
-          <button className={`tab ${activeTab === "updated" ? "active" : ""}`} type="button" onClick={() => setActiveTab("updated")}>
-            Visão atualizada
-          </button>
-          <button className={`tab ${activeTab === "compare" ? "active" : ""}`} type="button" onClick={() => setActiveTab("compare")}>
-            Comparativo
-          </button>
+          {permiteDevolucao ? (
+            <>
+              <button className={`tab ${activeTab === "updated" ? "active" : ""}`} type="button" onClick={() => setActiveTab("updated")}>
+                Visão atualizada
+              </button>
+              <button className={`tab ${activeTab === "compare" ? "active" : ""}`} type="button" onClick={() => setActiveTab("compare")}>
+                Comparativo
+              </button>
+            </>
+          ) : null}
         </div>
 
         <div className="backend-ready-bar" id="backendReadyBar">
@@ -172,14 +196,11 @@ export function BasePanel({
 
         <div className="panel-download">
           <a href={downloadHref} className="btn-transporter">
-            <Download size={13} /> Baixar minha base
+            <Download size={13} /> {downloadLabel}
           </a>
-          {/* Base Completa é recurso interno - nunca liberado aqui (mesma regra da Minha Base atual). */}
         </div>
 
-        <div className="backend-note">
-          Você está autenticado como transportadora - os downloads e a devolução acima só afetam os pedidos vinculados à sua sessão.
-        </div>
+        <div className="backend-note">{backendNote}</div>
 
         <div className="toolbar">
           <div className="toolbar-left">
