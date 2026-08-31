@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 export interface KpiCard {
   icon: string;
@@ -48,10 +48,10 @@ function KpiCardEl({ card }: { card: KpiCard }) {
 
 /**
  * Carrossel de Big Numbers - MESMA estrutura, MESMOS 5 slides, MESMA
- * quantidade/ordem de cards do HTML oficial. Navegação por dots (clique),
- * igual ao HTML. O gesto de arrastar (drag/swipe) do protótipo NÃO foi
- * portado - ver observação no relatório final; a navegação por clique nos
- * dots é 100% funcional e visualmente idêntica.
+ * quantidade/ordem de cards do HTML oficial. Navegação por dots (clique) e
+ * por arraste/swipe (Pointer Events - mouse, touch e caneta). A altura do
+ * viewport é medida em JS a partir do slide ativo (ver useLayoutEffect/
+ * ResizeObserver abaixo), para que cada slide ocupe só a altura que precisa.
  */
 export function KpiCarousel(props: KpiCarouselProps) {
   const slides: KpiSlideDef[] = [
@@ -82,6 +82,34 @@ export function KpiCarousel(props: KpiCarouselProps) {
   ];
 
   const [index, setIndex] = useState(0);
+
+  // ---- Altura dinâmica: só o slide ATIVO determina a altura visível ----
+  // Causa do espaço vazio: todos os slides ficam lado a lado dentro do
+  // mesmo flex-row (.kpi-carousel-track) - por isso a altura do container
+  // é sempre a do slide mais alto, mesmo com align-items:flex-start (isso
+  // evita o "esticamento" dos cards, mas não muda a altura do container,
+  // que em flex-row é sempre a do maior item do eixo). A correção real é
+  // medir a altura do slide ativo em JS e aplicá-la no viewport - é
+  // exatamente o que a propriedade "transition:height .22s ease" (já
+  // presente no CSS extraído do HTML oficial) pressupõe.
+  const slideRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const [viewportHeight, setViewportHeight] = useState<number | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    const activeSlide = slideRefs.current[index];
+    if (activeSlide) setViewportHeight(activeSlide.offsetHeight);
+  }, [index, slides.length]);
+
+  useEffect(() => {
+    const activeSlide = slideRefs.current[index];
+    if (!activeSlide || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      setViewportHeight(activeSlide.offsetHeight);
+    });
+    observer.observe(activeSlide);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index]);
 
   // ---- Arraste (mouse/touch/pen unificados via Pointer Events) ----
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -162,6 +190,7 @@ export function KpiCarousel(props: KpiCarouselProps) {
       <div
         className="kpi-carousel-viewport"
         ref={viewportRef}
+        style={viewportHeight !== undefined ? { height: viewportHeight } : undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={finishDrag}
@@ -171,8 +200,15 @@ export function KpiCarousel(props: KpiCarouselProps) {
         }}
       >
         <div className={`kpi-carousel-track ${dragging ? "dragging" : ""}`} style={{ transform: trackTransform }}>
-          {slides.map((slide) => (
-            <div className="kpi-slide" data-title={slide.title} key={slide.title}>
+          {slides.map((slide, slideIndex) => (
+            <div
+              className="kpi-slide"
+              data-title={slide.title}
+              key={slide.title}
+              ref={(el) => {
+                slideRefs.current[slideIndex] = el;
+              }}
+            >
               <div className="kpi-slide-grid" data-count={String(slide.cards.length)}>
                 {slide.cards.map((card, i) => (
                   <KpiCardEl card={card} key={`${slide.title}-${i}`} />

@@ -143,6 +143,18 @@
 .mb-html a.btn-secondary:hover {
       background:#f4f7fb;
     }
+
+/* "Baixar minha base" mais compacto - reaproveita a MESMA escala já
+   usada para <button> dentro de .panel-download no HTML oficial
+   (height:34px; font-size:12px), que é a escala de ação secundária
+   do próprio painel. Mais específica que a regra genérica acima
+   (a.btn-transporter), então vence sem precisar de !important. */
+.mb-html .panel-download a.btn-transporter {
+      height:34px;
+      padding:0 10px;
+      font-size:12px;
+      gap:5px;
+    }
 .mb-html a.btn-transporter:focus-visible,
 .mb-html a.btn-primary:focus-visible,
 .mb-html a.btn-secondary:focus-visible,
