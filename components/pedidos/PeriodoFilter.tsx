@@ -1,3 +1,8 @@
+"use client";
+
+import { useState } from "react";
+import { Calendar, ChevronDown } from "lucide-react";
+
 interface PeriodoFilterProps {
   action: string;
   de: string;
@@ -6,37 +11,62 @@ interface PeriodoFilterProps {
   hiddenFields?: Record<string, string>;
 }
 
+function formatarBr(iso: string): string {
+  const [ano, mes, dia] = iso.split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+
 /**
- * Filtro "Data: [Promessa Transporte ▼] / DE / ATÉ", conforme especificado.
- * Não existe um elemento equivalente literal no HTML oficial (conferido) -
- * reaproveita os componentes de formulário já padronizados no restante do
- * portal (.field/.btn), para não introduzir mais um estilo novo.
+ * Filtro de período compacto e expansível, reutilizado em Minha Base e na
+ * aba Início. Fechado: só "Filtros" (sem seta) + resumo do período + a
+ * seta de expandir/recolher, que fica exclusivamente ao lado das datas.
+ * Aberto: Data (Promessa Transporte) / De / Até / Aplicar período.
  */
 export function PeriodoFilter({ action, de, ate, hiddenFields }: PeriodoFilterProps) {
+  const [aberto, setAberto] = useState(false);
+
   return (
-    <form className="card form-grid" style={{ marginBottom: 18 }} action={action}>
-      {Object.entries(hiddenFields ?? {}).map(([name, value]) =>
-        value ? <input key={name} type="hidden" name={name} value={value} /> : null,
-      )}
-      <div className="field">
-        <label htmlFor="referenciaData">Data</label>
-        <select id="referenciaData" name="referenciaData" defaultValue="promessa_transporte" disabled>
-          <option value="promessa_transporte">Promessa Transporte</option>
-        </select>
-      </div>
-      <div className="field">
-        <label htmlFor="de">De</label>
-        <input type="date" id="de" name="de" defaultValue={de} />
-      </div>
-      <div className="field">
-        <label htmlFor="ate">Até</label>
-        <input type="date" id="ate" name="ate" defaultValue={ate} />
-      </div>
-      <div className="actions" style={{ alignItems: "end" }}>
-        <button className="btn" type="submit">
-          Aplicar período
-        </button>
-      </div>
-    </form>
+    <div className="periodo-filter">
+      <button
+        type="button"
+        className="periodo-filter-toggle"
+        onClick={() => setAberto((v) => !v)}
+        aria-expanded={aberto}
+      >
+        <span className="periodo-filter-label">Filtros</span>
+        <span className="periodo-filter-summary">
+          <Calendar size={13} />
+          {formatarBr(de)} até {formatarBr(ate)}
+          <ChevronDown size={14} className={`periodo-filter-chevron ${aberto ? "open" : ""}`} />
+        </span>
+      </button>
+
+      {aberto ? (
+        <form className="periodo-filter-body" action={action}>
+          {Object.entries(hiddenFields ?? {}).map(([name, value]) =>
+            value ? <input key={name} type="hidden" name={name} value={value} /> : null,
+          )}
+          <div className="field">
+            <label htmlFor="referenciaData">Data</label>
+            <select id="referenciaData" name="referenciaData" defaultValue="promessa_transporte" disabled>
+              <option value="promessa_transporte">Promessa Transporte</option>
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="de">De</label>
+            <input type="date" id="de" name="de" defaultValue={de} />
+          </div>
+          <div className="field">
+            <label htmlFor="ate">Até</label>
+            <input type="date" id="ate" name="ate" defaultValue={ate} />
+          </div>
+          <div className="actions" style={{ alignItems: "end" }}>
+            <button className="btn" type="submit">
+              Aplicar período
+            </button>
+          </div>
+        </form>
+      ) : null}
+    </div>
   );
 }
