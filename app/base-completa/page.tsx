@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { formatBrazilianDate } from "@/lib/dates";
 import { BRAZILIAN_UFS } from "@/lib/ufs";
 import { parsePedidosFilters, filtersToSearchParams, buildPedidosWhere } from "@/lib/pedidos-query";
+import { parsePeriodoFilters, periodoParaIntervaloDatas } from "@/lib/pedidos-periodo";
+import { PeriodoFilter } from "@/components/pedidos/PeriodoFilter";
 
 const PAGE_SIZE = 100;
 const MAX_LIMIT = 2000;
@@ -21,6 +23,8 @@ export default async function BaseCompletaPage({
   const raw = await searchParams;
   const filters = parsePedidosFilters(raw);
   const limit = Math.min(Number(raw.limite) || PAGE_SIZE, MAX_LIMIT);
+  const periodo = parsePeriodoFilters(raw);
+  const intervaloPeriodo = periodoParaIntervaloDatas(periodo);
 
   // Sem regra fixa de transportadoraId nem de dataEntregaOrigem: Base
   // Completa mostra todos os pedidos, abertos e finalizados, de todas as
@@ -42,7 +46,19 @@ export default async function BaseCompletaPage({
     nome: string;
   }
 
-  const [pedidos, transportadoras]: [PedidoListItem[], TransportadoraOption[]] = await Promise.all([
+  // KPIs do admin respeitam o filtro opcional de transportadora (sem
+  // filtro = consolidado de todas) e o período - independentes dos demais
+  // filtros de tabela (pedido/UF/status), que não fazem sentido para os
+  // Big Numbers.
+  const kpiWhereBase = filters.transportadoraId ? { transportadoraId: filters.transportadoraId } : {};
+
+  const [pedidos, transportadoras, totalPedidosKpi, pedidosAbertosKpi, pedidosVencidosKpi]: [
+    PedidoListItem[],
+    TransportadoraOption[],
+    number,
+    number,
+    number,
+  ] = await Promise.all([
     prisma.pedido.findMany({
       where,
       include: { transportadora: { select: { id: true, nome: true } } },
@@ -50,6 +66,11 @@ export default async function BaseCompletaPage({
       take: limit,
     }),
     prisma.transportadora.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+    prisma.pedido.count({ where: kpiWhereBase }),
+    prisma.pedido.count({ where: { ...kpiWhereBase, dataEntregaOrigem: null } }),
+    prisma.pedido.count({
+      where: { ...kpiWhereBase, dataEntregaOrigem: null, dataPrevisao: intervaloPeriodo },
+    }),
   ]);
 
   const hasMore = pedidos.length === limit;
@@ -68,6 +89,47 @@ export default async function BaseCompletaPage({
           <Download size={18} /> Baixar Base
         </a>
       </div>
+
+      <section className="grid grid-4" style={{ marginBottom: 18 }}>
+        <div className="card metric-card">
+          <div className="metric-label">Total de Pedidos</div>
+          <div className="metric-value">{totalPedidosKpi.toLocaleString("pt-BR")}</div>
+          <div className="metric-note">{filters.transportadoraId ? "Da transportadora filtrada" : "Consolidado de todas as transportadoras"}</div>
+        </div>
+        <div className="card metric-card">
+          <div className="metric-label">Pedidos em Aberto</div>
+          <div className="metric-value">{pedidosAbertosKpi.toLocaleString("pt-BR")}</div>
+          <div className="metric-note">dataEntregaOrigem em aberto</div>
+        </div>
+        <div className="card metric-card orange">
+          <div className="metric-label">Pedidos Vencidos</div>
+          <div className="metric-value">{pedidosVencidosKpi.toLocaleString("pt-BR")}</div>
+          <div className="metric-note">
+            Promessa Transporte {periodo.de.split("-").reverse().join("/")} a {periodo.ate.split("-").reverse().join("/")}
+          </div>
+        </div>
+        <div className="card metric-card green">
+          <div className="metric-label">% Aberto/Total</div>
+          <div className="metric-value">
+            {totalPedidosKpi > 0 ? Math.round((pedidosAbertosKpi / totalPedidosKpi) * 1000) / 10 : 0}%
+          </div>
+          <div className="metric-note">Sobre o escopo selecionado</div>
+        </div>
+      </section>
+
+      <PeriodoFilter
+        action="/base-completa"
+        de={periodo.de}
+        ate={periodo.ate}
+        hiddenFields={{
+          pedido: filters.pedido ?? "",
+          transportadoraId: filters.transportadoraId ?? "",
+          uf: filters.uf ?? "",
+          dataCriacaoDe: filters.dataCriacaoDe ?? "",
+          dataCriacaoAte: filters.dataCriacaoAte ?? "",
+          statusAtual: filters.statusAtual ?? "",
+        }}
+      />
 
       <form className="card form-grid" style={{ marginBottom: 18 }}>
         <div className="field">

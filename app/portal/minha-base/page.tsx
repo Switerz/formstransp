@@ -4,8 +4,10 @@ import { formatBrazilianDate } from "@/lib/dates";
 import { KpiCarousel, type KpiCard } from "@/components/pedidos/KpiCarousel";
 import { BasePanel } from "@/components/pedidos/BasePanel";
 import { HelpPanel } from "@/components/pedidos/HelpPanel";
+import { PeriodoFilter } from "@/components/pedidos/PeriodoFilter";
 import { pedidoParaLinhaTabela, type PedidoParaTabela } from "@/lib/pedidos-table-row";
 import { calcularKpisDerivaveis } from "@/lib/pedidos-kpis";
+import { parsePeriodoFilters, periodoParaIntervaloDatas } from "@/lib/pedidos-periodo";
 import { uploadDevolucaoTransportadora } from "@/app/portal/minha-base/actions";
 import "@/components/pedidos/minha-base.css";
 
@@ -18,11 +20,18 @@ function formatarUltimaAtualizacao(data: Date | null): string {
   return formatBrazilianDate(data);
 }
 
-export default async function MinhaBasePage() {
+export default async function MinhaBasePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const user = await requireCarrierUser("/portal/minha-base");
   const transportadoraId = user.transportadoraId!;
+  const raw = await searchParams;
+  const periodo = parsePeriodoFilters(raw);
+  const intervaloPeriodo = periodoParaIntervaloDatas(periodo);
 
-  const [pedidosDb, totalPedidos, pedidosAbertosCount, ultimaCarga, ultimaDevolucao] = await Promise.all([
+  const [pedidosDb, totalPedidos, pedidosAbertosCount, pedidosVencidosCount, ultimaCarga, ultimaDevolucao] = await Promise.all([
     prisma.pedido.findMany({
       where: { transportadoraId, dataEntregaOrigem: null },
       include: { transportadora: { select: { nome: true } } },
@@ -31,6 +40,9 @@ export default async function MinhaBasePage() {
     }),
     prisma.pedido.count({ where: { transportadoraId } }),
     prisma.pedido.count({ where: { transportadoraId, dataEntregaOrigem: null } }),
+    prisma.pedido.count({
+      where: { transportadoraId, dataEntregaOrigem: null, dataPrevisao: intervaloPeriodo },
+    }),
     prisma.automationLog.findFirst({
       where: { tipo: "pedidos_import" },
       orderBy: { createdAt: "desc" },
@@ -65,6 +77,13 @@ export default async function MinhaBasePage() {
     hint: "Sobre o total da transportadora",
   };
 
+  const pedidosVencidosCard: KpiCard = {
+    icon: "◷",
+    label: "Pedidos Vencidos",
+    value: pedidosVencidosCount.toLocaleString("pt-BR"),
+    hint: `Promessa Transporte entre ${formatBrazilianDate(intervaloPeriodo.gte)} e ${periodo.ate.split("-").reverse().join("/")}`,
+  };
+
   const integridadeCard: KpiCard = {
     icon: "✓",
     label: "Integridade da devolução",
@@ -93,6 +112,8 @@ export default async function MinhaBasePage() {
           </div>
         </div>
 
+        <PeriodoFilter action="/portal/minha-base" de={periodo.de} ate={periodo.ate} />
+
         <section className="grid">
           <KpiCarousel
             slaAjusteTransporte={{ ...SEM_REGRA, icon: "◎", label: "SLA Ajuste Transporte" }}
@@ -102,7 +123,7 @@ export default async function MinhaBasePage() {
             taxaDevolucao={{ ...SEM_REGRA, icon: "↺", label: "Taxa de Devolução" }}
             pedidosAbertos={pedidosAbertosCard}
             tratativaCx={{ ...SEM_REGRA, icon: "×", label: "Tratativa CX" }}
-            riscoAtraso={{ ...SEM_REGRA, icon: "◷", label: "Risco de Atraso" }}
+            riscoAtraso={pedidosVencidosCard}
             processado={{ ...SEM_REGRA, icon: "↗", label: "Processado" }}
             perdas={{ ...SEM_REGRA, icon: "◇", label: "Perdas Extr/Sint/Avar" }}
             totalPedidos={totalPedidosCard}
