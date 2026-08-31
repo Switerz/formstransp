@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import { PRIMARY_COLUMNS, FILL_COLUMNS, PROTECTED_COLUMNS } from "@/lib/pedidos-devolucao-validation";
-import { ORDEM_COLUNAS_TABELA, linhaCorrespondeABusca, type LinhaTabela } from "@/lib/pedidos-table-row";
+import { ORDEM_COLUNAS_TABELA, type LinhaTabela } from "@/lib/pedidos-table-row";
 
 const LIMITE_LINHAS_EXIBIDAS = 1000;
 
@@ -13,48 +12,61 @@ function classeColuna(col: string): string {
   return "";
 }
 
-function FillBadge({ status }: { status: LinhaTabela["fillStatus"] }) {
-  const label = status === "done" ? "Completo" : status === "partial" ? "Parcial" : "Pendente";
-  return <span className={`fill-badge ${status}`}>{label}</span>;
+interface PedidosTableProps {
+  linhas: LinhaTabela[];
+  busca: string;
+  mostrarProtegidas: boolean;
+  onToggleProtegidas: () => void;
 }
 
-export function PedidosTable({ linhas }: { linhas: LinhaTabela[] }) {
-  const [busca, setBusca] = useState("");
-  const [mostrarProtegidas, setMostrarProtegidas] = useState(false);
+/**
+ * Mesma estrutura do renderTable() do HTML oficial: grupo de toggle das
+ * colunas protegidas (duplo clique, "+"/"−") logo acima da tabela, dentro
+ * de .table-wrap (com scroll, max-height:520px como no protótipo).
+ */
+export function PedidosTable({ linhas, busca, mostrarProtegidas, onToggleProtegidas }: PedidosTableProps) {
+  const colunasProtegidasExistem = PROTECTED_COLUMNS.length > 0;
 
-  const colunasVisiveis = useMemo(
-    () => ORDEM_COLUNAS_TABELA.filter((col) => mostrarProtegidas || !(PROTECTED_COLUMNS as readonly string[]).includes(col)),
-    [mostrarProtegidas],
+  const q = busca.trim().toLowerCase();
+  const filtradas = !q
+    ? linhas
+    : linhas.filter((linha) => Object.values(linha.colunas).some((v) => v.toLowerCase().includes(q)));
+
+  const colunasVisiveis = ORDEM_COLUNAS_TABELA.filter(
+    (col) => mostrarProtegidas || !(PROTECTED_COLUMNS as readonly string[]).includes(col),
   );
-
-  const filtradas = useMemo(() => {
-    return linhas.filter((linha) => linhaCorrespondeABusca(linha, busca));
-  }, [linhas, busca]);
 
   const visiveis = filtradas.slice(0, LIMITE_LINHAS_EXIBIDAS);
 
+  if (!linhas.length) {
+    return <div className="empty">Nenhuma base carregada para esta visão.</div>;
+  }
+
   return (
-    <div>
-      <div className="mb-toolbar">
-        <input
-          type="search"
-          placeholder="Pesquisar em qualquer coluna..."
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-        />
-        <button type="button" className="excel-group-toggle" onClick={() => setMostrarProtegidas((v) => !v)}>
-          {mostrarProtegidas ? "Ocultar colunas protegidas" : "Mostrar colunas protegidas"}
-        </button>
-        <span className="fill-badge pending">Pendente</span>
-        <span className="fill-badge partial">Parcial</span>
-        <span className="fill-badge done">Completo</span>
-      </div>
+    <>
+      {colunasProtegidasExistem ? (
+        <div className="excel-column-group">
+          <span className="excel-group-line" />
+          <button
+            type="button"
+            className="excel-group-toggle"
+            onDoubleClick={onToggleProtegidas}
+            title={mostrarProtegidas ? "Clique duas vezes para ocultar as colunas protegidas" : "Clique duas vezes para mostrar as colunas protegidas"}
+          >
+            {mostrarProtegidas ? "−" : "+"}
+          </button>
+          <span className="excel-group-line" />
+          <span className="excel-group-hint">
+            {mostrarProtegidas ? "duplo clique para recolher" : "duplo clique para mostrar colunas protegidas"}
+          </span>
+        </div>
+      ) : null}
 
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Preenchimento</th>
+              <th>Preench.</th>
               <th>Ofensor GB</th>
               {colunasVisiveis.map((col) => (
                 <th key={col} className={classeColuna(col)}>
@@ -66,13 +78,11 @@ export function PedidosTable({ linhas }: { linhas: LinhaTabela[] }) {
           <tbody>
             {visiveis.map((linha) => (
               <tr key={linha.id}>
-                <td>
-                  <FillBadge status={linha.fillStatus} />
-                </td>
+                <td>{linha.fillStatus === "done" ? "Completo" : linha.fillStatus === "partial" ? "Parcial" : "Pendente"}</td>
                 <td>{linha.ofensorGb ?? "-"}</td>
                 {colunasVisiveis.map((col) => (
                   <td key={col} className={classeColuna(col)}>
-                    {linha.colunas[col] || "-"}
+                    {linha.colunas[col] || ""}
                   </td>
                 ))}
               </tr>
@@ -82,11 +92,10 @@ export function PedidosTable({ linhas }: { linhas: LinhaTabela[] }) {
       </div>
 
       {filtradas.length > LIMITE_LINHAS_EXIBIDAS ? (
-        <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-          Exibindo as primeiras {LIMITE_LINHAS_EXIBIDAS.toLocaleString("pt-BR")} de{" "}
-          {filtradas.length.toLocaleString("pt-BR")} linhas filtradas.
-        </p>
+        <div style={{ paddingTop: 8, fontSize: 11, color: "var(--gray)" }}>
+          Exibindo as primeiras {LIMITE_LINHAS_EXIBIDAS.toLocaleString("pt-BR")} de {filtradas.length.toLocaleString("pt-BR")} linhas filtradas.
+        </div>
       ) : null}
-    </div>
+    </>
   );
 }
