@@ -1,4 +1,4 @@
-import { requireInternalUser } from "@/lib/auth";
+import { requireInternalUser, isInternalAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { KpiCarousel } from "@/components/pedidos/KpiCarousel";
 import { BasePanel } from "@/components/pedidos/BasePanel";
@@ -7,6 +7,7 @@ import { PeriodoFilter } from "@/components/pedidos/PeriodoFilter";
 import { pedidoParaLinhaTabela, type PedidoParaTabela } from "@/lib/pedidos-table-row";
 import { summarizeFillStatus } from "@/lib/pedidos-kpis";
 import { montarDadosKpiCarousel } from "@/lib/pedidos-kpi-carousel";
+import { uploadBaseOriginalInterna, uploadDevolucaoInterna } from "@/app/base-completa/actions";
 import "@/components/pedidos/minha-base.css";
 
 export const dynamic = "force-dynamic";
@@ -20,8 +21,17 @@ export default async function BaseCompletaPage({
   // transportadora, e nenhum transportadoraId vindo da sessão para
   // restringir o escopo - o resto da página é literalmente a mesma
   // estrutura de /portal/minha-base/page.tsx.
-  await requireInternalUser("/base-completa");
+  const user = await requireInternalUser("/base-completa");
   const raw = await searchParams;
+
+  // Input de bases (upload de Base Original e devolução em nome de uma
+  // transportadora escolhida) só é OFERECIDO na interface para
+  // internal_admin - internal_viewer continua com acesso de leitura,
+  // igual já era antes desta mudança. A garantia de verdade está no
+  // servidor: as duas Server Actions chamam requireInternalAdmin() por
+  // conta própria (app/base-completa/actions.ts), então mesmo que
+  // alguém forjasse a chamada por fora desta página, ela seria recusada.
+  const podeGerenciarBases = isInternalAdmin(user.role);
 
   // Filtro OPCIONAL de transportadora - só existe aqui (Minha Base não
   // precisa, a transportadora já vem da sessão). Sem seleção = todas.
@@ -89,7 +99,10 @@ export default async function BaseCompletaPage({
             fillDone={preenchimento.done}
             downloadHref={downloadHref}
             downloadLabel="Baixar Base Completa"
-            backendNote="Visão interna - mostra todas as transportadoras, incluindo pedidos finalizados. Sem devolução: essa ação pertence ao fluxo de cada transportadora."
+            backendNote="Visão interna - mostra todas as transportadoras, incluindo pedidos finalizados."
+            uploadAction={podeGerenciarBases ? uploadDevolucaoInterna : undefined}
+            uploadOriginalAction={podeGerenciarBases ? uploadBaseOriginalInterna : undefined}
+            transportadorasParaSelecao={podeGerenciarBases ? transportadoras : undefined}
           />
         </section>
       </main>
