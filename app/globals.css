@@ -214,9 +214,16 @@ textarea {
 
 .page-title h1,
 .report-title h1 {
-  margin: 0;
+  margin: 0 0 6px;
   color: var(--navy);
   font-size: var(--font-xl);
+  line-height: 1.25;
+}
+
+.page-title p {
+  margin: 0;
+  font-size: var(--font-md);
+  line-height: 1.45;
 }
 
 .muted {
@@ -245,7 +252,7 @@ textarea {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 16px;
+  padding: 14px;
   box-shadow: 0 1px 3px rgba(15, 39, 66, 0.06);
 }
 
@@ -272,7 +279,7 @@ textarea {
 
 .metric-label {
   color: var(--gray);
-  font-size: 13px;
+  font-size: var(--font-xs);
 }
 
 .metric-head,
@@ -284,10 +291,10 @@ textarea {
 }
 
 .metric-value {
-  font-size: 30px;
+  font-size: 24px;
   font-weight: 800;
   color: var(--navy);
-  margin: 8px 0 4px;
+  margin: 6px 0 4px;
 }
 
 .metric-card .muted {
@@ -311,7 +318,7 @@ textarea {
   flex: 0 0 auto;
   border-radius: 999px;
   padding: 3px 8px;
-  font-size: 12px;
+  font-size: var(--font-xs);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -369,19 +376,28 @@ textarea {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
 }
 
 th,
 td {
   text-align: left;
   border-bottom: 1px solid var(--line);
-  padding: 10px 8px;
+  border-right: 1px solid var(--line);
+  padding: 7px 8px;
+}
+
+th:last-child,
+td:last-child {
+  border-right: none;
 }
 
 th {
   color: var(--navy);
   background: var(--table-header);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  border-bottom: 2px solid var(--line);
 }
 
 .actions {
@@ -390,36 +406,6 @@ th {
   flex-wrap: wrap;
 }
 
-.ops-brief {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  margin-top: 18px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 16px;
-  background: var(--surface-muted);
-}
-
-.ops-brief .section-title,
-.ops-brief p {
-  margin: 0;
-}
-
-.ops-brief .section-title {
-  margin-bottom: 4px;
-}
-
-.ops-brief-stats {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.ops-brief-stats span,
 .queue-more {
   display: inline-flex;
   align-items: center;
@@ -431,10 +417,6 @@ th {
   color: var(--text-subtle);
   font-size: 12px;
   font-weight: 700;
-}
-
-.ops-brief-stats strong {
-  color: var(--navy);
 }
 
 .queue-more {
@@ -487,7 +469,7 @@ th {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .dashboard-filters .section-title {
@@ -550,12 +532,13 @@ th {
 }
 
 .filter-form select {
-  min-height: 36px;
+  min-height: 32px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  padding: 7px 10px;
+  padding: 6px 9px;
   background: white;
   color: var(--text);
+  font-size: var(--font-sm);
 }
 
 .control-panel,
@@ -657,8 +640,8 @@ th {
 }
 
 .btn.compact {
-  min-height: 34px;
-  padding: 6px 10px;
+  min-height: 32px;
+  padding: 6px 9px;
 }
 
 .calendar-panel {
@@ -1066,10 +1049,10 @@ th {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 38px;
+  min-height: 36px;
   border: 1px solid var(--navy);
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 7px 12px;
   background: var(--navy);
   color: white;
   cursor: pointer;
@@ -1331,7 +1314,7 @@ th {
 
 .field {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .field label {
@@ -1343,11 +1326,12 @@ th {
 .field input,
 .field textarea,
 .field select {
-  min-height: 40px;
+  min-height: 36px;
   border: 1px solid var(--input-line);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 7px 9px;
   background: var(--surface);
+  font-size: var(--font-base);
 }
 
 .field input:focus,
@@ -1361,13 +1345,13 @@ th {
 }
 
 .field textarea {
-  min-height: 92px;
+  min-height: 80px;
 }
 
 .section-title {
   color: var(--navy);
-  font-size: 18px;
-  margin: 0 0 12px;
+  font-size: var(--font-lg);
+  margin: 0 0 8px;
 }
 
 .report-section-heading {

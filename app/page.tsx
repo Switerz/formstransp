@@ -3,7 +3,6 @@ import {
   CalendarDays,
   CheckCircle2,
   ClipboardList,
-  Edit,
   FileBarChart,
   History,
   Layers3,
@@ -13,7 +12,7 @@ import {
 import { EmptyState } from "@/components/EmptyState";
 import { isInternalAdmin, requireInternalUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { formatBrazilianDate, startOfLocalDay } from "@/lib/dates";
+import { startOfLocalDay } from "@/lib/dates";
 import { BRAZILIAN_UFS } from "@/lib/ufs";
 
 const HISTORY_DAYS = 14;
@@ -139,9 +138,6 @@ export default async function Home({
   ).length;
   const ativas = activeTransportadoras.length;
   const pendentes = Math.max(0, ativas - relatoriosHoje);
-  const ultimoEnvio = filteredTransportadoras
-    .flatMap((item) => item.submissions)
-    .sort((a, b) => b.dataReport.getTime() - a.dataReport.getTime())[0];
 
   const carrierRows = activeTransportadoras.map((transportadora) => {
     const submissionsByDate = new Map(transportadora.submissions.map((submission) => [dateKey(submission.dataReport), submission]));
@@ -382,23 +378,6 @@ export default async function Home({
         </div>
       </section>
 
-      {!hasOperationalHistory && activeTransportadoras.length ? (
-        <section className="ops-brief">
-          <div>
-            <h2 className="section-title">Operação aguardando primeiros envios</h2>
-            <p className="muted">
-              O painel já está pronto para leitura diária. Como ainda não há histórico no recorte, os alertas priorizam
-              apenas a fila de envio de hoje e deixam SLA, heatmap e calendário em segundo plano.
-            </p>
-          </div>
-          <div className="ops-brief-stats" aria-label="Resumo do estado inicial">
-            <span><strong>{ativas}</strong> ativas</span>
-            <span><strong>{pendentesHoje.length}</strong> pendentes</span>
-            <span><strong>{relatoriosHoje}</strong> recebidas</span>
-          </div>
-        </section>
-      ) : null}
-
       <section className="card risk-panel">
         <div className="panel-heading">
           <div>
@@ -486,6 +465,9 @@ export default async function Home({
                       <div className="actions">
                         <Link className="btn secondary compact" href={`/transportadoras/${row.transportadora.id}`}>
                           <ClipboardList size={16} /> Diagnóstico
+                        </Link>
+                        <Link className="btn secondary compact" href={`/historico/${row.transportadora.id}`}>
+                          <History size={16} /> Histórico
                         </Link>
                         {row.last ? (
                           <Link className="btn secondary compact" href={`/reports/${row.transportadora.id}/${dateKey(row.last.dataReport)}`}>
@@ -698,88 +680,6 @@ export default async function Home({
       </section>
       </details>
 
-      <section className="card" id="transportadoras" style={{ marginTop: 18 }}>
-        <div className="panel-heading">
-          <div>
-            <h2 className="section-title">Transportadoras</h2>
-            <p className="muted">Acesso rápido ao cadastro, histórico e último relatório disponível.</p>
-          </div>
-          <span className="pill">{ultimoEnvio ? `Último envio: ${formatBrazilianDate(ultimoEnvio.dataReport)}` : "Sem envios"}</span>
-        </div>
-
-        {!filteredTransportadoras.length ? (
-          <EmptyState
-            title="Nenhuma transportadora neste recorte"
-            description="Ajuste os filtros para ver outra origem de dados ou outra transportadora."
-            action={{ href: "/", label: "Ver base real" }}
-          />
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Transportadora</th>
-                  <th>Status hoje</th>
-                  <th>Ativa</th>
-                  <th>SLA médio</th>
-                  <th>Último envio</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTransportadoras.map((transportadora) => {
-                  const row = carrierRows.find((item) => item.transportadora.id === transportadora.id);
-                  const last = transportadora.submissions[0];
-                  const sentToday = Boolean(row?.todaySubmission);
-                  return (
-                    <tr key={transportadora.id}>
-                      <td>
-                        <strong>{transportadora.nome}</strong>
-                        <div className="muted">{transportadora.codigoSlug}</div>
-                        <span className={`pill tiny ${transportadora.origem === "real" ? "ok" : "pending"}`}>
-                          {transportadora.origem === "real" ? "Real" : "Demo"}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`pill ${sentToday ? "ok" : "pending"}`}>
-                          {sentToday ? "Recebido" : "Pendente"}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`pill ${transportadora.ativo ? "ok" : "pending"}`}>
-                          {transportadora.ativo ? "Ativa" : "Inativa"}
-                        </span>
-                      </td>
-                      <td>{row?.averageSla ? `${row.averageSla.toFixed(1)}%` : "-"}</td>
-                      <td>{last ? formatBrazilianDate(last.dataReport) : "-"}</td>
-                      <td>
-                        <div className="actions">
-                          {canManage ? (
-                            <Link className="btn secondary" href={`/transportadoras/${transportadora.id}/editar`}>
-                              <Edit size={16} /> Editar
-                            </Link>
-                          ) : null}
-                          <Link className="btn secondary" href={`/transportadoras/${transportadora.id}`}>
-                            <ClipboardList size={16} /> Diagnóstico
-                          </Link>
-                          {last ? (
-                            <Link className="btn secondary" href={`/reports/${transportadora.id}/${dateKey(last.dataReport)}`}>
-                              <FileBarChart size={16} /> Relatório
-                            </Link>
-                          ) : null}
-                          <Link className="btn secondary" href={`/historico/${transportadora.id}`}>
-                            <History size={16} /> Histórico
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
     </main>
   );
 }
