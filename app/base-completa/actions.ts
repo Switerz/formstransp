@@ -1,5 +1,6 @@
 "use server";
 
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireInternalAdmin } from "@/lib/auth";
 import { assertSameOrigin } from "@/lib/request-security";
@@ -43,6 +44,10 @@ const CANONICAL_TO_ORIGEM_FIELD: Record<string, string> = {
   "Valor da Nota": "valorNota",
   "Peso fisico": "pesoFisico",
   "Chave da Nota": "chaveNota",
+  "Data Criação": "dataCriacaoPedido",
+  "Data Entrega Origem": "dataEntregaOrigem",
+  "Previsão Entrega Cliente": "previsaoEntregaClienteOrigem",
+  "Previsão Entrega Transportadora": "previsaoEntregaTransportadoraOrigem",
 };
 
 function textoOuNull(value: unknown): string | null {
@@ -54,6 +59,26 @@ function decimalOuNull(value: unknown): number | null {
   if (value === null || value === undefined || String(value).trim() === "") return null;
   const numero = Number(String(value).replace(",", "."));
   return Number.isNaN(numero) ? null : numero;
+}
+
+function dataOuNull(value: unknown): Date | null {
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const texto = String(value).trim();
+  const br = /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(texto);
+  if (br) {
+    const [, d, m, y, hh = "0", mm = "0", ss = "0"] = br;
+    const parsed = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss));
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(texto);
+  if (iso) {
+    const [, y, m, d, hh = "0", mm = "0", ss = "0"] = iso;
+    const parsed = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss));
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  const parsed = new Date(texto);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 /**
@@ -90,6 +115,8 @@ export async function uploadBaseOriginalInterna(formData: FormData): Promise<Bas
   }));
 
   const resumo: BaseOriginalResumo = { totalLinhas: rows.length, inseridos: 0, atualizados: 0, erros: [] };
+  const preparados: Array<{ linha: number; pedido: string; data: Prisma.PedidoCreateManyInput }> = [];
+  const pedidosVistos = new Set<string>();
 
   for (let index = 0; index < rows.length; index += 1) {
     const linha = index + 2; // linha 1 = cabeçalho
@@ -100,6 +127,11 @@ export async function uploadBaseOriginalInterna(formData: FormData): Promise<Bas
       resumo.erros.push({ linha, pedido: "", motivo: "Coluna Pedido ausente ou vazia." });
       continue;
     }
+    if (pedidosVistos.has(pedidoChave)) {
+      resumo.erros.push({ linha, pedido: pedidoChave, motivo: "Pedido duplicado no mesmo arquivo." });
+      continue;
+    }
+    pedidosVistos.add(pedidoChave);
 
     const nomeTransportadora = String(normalizado["Transportadora"] ?? "").trim();
     const transportadora = nomeTransportadora ? resolveTransportadora(nomeTransportadora, transportadoras) : null;
@@ -117,29 +149,66 @@ export async function uploadBaseOriginalInterna(formData: FormData): Promise<Bas
       const campoPrisma = CANONICAL_TO_ORIGEM_FIELD[coluna];
       if (!campoPrisma || !(coluna in normalizado)) continue;
       const valor = normalizado[coluna];
-      origemFields[campoPrisma] = coluna === "Valor da Nota" || coluna === "Peso fisico" ? decimalOuNull(valor) : textoOuNull(valor);
+      if (coluna === "Valor da Nota" || coluna === "Peso fisico") origemFields[campoPrisma] = decimalOuNull(valor);
+      else if (["Data Criação", "Data Entrega Origem", "Previsão Entrega Cliente", "Previsão Entrega Transportadora"].includes(coluna)) {
+        const data = dataOuNull(valor);
+        if (coluna !== "Data Criação" || data !== null) origemFields[campoPrisma] = data;
+      } else origemFields[campoPrisma] = textoOuNull(valor);
     }
 
-    try {
-      const existente = await prisma.pedido.findUnique({ where: { pedido: pedidoChave }, select: { id: true } });
-      if (existente) {
-        // Atualização: NUNCA mexe em dataCriacaoPedido nem em campo
-        // operacional - só os campos de origem presentes na planilha.
-        await prisma.pedido.update({ where: { pedido: pedidoChave }, data: origemFields });
-        resumo.atualizados += 1;
-      } else {
-        // Pedido novo por este caminho manual: dataCriacaoPedido não faz
-        // parte do layout de 25 colunas da Base Original, então usa a data
-        // do upload (mesma convenção seria necessária em qualquer upload
-        // manual sem esse campo - documentado aqui, não inventado em
-        // silêncio).
-        await prisma.pedido.create({
-          data: { pedido: pedidoChave, dataCriacaoPedido: startOfLocalDay(new Date()), ...origemFields } as never,
-        });
-        resumo.inseridos += 1;
-      }
-    } catch (err) {
-      resumo.erros.push({ linha, pedido: pedidoChave, motivo: err instanceof Error ? err.message : "Falha ao gravar." });
+    const dataCriacaoPedido = origemFields.dataCriacaoPedido;
+    if (!(dataCriacaoPedido instanceof Date) || Number.isNaN(dataCriacaoPedido.getTime())) {
+      // Para existentes, a data poderá ser preservada; para novos, validamos
+      // depois de descobrir em lote quais pedidos já existem.
+      delete origemFields.dataCriacaoPedido;
+    }
+
+    preparados.push({
+      linha,
+      pedido: pedidoChave,
+      data: { pedido: pedidoChave, ...origemFields } as Prisma.PedidoCreateManyInput,
+    });
+  }
+
+  // Processamento em lotes: o usuário escolhe um único XLSX e o servidor
+  // divide internamente. Evita uma consulta + gravação sequencial por linha.
+  const TAMANHO_LOTE = 500;
+  for (let offset = 0; offset < preparados.length; offset += TAMANHO_LOTE) {
+    const lote = preparados.slice(offset, offset + TAMANHO_LOTE);
+    const existentes = await prisma.pedido.findMany({
+      where: { pedido: { in: lote.map((item) => item.pedido) } },
+      select: { pedido: true },
+    });
+    const existentesSet = new Set(existentes.map((item) => item.pedido));
+
+    const novos = lote.filter((item) => !existentesSet.has(item.pedido));
+    const novosValidos = novos.filter((item) => {
+      if (item.data.dataCriacaoPedido instanceof Date) return true;
+      resumo.erros.push({
+        linha: item.linha,
+        pedido: item.pedido,
+        motivo: 'Pedido novo exige a coluna "Data Criação" válida da Intelipost; a data do upload não é usada como substituta.',
+      });
+      return false;
+    });
+
+    if (novosValidos.length > 0) {
+      const created = await prisma.pedido.createMany({
+        data: novosValidos.map((item) => item.data),
+        skipDuplicates: true,
+      });
+      resumo.inseridos += created.count;
+    }
+
+    const updates = lote.filter((item) => existentesSet.has(item.pedido));
+    if (updates.length > 0) {
+      await prisma.$transaction(
+        updates.map((item) => {
+          const { pedido: _pedido, ...data } = item.data;
+          return prisma.pedido.update({ where: { pedido: item.pedido }, data });
+        }),
+      );
+      resumo.atualizados += updates.length;
     }
   }
 
@@ -254,6 +323,10 @@ export async function uploadDevolucaoInterna(formData: FormData): Promise<Devolu
         "Valor da Nota": pedidoDb.valorNota,
         "Peso fisico": pedidoDb.pesoFisico,
         "Chave da Nota": pedidoDb.chaveNota,
+        "Data Criação": pedidoDb.dataCriacaoPedido,
+        "Data Entrega Origem": pedidoDb.dataEntregaOrigem,
+        "Previsão Entrega Cliente": pedidoDb.previsaoEntregaClienteOrigem,
+        "Previsão Entrega Transportadora": pedidoDb.previsaoEntregaTransportadoraOrigem,
       },
       dataColetaProcessamento: pedidoDb.dataColetaProcessamento,
       dataPrevisao: pedidoDb.dataPrevisao,

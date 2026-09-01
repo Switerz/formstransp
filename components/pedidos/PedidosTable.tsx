@@ -33,7 +33,10 @@ export function PedidosTable({ linhas, busca, mostrarProtegidas, onToggleProtegi
     : linhas.filter((linha) => Object.values(linha.colunas).some((v) => v.toLowerCase().includes(q)));
 
   const colunasVisiveis = ORDEM_COLUNAS_TABELA.filter(
-    (col) => mostrarProtegidas || !(PROTECTED_COLUMNS as readonly string[]).includes(col),
+    (col) =>
+      mostrarProtegidas ||
+      (PRIMARY_COLUMNS as readonly string[]).includes(col) ||
+      !(PROTECTED_COLUMNS as readonly string[]).includes(col),
   );
 
   const visiveis = filtradas.slice(0, LIMITE_LINHAS_EXIBIDAS);

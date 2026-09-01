@@ -75,7 +75,7 @@ export function buildPedidosWhere(
   if (filters.transportadoraId && !base.transportadoraId) {
     where.transportadoraId = filters.transportadoraId;
   }
-  if (filters.dataCriacaoDe || filters.dataCriacaoAte) {
+  if ((filters.dataCriacaoDe || filters.dataCriacaoAte) && !base.dataCriacaoPedido) {
     where.dataCriacaoPedido = {
       ...(filters.dataCriacaoDe ? { gte: parseDateInput(filters.dataCriacaoDe) } : {}),
       ...(filters.dataCriacaoAte ? { lt: addDays(parseDateInput(filters.dataCriacaoAte), 1) } : {}),

@@ -110,6 +110,8 @@ export async function upsertPedidosFromIntelipost(rows: unknown[]): Promise<Impo
       chaveNota: data.chaveNota,
       dataCriacaoPedido: data.dataCriacaoPedido,
       dataEntregaOrigem: data.dataEntregaOrigem,
+      previsaoEntregaClienteOrigem: data.previsaoEntregaClienteOrigem,
+      previsaoEntregaTransportadoraOrigem: data.previsaoEntregaTransportadoraOrigem,
       origemAtualizadoEm: new Date(),
     };
 

@@ -73,22 +73,22 @@ describe("isPedidoVencidoNoPeriodo — TESTE 7/8 (pedido vencido D-1 entra/não 
   const gte = new Date(2026, 7, 30);
   const lt = new Date(2026, 7, 31); // exclusivo - período é só 30/08
 
-  it("entra: dataPrevisao dentro do período e não finalizado", () => {
-    expect(isPedidoVencidoNoPeriodo({ dataPrevisao: new Date(2026, 7, 30), dataEntregaOrigem: null }, gte, lt)).toBe(true);
+  it("entra: previsaoEntregaTransportadoraOrigem dentro do período e não finalizado", () => {
+    expect(isPedidoVencidoNoPeriodo({ previsaoEntregaTransportadoraOrigem: new Date(2026, 7, 30), dataEntregaOrigem: null }, gte, lt)).toBe(true);
   });
 
   it("não entra: já finalizado (dataEntregaOrigem preenchida), mesmo com promessa no período", () => {
     expect(
-      isPedidoVencidoNoPeriodo({ dataPrevisao: new Date(2026, 7, 30), dataEntregaOrigem: new Date() }, gte, lt),
+      isPedidoVencidoNoPeriodo({ previsaoEntregaTransportadoraOrigem: new Date(2026, 7, 30), dataEntregaOrigem: new Date() }, gte, lt),
     ).toBe(false);
   });
 
-  it("não entra: dataPrevisao fora do período (dia seguinte)", () => {
-    expect(isPedidoVencidoNoPeriodo({ dataPrevisao: new Date(2026, 7, 31), dataEntregaOrigem: null }, gte, lt)).toBe(false);
+  it("não entra: previsaoEntregaTransportadoraOrigem fora do período (dia seguinte)", () => {
+    expect(isPedidoVencidoNoPeriodo({ previsaoEntregaTransportadoraOrigem: new Date(2026, 7, 31), dataEntregaOrigem: null }, gte, lt)).toBe(false);
   });
 
   it("não entra: sem Promessa Transporte definida", () => {
-    expect(isPedidoVencidoNoPeriodo({ dataPrevisao: null, dataEntregaOrigem: null }, gte, lt)).toBe(false);
+    expect(isPedidoVencidoNoPeriodo({ previsaoEntregaTransportadoraOrigem: null, dataEntregaOrigem: null }, gte, lt)).toBe(false);
   });
 });
 

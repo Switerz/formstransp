@@ -8,9 +8,11 @@ import { pedidoParaLinhaTabela, type PedidoParaTabela } from "@/lib/pedidos-tabl
 import { summarizeFillStatus } from "@/lib/pedidos-kpis";
 import { montarDadosKpiCarousel } from "@/lib/pedidos-kpi-carousel";
 import { uploadBaseOriginalInterna, uploadDevolucaoInterna } from "@/app/base-completa/actions";
+import { getBaseCompletaWindowWhere } from "@/lib/base-completa-window";
 import "@/components/pedidos/minha-base.css";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function BaseCompletaPage({
   searchParams,
@@ -36,12 +38,13 @@ export default async function BaseCompletaPage({
   // Filtro OPCIONAL de transportadora - só existe aqui (Minha Base não
   // precisa, a transportadora já vem da sessão). Sem seleção = todas.
   const transportadoraIdFiltro = raw.transportadoraId?.trim() || null;
+  const janelaBaseCompleta = getBaseCompletaWindowWhere();
 
   // Mesma função usada por Minha Base/Início - única fonte de verdade dos
   // Big Numbers. transportadoraIdFiltro null = consolidado de todas.
   const [transportadoras, dadosKpi] = await Promise.all([
     prisma.transportadora.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
-    montarDadosKpiCarousel(transportadoraIdFiltro, raw),
+    montarDadosKpiCarousel(transportadoraIdFiltro, raw, janelaBaseCompleta),
   ]);
 
   // Mesma estratégia de consulta/paginação de Minha Base: sem "Carregar
@@ -50,7 +53,10 @@ export default async function BaseCompletaPage({
   // centenas de milhares de linhas no navegador. Única diferença de
   // dados: SEM dataEntregaOrigem:null (finalizados aparecem) e SEM
   // transportadoraId obrigatório (só filtra se o ADM escolher uma).
-  const where = transportadoraIdFiltro ? { transportadoraId: transportadoraIdFiltro } : {};
+  const where = {
+    ...janelaBaseCompleta,
+    ...(transportadoraIdFiltro ? { transportadoraId: transportadoraIdFiltro } : {}),
+  };
 
   const pedidosDb = await prisma.pedido.findMany({
     where,
@@ -73,7 +79,7 @@ export default async function BaseCompletaPage({
           <div>
             <h1>Base Completa</h1>
             <p>
-              Visão interna de todos os pedidos, de todas as transportadoras, incluindo finalizados. Use o filtro de
+              Visão interna dos pedidos dos últimos 45 dias pela Data Criação, de todas as transportadoras, incluindo finalizados. Use o filtro de
               transportadora para restringir a uma específica.
             </p>
           </div>
@@ -99,7 +105,7 @@ export default async function BaseCompletaPage({
             fillDone={preenchimento.done}
             downloadHref={downloadHref}
             downloadLabel="Baixar Base Completa"
-            backendNote="Visão interna - mostra todas as transportadoras, incluindo pedidos finalizados."
+            backendNote="Visão interna - últimos 45 dias pela Data Criação, todas as transportadoras, incluindo pedidos finalizados."
             uploadAction={podeGerenciarBases ? uploadDevolucaoInterna : undefined}
             uploadOriginalAction={podeGerenciarBases ? uploadBaseOriginalInterna : undefined}
             transportadorasParaSelecao={podeGerenciarBases ? transportadoras : undefined}

@@ -212,6 +212,11 @@ model Pedido {
   // enquanto dataCriacaoPedido estiver dentro da janela de 45 dias).
   dataEntregaOrigem DateTime?
 
+  // Previsões vindas da Intelipost. Campos de origem/protegidos; não
+  // reutilizar `dataPrevisao`, que é operacional e preenchida pela transportadora.
+  previsaoEntregaClienteOrigem       DateTime?
+  previsaoEntregaTransportadoraOrigem DateTime?
+
   origemAtualizadoEm DateTime @default(now())
 
   // ---- Campos operacionais (preenchidos pela transportadora, upload de devolução) ----

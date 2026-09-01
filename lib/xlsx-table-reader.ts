@@ -4,7 +4,7 @@ import ExcelJS from "exceljs";
  * Lê a primeira planilha de um XLSX como tabela genérica: primeira linha =
  * cabeçalho, demais linhas = dados. Diferente de lib/xlsx-parse.ts (que lê
  * um template de células fixas do relatório diário) - aqui o formato é uma
- * tabela normal, uma linha por pedido, como o layout de 25 colunas.
+ * tabela normal, uma linha por pedido, como o layout tabular da base Forms Transp.
  */
 export async function readXlsxTable(buffer: Buffer): Promise<{ headers: string[]; rows: Record<string, unknown>[] }> {
   const workbook = new ExcelJS.Workbook();
