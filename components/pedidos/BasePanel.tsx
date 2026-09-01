@@ -5,8 +5,14 @@ import { Download } from "lucide-react";
 import { PedidosTable } from "@/components/pedidos/PedidosTable";
 import type { LinhaTabela } from "@/lib/pedidos-table-row";
 import type { DevolucaoResumo } from "@/app/portal/minha-base/actions";
+import type { BaseOriginalResumo } from "@/app/base-completa/actions";
 
 type Tab = "original" | "updated" | "compare";
+
+interface TransportadoraOption {
+  id: string;
+  nome: string;
+}
 
 interface BasePanelProps {
   linhas: LinhaTabela[];
@@ -17,15 +23,26 @@ interface BasePanelProps {
   fillDone: number;
   downloadHref: string;
   /**
-   * Opcional. Quando ausente (caso da Base Completa/acesso interno), o
-   * fluxo de devolução inteiro (accordion "Input de bases" + abas "Visão
-   * atualizada"/"Comparativo") é ocultado: devolução é uma ação por
-   * transportadora - a Server Action resolve a transportadora pela sessão
-   * (requireCarrierUser), então não existe "a transportadora" num
-   * contexto interno que enxerga todas ao mesmo tempo. Funcionalidade
-   * exclusiva do fluxo da transportadora, reportada explicitamente.
+   * Opcional. Quando ausente (transportadora comum), o lado "Base
+   * atualizada" fica indisponível junto com o resto do fluxo de
+   * devolução. Quando presente (Base Completa/acesso interno), a
+   * devolução é enviada em nome da transportadora escolhida em
+   * transportadorasParaSelecao (obrigatório nesse caso) - a Server
+   * Action valida isso no servidor (requireInternalAdmin), nunca confia
+   * só no frontend.
    */
   uploadAction?: (formData: FormData) => Promise<DevolucaoResumo>;
+  /**
+   * Opcional. Quando ausente (transportadora comum), o lado "Base
+   * original" continua bloqueado/decorativo, exatamente como sempre foi
+   * (a base de origem é 100% automática via Intelipost). Quando presente
+   * (Base Completa/acesso interno), libera o upload manual de origem -
+   * protegido no servidor por requireInternalAdmin dentro da própria
+   * action, nunca só escondendo/mostrando botão.
+   */
+  uploadOriginalAction?: (formData: FormData) => Promise<BaseOriginalResumo>;
+  /** Lista de transportadoras para o seletor da devolução em modo interno. Sem isso, o upload de devolução não sabe a quem atribuir a base. */
+  transportadorasParaSelecao?: TransportadoraOption[];
   downloadLabel?: string;
   backendNote?: string;
 }
@@ -45,10 +62,14 @@ export function BasePanel({
   fillDone,
   downloadHref,
   uploadAction,
+  uploadOriginalAction,
+  transportadorasParaSelecao,
   downloadLabel = "Baixar minha base",
   backendNote = "Você está autenticado como transportadora - os downloads e a devolução acima só afetam os pedidos vinculados à sua sessão.",
 }: BasePanelProps) {
   const permiteDevolucao = Boolean(uploadAction);
+  const permiteBaseOriginal = Boolean(uploadOriginalAction);
+  const mostrarAccordion = permiteDevolucao || permiteBaseOriginal;
   const [accordionOpen, setAccordionOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("original");
   const [busca, setBusca] = useState("");
@@ -57,6 +78,10 @@ export function BasePanel({
   const [erro, setErro] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [alertOpen, setAlertOpen] = useState(false);
+
+  const [origResumo, setOrigResumo] = useState<BaseOriginalResumo | null>(null);
+  const [origErro, setOrigErro] = useState<string | null>(null);
+  const [origPending, startOrigTransition] = useTransition();
 
   function onSubmit(formData: FormData) {
     if (!uploadAction) return;
@@ -72,6 +97,19 @@ export function BasePanel({
     });
   }
 
+  function onSubmitOriginal(formData: FormData) {
+    if (!uploadOriginalAction) return;
+    setOrigErro(null);
+    startOrigTransition(async () => {
+      try {
+        const result = await uploadOriginalAction(formData);
+        setOrigResumo(result);
+      } catch (err) {
+        setOrigErro(err instanceof Error ? err.message : "Não foi possível processar a base original.");
+      }
+    });
+  }
+
   const violacoesProtegidas = resumo?.detalhes.flatMap((d) => d.violacoesProtegidas.map((v) => ({ ...v, linha: d.linha }))) ?? [];
   const tentativasBloqueadas = resumo?.detalhes.flatMap((d) => d.tentativasBloqueadas.map((v) => ({ ...v, linha: d.linha }))) ?? [];
   const alteracoesAplicadas = resumo?.detalhes.flatMap((d) => d.alteracoesAplicadas.map((v) => ({ ...v, linha: d.linha }))) ?? [];
@@ -80,10 +118,8 @@ export function BasePanel({
   return (
     <>
       {/* ---- Input de bases (accordion, 2 dropzones) ---- */}
-      {/* Só existe quando há uploadAction: devolução é uma ação por
-          transportadora (resolvida pela sessão), sem sentido num contexto
-          interno que enxerga todas ao mesmo tempo. */}
-      {permiteDevolucao ? (
+      {/* Só existe quando há pelo menos um dos dois uploads liberados. */}
+      {mostrarAccordion ? (
         <div className={`upload-accordion ${accordionOpen ? "open" : ""}`} id="uploadAccordion">
         <button className="upload-toggle" type="button" onClick={() => setAccordionOpen((v) => !v)}>
           <div className="upload-toggle-main">
@@ -98,44 +134,84 @@ export function BasePanel({
 
         <div className="upload-content">
           <div className="upload-grid">
-            <div className="upload-mini locked" id="originalUploadCard">
+            <div className={`upload-mini ${permiteBaseOriginal ? "" : "locked"}`} id="originalUploadCard">
               <div className="upload-mini-head">
                 <div>
                   <div className="upload-mini-role">Time de Transportes</div>
                   <div className="upload-mini-title">Base original</div>
                 </div>
               </div>
-              <label className="dropzone compact" aria-disabled>
-                <div className="drop-icon">⬆</div>
-                <strong>Selecionar base original</strong>
-                <span>Excel, CSV ou JSON</span>
-              </label>
-              <div className="access-note">
-                <div className="access-lock">🔒</div>
-                <div>Publicação exclusiva do Time de Transportes autorizado. A base original chega automaticamente pela integração.</div>
-              </div>
+              {permiteBaseOriginal ? (
+                <form action={onSubmitOriginal}>
+                  <label className="dropzone compact" htmlFor="fileOriginal">
+                    <div className="drop-icon">⬆</div>
+                    <strong>{origPending ? "Enviando..." : "Selecionar base original"}</strong>
+                    <span>Mesmas colunas de origem da Base Completa</span>
+                  </label>
+                  <input type="file" id="fileOriginal" name="arquivo" accept=".xlsx" required disabled={origPending} />
+                  <div className="mini-actions">
+                    <button className="btn-secondary" type="submit" disabled={origPending}>
+                      {origPending ? "Enviando..." : "Enviar base original"}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <label className="dropzone compact" aria-disabled>
+                    <div className="drop-icon">⬆</div>
+                    <strong>Selecionar base original</strong>
+                    <span>Excel, CSV ou JSON</span>
+                  </label>
+                  <div className="access-note">
+                    <div className="access-lock">🔒</div>
+                    <div>Publicação exclusiva do Time de Transportes autorizado. A base original chega automaticamente pela integração.</div>
+                  </div>
+                </>
+              )}
             </div>
 
-            <div className="upload-mini" id="updatedUploadCard">
+            <div className={`upload-mini ${permiteDevolucao ? "" : "locked"}`} id="updatedUploadCard">
               <div className="upload-mini-head">
                 <div>
                   <div className="upload-mini-role">Transportador</div>
                   <div className="upload-mini-title">Base atualizada</div>
                 </div>
               </div>
-              <form action={onSubmit}>
-                <label className="dropzone compact" htmlFor="fileUpdated">
-                  <div className="drop-icon">↻</div>
-                  <strong>{pending ? "Enviando..." : "Subir base atualizada"}</strong>
-                  <span>Mantenha a mesma estrutura de colunas</span>
-                </label>
-                <input type="file" id="fileUpdated" name="arquivo" accept=".xlsx" required disabled={pending} />
-                <div className="mini-actions">
-                  <button className="btn-secondary" type="submit" disabled={pending}>
-                    {pending ? "Enviando..." : "Enviar devolução"}
-                  </button>
+              {permiteDevolucao ? (
+                <form action={onSubmit}>
+                  {transportadorasParaSelecao ? (
+                    <div className="field" style={{ marginBottom: 8 }}>
+                      <label htmlFor="transportadoraIdDevolucao">Transportadora</label>
+                      <select id="transportadoraIdDevolucao" name="transportadoraId" required defaultValue="">
+                        <option value="" disabled>
+                          Selecione...
+                        </option>
+                        {transportadorasParaSelecao.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null}
+                  <label className="dropzone compact" htmlFor="fileUpdated">
+                    <div className="drop-icon">↻</div>
+                    <strong>{pending ? "Enviando..." : "Subir base atualizada"}</strong>
+                    <span>Mantenha a mesma estrutura de colunas</span>
+                  </label>
+                  <input type="file" id="fileUpdated" name="arquivo" accept=".xlsx" required disabled={pending} />
+                  <div className="mini-actions">
+                    <button className="btn-secondary" type="submit" disabled={pending}>
+                      {pending ? "Enviando..." : "Enviar devolução"}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="access-note">
+                  <div className="access-lock">🔒</div>
+                  <div>Devolução indisponível neste contexto.</div>
                 </div>
-              </form>
+              )}
             </div>
           </div>
         </div>
@@ -147,6 +223,38 @@ export function BasePanel({
           <button type="button" className="compact-alert-toggle" disabled>
             <span className="compact-alert-title">🚨 Falha ao processar: {erro}</span>
           </button>
+        </div>
+      ) : null}
+
+      {origErro ? (
+        <div className="compact-alert open">
+          <button type="button" className="compact-alert-toggle" disabled>
+            <span className="compact-alert-title">🚨 Falha ao processar base original: {origErro}</span>
+          </button>
+        </div>
+      ) : null}
+
+      {origResumo ? (
+        <div className={`compact-alert open ${origResumo.erros.length ? "" : "ok"}`}>
+          <button type="button" className="compact-alert-toggle" disabled>
+            <span className="compact-alert-title">
+              {origResumo.erros.length ? "🚨" : "✓"} Base original: {origResumo.totalLinhas} linha(s), {origResumo.inseridos}{" "}
+              inserida(s), {origResumo.atualizados} atualizada(s), {origResumo.erros.length} erro(s).
+            </span>
+          </button>
+          {origResumo.erros.length ? (
+            <div className="tamper-list">
+              {origResumo.erros.map((e, i) => (
+                <div key={i} className="tamper-item">
+                  <strong>
+                    Linha {e.linha} · {e.pedido || "(sem pedido)"}
+                  </strong>
+                  <br />
+                  {e.motivo}
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
