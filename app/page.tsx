@@ -294,7 +294,7 @@ export default async function Home({
   };
 
   return (
-    <main className="shell">
+    <main className="shell admin-dashboard">
       <div className="page-title">
         <div>
           <h1>Admin operacional</h1>

@@ -6,8 +6,8 @@ export interface Periodo {
 }
 
 /**
- * Período padrão ao abrir a página: D-1 (ontem), usando a Promessa
- * Transporte (dataPrevisao) como referência. "Ontem" só é usado aqui, na
+ * Período padrão ao abrir a página: D-1 (ontem), usando a Previsão Entrega
+ * Transportadora de origem como referência. "Ontem" só é usado aqui, na
  * seleção inicial - o cálculo em si sempre usa o DE/ATÉ efetivo (ver
  * parsePeriodoFilters), nunca "ontem" hardcoded.
  */

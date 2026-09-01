@@ -31,6 +31,9 @@ export interface PedidoParaTabela extends PedidoOperacional {
   pesoFisico: unknown;
   chaveNota: string | null;
   dataCriacaoPedido: Date;
+  dataEntregaOrigem: Date | null;
+  previsaoEntregaClienteOrigem: Date | null;
+  previsaoEntregaTransportadoraOrigem: Date | null;
 }
 
 export interface LinhaTabela {
@@ -40,7 +43,7 @@ export interface LinhaTabela {
   colunas: Record<string, string>;
 }
 
-/** Ordem completa das 25 colunas, mesma do layout oficial. */
+/** Ordem completa: 18 campos de origem + 11 operacionais. */
 export const ORDEM_COLUNAS_TABELA = [
   "Pedido",
   "Nota Fiscal",
@@ -56,6 +59,10 @@ export const ORDEM_COLUNAS_TABELA = [
   "Valor da Nota",
   "Peso fisico",
   "Chave da Nota",
+  "Data Criação",
+  "Data Entrega Origem",
+  "Previsão Entrega Cliente",
+  "Previsão Entrega Transportadora",
   "DATA COLETA/PROCESSAMENTO",
   "DATA DE PREVISÃO",
   "PRAZO DE ENTREGA (DIAS ÚTEIS)",
@@ -88,6 +95,10 @@ export function pedidoParaLinhaTabela(pedido: PedidoParaTabela): LinhaTabela {  
       "Valor da Nota": decimalToString(pedido.valorNota),
       "Peso fisico": decimalToString(pedido.pesoFisico),
       "Chave da Nota": pedido.chaveNota ?? "",
+      "Data Criação": dateToString(pedido.dataCriacaoPedido),
+      "Data Entrega Origem": dateToString(pedido.dataEntregaOrigem),
+      "Previsão Entrega Cliente": dateToString(pedido.previsaoEntregaClienteOrigem),
+      "Previsão Entrega Transportadora": dateToString(pedido.previsaoEntregaTransportadoraOrigem),
       "DATA COLETA/PROCESSAMENTO": dateToString(pedido.dataColetaProcessamento),
       "DATA DE PREVISÃO": dateToString(pedido.dataPrevisao),
       "PRAZO DE ENTREGA (DIAS ÚTEIS)": pedido.prazoEntregaDiasUteis?.toString() ?? "",

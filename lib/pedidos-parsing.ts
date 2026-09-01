@@ -24,6 +24,8 @@ export interface PedidoIntelipostRow {
   chave_nota?: string | null;
   data_criacao: string;
   data_entrega?: string | null;
+  previsao_entrega_cliente?: string | null;
+  previsao_entrega_transportadora?: string | null;
 }
 
 export interface ParsedPedidoRow {
@@ -43,6 +45,8 @@ export interface ParsedPedidoRow {
   chaveNota: string | null;
   dataCriacaoPedido: Date;
   dataEntregaOrigem: Date | null;
+  previsaoEntregaClienteOrigem: Date | null;
+  previsaoEntregaTransportadoraOrigem: Date | null;
   avisos: string[];
 }
 
@@ -158,6 +162,21 @@ export function parseIntelipostPedidoRow(
     }
   }
 
+  const parseOptionalDateField = (field: "previsao_entrega_cliente" | "previsao_entrega_transportadora"): Date | null => {
+    const value = row[field];
+    if (value === null || value === undefined || value === "") return null;
+    if (typeof value !== "string") {
+      avisos.push(`Campo "${field}" em formato inesperado, ignorado.`);
+      return null;
+    }
+    const parsed = parseFlexibleDate(value);
+    if (!parsed) avisos.push(`Campo "${field}" com formato inválido ("${value}"), ignorado.`);
+    return parsed;
+  };
+
+  const previsaoEntregaClienteOrigem = parseOptionalDateField("previsao_entrega_cliente");
+  const previsaoEntregaTransportadoraOrigem = parseOptionalDateField("previsao_entrega_transportadora");
+
   const valorNotaResult = parseFlexibleDecimal(row.valor_nota as number | string | null | undefined);
   if (valorNotaResult.invalid) avisos.push(`Campo "valor_nota" com formato inválido, salvo como vazio.`);
 
@@ -189,6 +208,8 @@ export function parseIntelipostPedidoRow(
       chaveNota: optionalString(row.chave_nota),
       dataCriacaoPedido,
       dataEntregaOrigem,
+      previsaoEntregaClienteOrigem,
+      previsaoEntregaTransportadoraOrigem,
       avisos,
     },
   };

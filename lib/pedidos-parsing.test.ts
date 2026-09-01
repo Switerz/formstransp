@@ -18,6 +18,8 @@ const linhaValida = {
   chave_nota: "35260812345678000199550010000123451123456789",
   data_criacao: "2026-08-20",
   data_entrega: null,
+  previsao_entrega_cliente: "2026-08-27",
+  previsao_entrega_transportadora: "2026-08-25",
 };
 
 describe("parseIntelipostPedidoRow", () => {
@@ -29,6 +31,8 @@ describe("parseIntelipostPedidoRow", () => {
       expect(parsed.data.uf).toBe("SP");
       expect(parsed.data.dataEntregaOrigem).toBeNull();
       expect(parsed.data.dataCriacaoPedido.getFullYear()).toBe(2026);
+      expect(parsed.data.previsaoEntregaClienteOrigem?.getDate()).toBe(27);
+      expect(parsed.data.previsaoEntregaTransportadoraOrigem?.getDate()).toBe(25);
     }
   });
 

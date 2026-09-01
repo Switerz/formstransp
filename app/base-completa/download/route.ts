@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { parsePedidosFilters, buildPedidosWhere } from "@/lib/pedidos-query";
 import { buildPedidosXlsx } from "@/lib/pedidos-xlsx";
 import { formatDateInput } from "@/lib/dates";
+import { getBaseCompletaWindowWhere } from "@/lib/base-completa-window";
 
 const MAX_EXPORT_ROWS = 50000;
 
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
   await requireInternalUser("/base-completa");
 
   const filters = parsePedidosFilters(Object.fromEntries(request.nextUrl.searchParams));
-  const where = buildPedidosWhere(filters);
+  const where = buildPedidosWhere(filters, getBaseCompletaWindowWhere());
 
   const pedidos = await prisma.pedido.findMany({
     where,

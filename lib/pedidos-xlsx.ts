@@ -19,6 +19,10 @@ export interface PedidoParaXlsx {
   valorNota: unknown; // Prisma.Decimal | null
   pesoFisico: unknown; // Prisma.Decimal | null
   chaveNota: string | null;
+  dataCriacaoPedido: Date;
+  dataEntregaOrigem: Date | null;
+  previsaoEntregaClienteOrigem: Date | null;
+  previsaoEntregaTransportadoraOrigem: Date | null;
   dataColetaProcessamento: Date | null;
   dataPrevisao: Date | null;
   prazoEntregaDiasUteis: number | null;
@@ -32,7 +36,7 @@ export interface PedidoParaXlsx {
   dataResolucaoDevolucao: Date | null;
 }
 
-// Ordem EXATA das 25 colunas, conforme layout padrão Forms Transp.
+// 18 campos de origem + 11 operacionais.
 const HEADERS = [
   "Nome do Destinatário",
   "Canal de Vendas",
@@ -48,6 +52,10 @@ const HEADERS = [
   "Valor da Nota",
   "Peso fisico",
   "Chave da Nota",
+  "Data Criação",
+  "Data Entrega Origem",
+  "Previsão Entrega Cliente",
+  "Previsão Entrega Transportadora",
   "DATA COLETA/PROCESSAMENTO",
   "DATA DE PREVISÃO",
   "PRAZO DE ENTREGA (DIAS ÚTEIS)",
@@ -62,7 +70,9 @@ const HEADERS = [
 ] as const;
 
 const COLUMN_WIDTHS = [
-  26, 18, 20, 6, 14, 16, 20, 20, 16, 14, 18, 12, 10, 24, 22, 22, 16, 18, 16, 16, 20, 20, 24, 26, 32,
+  26, 18, 20, 6, 14, 16, 20, 20, 16, 14, 18, 12, 10, 24,
+  16, 20, 24, 30,
+  22, 22, 16, 18, 16, 16, 20, 20, 24, 26, 32,
 ];
 
 const HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEEF4FB" } };
@@ -115,6 +125,10 @@ export async function buildPedidosXlsx(pedidos: PedidoParaXlsx[]): Promise<Buffe
       cellDecimal(p.valorNota),
       cellDecimal(p.pesoFisico),
       p.chaveNota ?? "",
+      cellDate(p.dataCriacaoPedido),
+      cellDate(p.dataEntregaOrigem),
+      cellDate(p.previsaoEntregaClienteOrigem),
+      cellDate(p.previsaoEntregaTransportadoraOrigem),
       cellDate(p.dataColetaProcessamento),
       cellDate(p.dataPrevisao),
       p.prazoEntregaDiasUteis ?? "",

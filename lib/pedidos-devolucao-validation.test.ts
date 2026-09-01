@@ -9,9 +9,9 @@ import {
   validarLinhaDevolucao,
 } from "./pedidos-devolucao-validation";
 
-describe("layout oficial de 25 colunas", () => {
-  it("14 protegidas + 11 preenchíveis = 25", () => {
-    expect(PROTECTED_COLUMNS.length).toBe(14);
+describe("layout enriquecido de 29 colunas", () => {
+  it("18 protegidas + 11 preenchíveis = 29", () => {
+    expect(PROTECTED_COLUMNS.length).toBe(18);
     expect(FILL_COLUMNS.length).toBe(11);
   });
 

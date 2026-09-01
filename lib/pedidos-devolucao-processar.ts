@@ -137,8 +137,14 @@ export function processarLinhaDevolucao(
   const violacoesProtegidas: DiffCampo[] = [];
   for (const coluna of PROTECTED_COLUMNS) {
     if (!(coluna in row)) continue; // coluna protegida ausente no upload: ok, não é violação
-    const enviado = toComparable(row[coluna], false);
-    const atual = toComparable(pedidoAtual.protegidosAtuais[coluna], false);
+    const isDateColumn = [
+      "Data Criação",
+      "Data Entrega Origem",
+      "Previsão Entrega Cliente",
+      "Previsão Entrega Transportadora",
+    ].includes(coluna);
+    const enviado = toComparable(row[coluna], isDateColumn);
+    const atual = toComparable(pedidoAtual.protegidosAtuais[coluna], isDateColumn);
     if (enviado !== atual) {
       violacoesProtegidas.push({ campo: coluna, antes: pedidoAtual.protegidosAtuais[coluna] ?? "", depois: row[coluna] });
     }

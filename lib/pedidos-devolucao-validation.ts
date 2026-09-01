@@ -3,13 +3,12 @@
  *
  * PROTECTED_COLUMNS / ACCEPTED_* / DATE_ONLY_COLUMNS são portados do HTML
  * oficial. FILL_COLUMNS foi AJUSTADO conforme decisão explícita: o layout
- * oficial de 25 colunas prevalece sobre o protótipo, que tinha uma lacuna
- * (faltava "DATA EM QUE O PEDIDO FOI RESOLVIDO PARA DEVOLUÇÃO"). Resultado:
- * 14 colunas protegidas + 11 colunas preenchíveis = 25.
+ * O layout original tinha 25 colunas. A base enriquecida acrescenta 4 campos
+ * de origem protegidos, totalizando 18 colunas de origem + 11 operacionais = 29.
  */
 
 // ---------------------------------------------------------------------------
-// Nomes de coluna (layout oficial de 25 colunas, mesma ordem do XLSX)
+// Nomes de coluna (layout enriquecido de 29 colunas, mesma ordem do XLSX)
 // ---------------------------------------------------------------------------
 
 /** As três referências principais - sempre visíveis, nunca ocultadas. */
@@ -37,6 +36,10 @@ export const PROTECTED_COLUMNS = [
   "Valor da Nota",
   "Peso fisico",
   "Chave da Nota",
+  "Data Criação",
+  "Data Entrega Origem",
+  "Previsão Entrega Cliente",
+  "Previsão Entrega Transportadora",
 ] as const;
 
 /**

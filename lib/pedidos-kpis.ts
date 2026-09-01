@@ -9,12 +9,12 @@
  */
 
 export interface PedidoVencidoCheck {
-  dataPrevisao: Date | null;
+  previsaoEntregaTransportadoraOrigem: Date | null;
   dataEntregaOrigem: Date | null;
 }
 
 /**
- * "Pedido vencido": a Promessa Transporte (dataPrevisao) cai dentro do
+ * "Pedido vencido": a Previsão Entrega Transportadora de origem cai dentro do
  * período selecionado E o pedido ainda não foi finalizado (dataEntregaOrigem
  * IS NULL - mesma referência de finalização já usada em toda a Minha Base/
  * Base Completa, nunca dataEntrega). Espelha exatamente o WHERE usado nas
@@ -22,8 +22,11 @@ export interface PedidoVencidoCheck {
  */
 export function isPedidoVencidoNoPeriodo(pedido: PedidoVencidoCheck, gte: Date, lt: Date): boolean {
   if (pedido.dataEntregaOrigem !== null) return false;
-  if (!pedido.dataPrevisao) return false;
-  return pedido.dataPrevisao.getTime() >= gte.getTime() && pedido.dataPrevisao.getTime() < lt.getTime();
+  if (!pedido.previsaoEntregaTransportadoraOrigem) return false;
+  return (
+    pedido.previsaoEntregaTransportadoraOrigem.getTime() >= gte.getTime() &&
+    pedido.previsaoEntregaTransportadoraOrigem.getTime() < lt.getTime()
+  );
 }
 
 export interface PedidoOperacional {
