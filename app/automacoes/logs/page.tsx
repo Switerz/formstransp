@@ -1,6 +1,7 @@
 import Link from "next/link";
+
 import { EmptyState } from "@/components/EmptyState";
-import { requireInternalUser } from "@/lib/auth";
+import { requireInternalAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatBrazilianDate } from "@/lib/dates";
 
@@ -31,33 +32,64 @@ const MAX_LIMIT = 1000;
 export default async function AutomationLogsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; tipo?: string; transportadoraId?: string; limite?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    tipo?: string;
+    transportadoraId?: string;
+    limite?: string;
+  }>;
 }) {
-  await requireInternalUser("/automacoes/logs");
+  // Somente internal_admin pode acessar esta página.
+  await requireInternalAdmin("/automacoes/logs");
 
   const filters = await searchParams;
-  const limit = Math.min(Number(filters.limite) || PAGE_SIZE, MAX_LIMIT);
+
+  const requestedLimit = Number(filters.limite);
+  const limit = Math.min(
+    Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? requestedLimit
+      : PAGE_SIZE,
+    MAX_LIMIT,
+  );
 
   const [logs, transportadoras] = await Promise.all([
     prisma.automationLog.findMany({
       where: {
         ...(filters.status ? { status: filters.status } : {}),
         ...(filters.tipo ? { tipo: filters.tipo } : {}),
-        ...(filters.transportadoraId ? { transportadoraId: filters.transportadoraId } : {}),
+        ...(filters.transportadoraId
+          ? { transportadoraId: filters.transportadoraId }
+          : {}),
       },
-      include: { transportadora: true },
-      orderBy: { createdAt: "desc" },
+      include: {
+        transportadora: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
       take: limit,
     }),
-    prisma.transportadora.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+
+    prisma.transportadora.findMany({
+      orderBy: {
+        nome: "asc",
+      },
+      select: {
+        id: true,
+        nome: true,
+      },
+    }),
   ]);
 
-  const hasMore = logs.length === limit;
+  const hasMore = logs.length === limit && limit < MAX_LIMIT;
+
   const loadMoreHref = `/automacoes/logs?${new URLSearchParams({
     ...(filters.status ? { status: filters.status } : {}),
     ...(filters.tipo ? { tipo: filters.tipo } : {}),
-    ...(filters.transportadoraId ? { transportadoraId: filters.transportadoraId } : {}),
-    limite: String(limit + PAGE_SIZE),
+    ...(filters.transportadoraId
+      ? { transportadoraId: filters.transportadoraId }
+      : {}),
+    limite: String(Math.min(limit + PAGE_SIZE, MAX_LIMIT)),
   }).toString()}`;
 
   return (
@@ -65,46 +97,92 @@ export default async function AutomationLogsPage({
       <div className="page-title">
         <div>
           <h1>Logs da automação</h1>
-          <p className="muted">Últimos registros do envio diário, auditorias e exportações.</p>
+
+          <p className="muted">
+            Últimos registros do envio diário, auditorias e exportações.
+          </p>
         </div>
-        <Link className="btn secondary" href="/">Voltar</Link>
+
+        <Link className="btn secondary" href="/">
+          Voltar
+        </Link>
       </div>
 
-      <form className="card form-grid" style={{ marginBottom: 18 }}>
+      <form
+        className="card form-grid"
+        style={{ marginBottom: 18 }}
+      >
         <div className="field">
           <label htmlFor="status">Status</label>
-          <select id="status" name="status" defaultValue={filters.status ?? ""}>
+
+          <select
+            id="status"
+            name="status"
+            defaultValue={filters.status ?? ""}
+          >
             <option value="">Todos</option>
             <option value="success">Sucesso</option>
             <option value="skipped">Pendente ou ignorado</option>
             <option value="error">Erro</option>
           </select>
         </div>
+
         <div className="field">
           <label htmlFor="tipo">Tipo</label>
-          <select id="tipo" name="tipo" defaultValue={filters.tipo ?? ""}>
+
+          <select
+            id="tipo"
+            name="tipo"
+            defaultValue={filters.tipo ?? ""}
+          >
             <option value="">Todos</option>
-            <option value="scheduled_report">Relatório agendado</option>
+            <option value="scheduled_report">
+              Relatório agendado
+            </option>
             <option value="webhook">Webhook</option>
             <option value="email">E-mail</option>
             <option value="pdf">PDF</option>
             <option value="audit">Auditoria</option>
           </select>
         </div>
+
         <div className="field">
-          <label htmlFor="transportadoraId">Transportadora</label>
-          <select id="transportadoraId" name="transportadoraId" defaultValue={filters.transportadoraId ?? ""}>
+          <label htmlFor="transportadoraId">
+            Transportadora
+          </label>
+
+          <select
+            id="transportadoraId"
+            name="transportadoraId"
+            defaultValue={filters.transportadoraId ?? ""}
+          >
             <option value="">Todas</option>
+
             {transportadoras.map((transportadora) => (
-              <option key={transportadora.id} value={transportadora.id}>
+              <option
+                key={transportadora.id}
+                value={transportadora.id}
+              >
                 {transportadora.nome}
               </option>
             ))}
           </select>
         </div>
-        <div className="actions" style={{ alignItems: "end" }}>
-          <button className="btn" type="submit">Filtrar</button>
-          <Link className="btn secondary" href="/automacoes/logs">Limpar</Link>
+
+        <div
+          className="actions"
+          style={{ alignItems: "end" }}
+        >
+          <button className="btn" type="submit">
+            Filtrar
+          </button>
+
+          <Link
+            className="btn secondary"
+            href="/automacoes/logs"
+          >
+            Limpar
+          </Link>
         </div>
       </form>
 
@@ -113,49 +191,84 @@ export default async function AutomationLogsPage({
           <EmptyState
             title="Nenhum log encontrado"
             description="Quando o envio diário, a auditoria ou a exportação rodarem, os registros aparecem aqui."
-            action={{ href: "/automacoes/logs", label: "Limpar filtros" }}
+            action={{
+              href: "/automacoes/logs",
+              label: "Limpar filtros",
+            }}
           />
         ) : (
-        <>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Criado em</th>
-                <th>Transportadora</th>
-                <th>Data do relatório</th>
-                <th>Tipo</th>
-                <th>Status</th>
-                <th>Mensagem</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map((log) => (
-                <tr key={log.id}>
-                  <td>{formatBrazilianDate(log.createdAt)}</td>
-                  <td>{log.transportadora?.nome ?? "-"}</td>
-                  <td>{formatBrazilianDate(log.dataReport)}</td>
-                  <td>{typeLabels[log.tipo] ?? log.tipo}</td>
-                  <td><span className={`pill ${pillClassForLogStatus(log.status)}`}>{statusLabels[log.status] ?? log.status}</span></td>
-                  <td>{log.mensagem}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="muted" style={{ marginTop: 12 }}>
-          {hasMore
-            ? `Mostrando os últimos ${logs.length} registros. Pode haver mais.`
-            : `Mostrando ${logs.length} registro${logs.length === 1 ? "" : "s"}.`}
-        </p>
-        {hasMore ? (
-          <div className="actions">
-            <Link className="btn secondary compact" href={loadMoreHref}>
-              Carregar mais
-            </Link>
-          </div>
-        ) : null}
-        </>
+          <>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Criado em</th>
+                    <th>Transportadora</th>
+                    <th>Data do relatório</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                    <th>Mensagem</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {logs.map((log) => (
+                    <tr key={log.id}>
+                      <td>
+                        {formatBrazilianDate(log.createdAt)}
+                      </td>
+
+                      <td>
+                        {log.transportadora?.nome ?? "-"}
+                      </td>
+
+                      <td>
+                        {formatBrazilianDate(log.dataReport)}
+                      </td>
+
+                      <td>
+                        {typeLabels[log.tipo] ?? log.tipo}
+                      </td>
+
+                      <td>
+                        <span
+                          className={`pill ${pillClassForLogStatus(
+                            log.status,
+                          )}`}
+                        >
+                          {statusLabels[log.status] ?? log.status}
+                        </span>
+                      </td>
+
+                      <td>{log.mensagem}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p
+              className="muted"
+              style={{ marginTop: 12 }}
+            >
+              {hasMore
+                ? `Mostrando os últimos ${logs.length} registros. Pode haver mais.`
+                : `Mostrando ${logs.length} registro${
+                    logs.length === 1 ? "" : "s"
+                  }.`}
+            </p>
+
+            {hasMore ? (
+              <div className="actions">
+                <Link
+                  className="btn secondary compact"
+                  href={loadMoreHref}
+                >
+                  Carregar mais
+                </Link>
+              </div>
+            ) : null}
+          </>
         )}
       </section>
     </main>

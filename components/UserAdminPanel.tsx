@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { CheckCircle2, Clipboard, KeyRound, MoreHorizontal, Plus, Search, UserRound } from "lucide-react";
-import { createAppUser, deleteAppUser, resetAppUserPassword, type UserActionState } from "@/app/user-actions";
+import { CheckCircle2, Clipboard, KeyRound, MoreHorizontal, Pencil, Plus, Search, UserRound } from "lucide-react";
+import { createAppUser, deleteAppUser, resetAppUserPassword, updateAppUser, type UserActionState } from "@/app/user-actions";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 
 type TransportadoraOption = {
@@ -20,6 +20,7 @@ type UserRow = {
   passwordMustChange: boolean;
   credentialSentAt: string | null;
   credentialSentBy: string | null;
+  transportadoraId: string | null;
   transportadoraNome: string | null;
   lastLoginAt: string | null;
   passwordUpdatedAt: string | null;
@@ -83,6 +84,64 @@ function ResetPasswordForm({ userId }: { userId: string }) {
       </ConfirmSubmitButton>
       <ActionMessage state={state} />
     </form>
+  );
+}
+
+function EditUserForm({ user, transportadoras }: { user: UserRow; transportadoras: TransportadoraOption[] }) {
+  const [state, action] = useActionState(updateAppUser, initialState);
+
+  return (
+    <details className="row-action-menu">
+      <summary className="btn secondary compact">
+        <Pencil size={16} />
+        <span>Editar usuário</span>
+      </summary>
+      <div className="row-action-panel" style={{ minWidth: 320 }}>
+        <form action={action} className="grid" style={{ gap: 10 }}>
+          <input type="hidden" name="userId" value={user.id} />
+          <div className="field">
+            <label htmlFor={`edit-nome-${user.id}`}>Nome</label>
+            <input id={`edit-nome-${user.id}`} name="nome" defaultValue={user.nome} required />
+          </div>
+          <div className="field">
+            <label htmlFor={`edit-username-${user.id}`}>Usuário</label>
+            <input id={`edit-username-${user.id}`} name="username" defaultValue={user.username ?? ""} required />
+          </div>
+          <div className="field">
+            <label htmlFor={`edit-email-${user.id}`}>E-mail</label>
+            <input id={`edit-email-${user.id}`} name="email" type="email" defaultValue={user.email} required />
+          </div>
+          <div className="field">
+            <label htmlFor={`edit-role-${user.id}`}>Perfil</label>
+            <select id={`edit-role-${user.id}`} name="role" defaultValue={user.role}>
+              <option value="carrier_operator">Operador da transportadora</option>
+              <option value="carrier_admin">Admin da transportadora</option>
+              <option value="internal_viewer">Leitor interno</option>
+              <option value="internal_admin">Administrador interno</option>
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor={`edit-transportadora-${user.id}`}>Transportadora</label>
+            <select
+              id={`edit-transportadora-${user.id}`}
+              name="transportadoraId"
+              defaultValue={user.transportadoraId ?? ""}
+            >
+              <option value="">Sem vínculo</option>
+              {transportadoras.map((transportadora) => (
+                <option key={transportadora.id} value={transportadora.id}>
+                  {transportadora.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          <ActionMessage state={state} />
+          <button className="btn compact" type="submit">
+            Salvar alterações
+          </button>
+        </form>
+      </div>
+    </details>
   );
 }
 
@@ -316,6 +375,7 @@ export function UserAdminPanel({
                         <button className="btn secondary compact" type="button" onClick={() => copyText(user.username ?? user.email)}>
                           <Clipboard size={16} /> Copiar usuário
                         </button>
+                        <EditUserForm user={user} transportadoras={transportadoras} />
                         <ResetPasswordForm userId={user.id} />
                         <form action={markCredentialSentAction}>
                           <input type="hidden" name="userId" value={user.id} />

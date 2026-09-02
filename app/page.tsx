@@ -306,9 +306,11 @@ export default async function Home({
               <Plus size={18} /> Nova transportadora
             </Link>
           ) : null}
-          <Link className="btn secondary" href="/automacoes/logs">
-            <ClipboardList size={18} /> Logs
-          </Link>
+          {canManage ? (
+            <Link className="btn secondary" href="/automacoes/logs">
+              <ClipboardList size={18} /> Logs
+            </Link>
+          ) : null}
         </div>
       </div>
 
