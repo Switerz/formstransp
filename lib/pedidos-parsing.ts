@@ -26,6 +26,10 @@ export interface PedidoIntelipostRow {
   data_entrega?: string | null;
   previsao_entrega_cliente?: string | null;
   previsao_entrega_transportadora?: string | null;
+  data_despacho?: string | null;
+  previsao_entrega_transportadora_original?: string | null;
+  micro_status?: string | null;
+  status_transportador?: string | null;
 }
 
 export interface ParsedPedidoRow {
@@ -47,6 +51,10 @@ export interface ParsedPedidoRow {
   dataEntregaOrigem: Date | null;
   previsaoEntregaClienteOrigem: Date | null;
   previsaoEntregaTransportadoraOrigem: Date | null;
+  dataDespacho: Date | null;
+  previsaoEntregaTransportadoraOriginal: Date | null;
+  microStatus: string | null;
+  statusTransportador: string | null;
   avisos: string[];
 }
 
@@ -162,7 +170,13 @@ export function parseIntelipostPedidoRow(
     }
   }
 
-  const parseOptionalDateField = (field: "previsao_entrega_cliente" | "previsao_entrega_transportadora"): Date | null => {
+  const parseOptionalDateField = (
+    field:
+      | "previsao_entrega_cliente"
+      | "previsao_entrega_transportadora"
+      | "data_despacho"
+      | "previsao_entrega_transportadora_original",
+  ): Date | null => {
     const value = row[field];
     if (value === null || value === undefined || value === "") return null;
     if (typeof value !== "string") {
@@ -176,6 +190,10 @@ export function parseIntelipostPedidoRow(
 
   const previsaoEntregaClienteOrigem = parseOptionalDateField("previsao_entrega_cliente");
   const previsaoEntregaTransportadoraOrigem = parseOptionalDateField("previsao_entrega_transportadora");
+  const dataDespacho = parseOptionalDateField("data_despacho");
+  const previsaoEntregaTransportadoraOriginal = parseOptionalDateField(
+    "previsao_entrega_transportadora_original",
+  );
 
   const valorNotaResult = parseFlexibleDecimal(row.valor_nota as number | string | null | undefined);
   if (valorNotaResult.invalid) avisos.push(`Campo "valor_nota" com formato inválido, salvo como vazio.`);
@@ -210,6 +228,10 @@ export function parseIntelipostPedidoRow(
       dataEntregaOrigem,
       previsaoEntregaClienteOrigem,
       previsaoEntregaTransportadoraOrigem,
+      dataDespacho,
+      previsaoEntregaTransportadoraOriginal,
+      microStatus: optionalString(row.micro_status),
+      statusTransportador: optionalString(row.status_transportador),
       avisos,
     },
   };

@@ -23,6 +23,10 @@ export interface PedidoParaXlsx {
   dataEntregaOrigem: Date | null;
   previsaoEntregaClienteOrigem: Date | null;
   previsaoEntregaTransportadoraOrigem: Date | null;
+  dataDespacho: Date | null;
+  previsaoEntregaTransportadoraOriginal: Date | null;
+  microStatus: string | null;
+  statusTransportador: string | null;
   dataColetaProcessamento: Date | null;
   dataPrevisao: Date | null;
   prazoEntregaDiasUteis: number | null;
@@ -56,6 +60,10 @@ const HEADERS = [
   "Data Entrega Origem",
   "Previsão Entrega Cliente",
   "Previsão Entrega Transportadora",
+  "Data Despacho",
+  "Previs?o Entrega Transportadora Original",
+  "MicroStatus",
+  "Status Transportador",
   "DATA COLETA/PROCESSAMENTO",
   "DATA DE PREVISÃO",
   "PRAZO DE ENTREGA (DIAS ÚTEIS)",
@@ -72,6 +80,7 @@ const HEADERS = [
 const COLUMN_WIDTHS = [
   26, 18, 20, 6, 14, 16, 20, 20, 16, 14, 18, 12, 10, 24,
   16, 20, 24, 30,
+  18, 32, 24, 24,
   22, 22, 16, 18, 16, 16, 20, 20, 24, 26, 32,
 ];
 
@@ -129,6 +138,10 @@ export async function buildPedidosXlsx(pedidos: PedidoParaXlsx[]): Promise<Buffe
       cellDate(p.dataEntregaOrigem),
       cellDate(p.previsaoEntregaClienteOrigem),
       cellDate(p.previsaoEntregaTransportadoraOrigem),
+      cellDate(p.dataDespacho),
+      cellDate(p.previsaoEntregaTransportadoraOriginal),
+      p.microStatus ?? "",
+      p.statusTransportador ?? "",
       cellDate(p.dataColetaProcessamento),
       cellDate(p.dataPrevisao),
       p.prazoEntregaDiasUteis ?? "",
