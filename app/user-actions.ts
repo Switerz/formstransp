@@ -118,6 +118,30 @@ export async function setAppUserStatus(formData: FormData) {
   redirect("/usuarios");
 }
 
+export async function deleteAppUser(formData: FormData) {
+  await assertSameOrigin();
+  const currentUser = await requireInternalAdmin("/usuarios");
+
+  const userId = textFrom(formData, "userId", 80);
+  if (!userId || userId === currentUser.id) redirect("/usuarios");
+
+  const user = await prisma.appUser.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  });
+  if (!user) redirect("/usuarios");
+
+  // Remove sessões explicitamente antes da conta.
+  // Relações históricas opcionais devem seguir a política definida no schema.
+  await prisma.$transaction([
+    prisma.appSession.deleteMany({ where: { userId } }),
+    prisma.appUser.delete({ where: { id: userId } }),
+  ]);
+
+  revalidatePath("/usuarios");
+  redirect("/usuarios");
+}
+
 export async function markCredentialSent(formData: FormData) {
   await assertSameOrigin();
   const currentUser = await requireInternalAdmin("/usuarios");

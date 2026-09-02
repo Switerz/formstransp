@@ -2,7 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { CheckCircle2, Clipboard, KeyRound, MoreHorizontal, Plus, Search, UserRound } from "lucide-react";
-import { createAppUser, resetAppUserPassword, type UserActionState } from "@/app/user-actions";
+import { createAppUser, deleteAppUser, resetAppUserPassword, type UserActionState } from "@/app/user-actions";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 
 type TransportadoraOption = {
@@ -335,6 +335,15 @@ export function UserAdminPanel({
                               Ativar
                             </button>
                           )}
+                        </form>
+                        <form action={deleteAppUser}>
+                          <input type="hidden" name="userId" value={user.id} />
+                          <ConfirmSubmitButton
+                            className="btn secondary compact"
+                            confirmLabel="Excluir definitivamente este usuário? Esta ação não poderá ser desfeita."
+                          >
+                            Excluir usuário
+                          </ConfirmSubmitButton>
                         </form>
                         </div>
                       </details>
