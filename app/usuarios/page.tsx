@@ -43,6 +43,7 @@ export default async function UsuariosPage() {
           passwordMustChange: user.passwordMustChange,
           credentialSentAt: user.credentialSentAt ? formatBrazilianDate(user.credentialSentAt) : null,
           credentialSentBy: user.credentialSentBy,
+          transportadoraId: user.transportadoraId,
           transportadoraNome: user.transportadora?.nome ?? null,
           lastLoginAt: user.lastLoginAt ? formatBrazilianDate(user.lastLoginAt) : null,
           passwordUpdatedAt: user.passwordUpdatedAt ? formatBrazilianDate(user.passwordUpdatedAt) : null,

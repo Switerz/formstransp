@@ -77,6 +77,74 @@ export async function createAppUser(_state: UserActionState, formData: FormData)
   return { ok: true, message: `Usuário criado como ${roleLabel(role)}.`, temporaryPassword };
 }
 
+export async function updateAppUser(_state: UserActionState, formData: FormData): Promise<UserActionState> {
+  await assertSameOrigin();
+  const currentUser = await requireInternalAdmin("/usuarios");
+
+  const userId = textFrom(formData, "userId", 80);
+  const nome = textFrom(formData, "nome");
+  const username = textFrom(formData, "username").toLowerCase();
+  const email = textFrom(formData, "email").toLowerCase();
+  const role = textFrom(formData, "role");
+  const transportadoraId = textFrom(formData, "transportadoraId") || null;
+
+  if (!userId) return { ok: false, message: "Usuário não encontrado." };
+  if (userId === currentUser.id) {
+    return { ok: false, message: "A conta atualmente logada não pode ser alterada por este menu." };
+  }
+  if (!nome || !username || !email) {
+    return { ok: false, message: "Informe nome, usuário e e-mail." };
+  }
+  if (!roles.includes(role as (typeof roles)[number])) {
+    return { ok: false, message: "Perfil inválido." };
+  }
+  if (role.startsWith("carrier_") && !transportadoraId) {
+    return { ok: false, message: "Usuários de transportadora precisam de uma transportadora vinculada." };
+  }
+
+  const existing = await prisma.appUser.findUnique({
+    where: { id: userId },
+    select: { id: true, nome: true, role: true, transportadoraId: true },
+  });
+  if (!existing) return { ok: false, message: "Usuário não encontrado." };
+
+  const finalTransportadoraId = role.startsWith("carrier_") ? transportadoraId : null;
+
+  if (finalTransportadoraId) {
+    const transportadora = await prisma.transportadora.findUnique({
+      where: { id: finalTransportadoraId },
+      select: { id: true },
+    });
+    if (!transportadora) {
+      return { ok: false, message: "Transportadora não encontrada." };
+    }
+  }
+
+  try {
+    await prisma.appUser.update({
+      where: { id: userId },
+      data: {
+        nome,
+        username,
+        email,
+        role,
+        transportadoraId: finalTransportadoraId,
+      },
+    });
+
+    // Se o perfil ou o vínculo operacional mudou, força novo login para
+    // impedir que uma sessão antiga continue com permissões anteriores.
+    if (existing.role !== role || existing.transportadoraId !== finalTransportadoraId) {
+      await prisma.appSession.deleteMany({ where: { userId } });
+    }
+  } catch {
+    return { ok: false, message: "Não foi possível salvar. Verifique se usuário ou e-mail já existem." };
+  }
+
+  revalidatePath("/usuarios");
+  return { ok: true, message: `Dados de ${nome} atualizados.` };
+}
+
 export async function resetAppUserPassword(_state: UserActionState, formData: FormData): Promise<UserActionState> {
   await assertSameOrigin();
   const currentUser = await requireInternalAdmin("/usuarios");

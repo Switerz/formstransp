@@ -43,7 +43,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                       <Link href="/base-completa">Base Completa</Link>
                       {canManage ? <Link href="/transportadoras/nova">Nova transportadora</Link> : null}
                       {canManage ? <Link href="/usuarios">Usuários</Link> : null}
-                      <Link href="/automacoes/logs">Logs</Link>
+                      {canManage ? <Link href="/automacoes/logs">Logs</Link> : null}
                     </div>
                   ) : (
                     <div className="nav-section">
