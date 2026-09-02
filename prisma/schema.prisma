@@ -214,8 +214,15 @@ model Pedido {
 
   // Previsões vindas da Intelipost. Campos de origem/protegidos; não
   // reutilizar `dataPrevisao`, que é operacional e preenchida pela transportadora.
-  previsaoEntregaClienteOrigem       DateTime?
+  previsaoEntregaClienteOrigem        DateTime?
   previsaoEntregaTransportadoraOrigem DateTime?
+
+  // Campos adicionais de origem Intelipost usados nas regras e KPIs.
+  // Atualizados pela carga diaria e protegidos contra edicao.
+  dataDespacho                           DateTime?
+  previsaoEntregaTransportadoraOriginal DateTime?
+  microStatus                            String?
+  statusTransportador                    String?
 
   origemAtualizadoEm DateTime @default(now())
 

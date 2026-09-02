@@ -2298,3 +2298,25 @@ th {
     gap: 10px;
   }
 }
+
+
+/* KPI EM CONSTRUCAO */
+.kpi-card.kpi-card-building {
+  opacity: 0.58;
+  background: rgba(255, 255, 255, 0.42);
+  box-shadow: none;
+}
+
+.kpi-card.kpi-card-building .kpi-card-value {
+  font-size: 1rem;
+  font-weight: 600;
+  opacity: 0.72;
+}
+
+.kpi-card.kpi-card-building .kpi-card-hint {
+  opacity: 0.62;
+}
+
+.kpi-card.kpi-card-building .kpi-card-icon {
+  opacity: 0.55;
+}

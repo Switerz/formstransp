@@ -84,7 +84,14 @@ export async function getCurrentUser() {
   });
 
   if (!session || session.expiresAt <= new Date() || !session.user.ativo) {
-    await destroyCurrentSession();
+    // Durante Server Component/renderiza??o podemos consultar o cookie,
+    // mas n?o modific?-lo. O cookie antigo ser? sobrescrito no pr?ximo login.
+    if (session) {
+      await prisma.appSession.deleteMany({
+        where: { tokenHash: hashToken(token) },
+      });
+    }
+
     return null;
   }
 
