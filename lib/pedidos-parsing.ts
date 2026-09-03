@@ -30,6 +30,8 @@ export interface PedidoIntelipostRow {
   previsao_entrega_transportadora_original?: string | null;
   micro_status?: string | null;
   status_transportador?: string | null;
+  quantidade_ocorrencias?: number | string | null;
+  ultima_ocorrencia_micro?: string | null;
 }
 
 export interface ParsedPedidoRow {
@@ -55,6 +57,8 @@ export interface ParsedPedidoRow {
   previsaoEntregaTransportadoraOriginal: Date | null;
   microStatus: string | null;
   statusTransportador: string | null;
+  quantidadeOcorrencias: number | null;
+  ultimaOcorrenciaMicro: string | null;
   avisos: string[];
 }
 
@@ -246,6 +250,15 @@ export function parseIntelipostPedidoRow(
       previsaoEntregaTransportadoraOriginal,
       microStatus: optionalString(row.micro_status),
       statusTransportador: optionalString(row.status_transportador),
+      quantidadeOcorrencias:
+        row.quantidade_ocorrencias === null ||
+        row.quantidade_ocorrencias === undefined ||
+        row.quantidade_ocorrencias === ""
+          ? null
+          : Number.isFinite(Number(row.quantidade_ocorrencias))
+            ? Math.trunc(Number(row.quantidade_ocorrencias))
+            : null,
+      ultimaOcorrenciaMicro: optionalString(row.ultima_ocorrencia_micro),
       avisos,
     },
   };

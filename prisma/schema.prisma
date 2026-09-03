@@ -223,6 +223,8 @@ model Pedido {
   previsaoEntregaTransportadoraOriginal DateTime?
   microStatus                            String?
   statusTransportador                    String?
+  quantidadeOcorrencias                  Int?
+  ultimaOcorrenciaMicro                 String?
 
   origemAtualizadoEm DateTime @default(now())
 

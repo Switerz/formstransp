@@ -116,6 +116,8 @@ export async function upsertPedidosFromIntelipost(rows: unknown[]): Promise<Impo
       previsaoEntregaTransportadoraOriginal: data.previsaoEntregaTransportadoraOriginal,
       microStatus: data.microStatus,
       statusTransportador: data.statusTransportador,
+      quantidadeOcorrencias: data.quantidadeOcorrencias,
+    ultimaOcorrenciaMicro: data.ultimaOcorrenciaMicro,
       origemAtualizadoEm: new Date(),
     };
 

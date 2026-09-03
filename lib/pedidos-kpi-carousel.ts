@@ -4,6 +4,10 @@ import { formatBrazilianDate } from "@/lib/dates";
 import type { KpiCard, KpiCarouselProps } from "@/components/pedidos/KpiCarousel";
 import { calcularPercentualAbertoTotal } from "@/lib/pedidos-kpis";
 import {
+  classificarMacroInsucesso,
+  classificarMacroStatus,
+} from "@/lib/pedidos-classificacao";
+import {
   parsePeriodoFilters,
   periodoParaIntervaloDatas,
   type Periodo,
@@ -57,6 +61,7 @@ export async function montarDadosKpiCarousel(
     pedidosParaSla,
     ultimaCarga,
     ultimaDevolucao,
+    pedidosParaClassificacao,
   ] = await Promise.all([
     prisma.pedido.count({
       where: escopoPeriodo,
@@ -130,6 +135,20 @@ export async function montarDadosKpiCarousel(
         createdAt: true,
       },
     }),
+
+    prisma.pedido.findMany({
+      where: escopoPeriodo,
+      select: {
+        microStatus: true,
+        statusTransportador: true,
+        quantidadeOcorrencias: true,
+        ultimaOcorrenciaMicro: true,
+        dataDespacho: true,
+        motivoDevolucao: true,
+        ocorrencia: true,
+        canalVendas: true,
+      },
+    }),
   ]);
 
   const percentualAbertoTotal = calcularPercentualAbertoTotal(
@@ -191,6 +210,111 @@ export async function montarDadosKpiCarousel(
   const percentualSlaCliente = calcularPercentual(
     noPrazoSlaCliente,
     totalAvaliavelSlaCliente,
+  );
+
+
+  let totalPrometidos = 0;
+  let totalInsucesso = 0;
+  let totalDevolucao = 0;
+  let totalPerdas = 0;
+  let totalTratativaCx = 0;
+  let totalProcessado = 0;
+
+  for (const pedido of pedidosParaClassificacao) {
+    /*
+     * Regra tempor?ria de identifica??o da marca:
+     * consideramos Gocase quando o canal for Site BR (Extrema/MG).
+     * Os demais seguem regra GoBeaut?.
+     */
+    const ehGocase =
+      pedido.canalVendas?.trim().toUpperCase() ===
+      "SITE BR (EXTREMA/MG)";
+
+    const macroStatus = classificarMacroStatus({
+      microStatus: pedido.microStatus,
+      statusTransportador: pedido.statusTransportador,
+      quantidadeOcorrencias: pedido.quantidadeOcorrencias,
+      ehGocase,
+    });
+
+    /*
+     * Macro Insucesso vem de Ultima Ocorrencia (Micro),
+     * campo de origem da Intelipost.
+     */
+    const macroInsucesso = classificarMacroInsucesso(
+      pedido.ultimaOcorrenciaMicro,
+    );
+
+    const entraPrometidos =
+      macroStatus !== "N\u00E3o Processado";
+
+    if (entraPrometidos) {
+      totalPrometidos += 1;
+    }
+
+    if (entraPrometidos && macroInsucesso) {
+      totalInsucesso += 1;
+    }
+
+    if (
+      entraPrometidos &&
+      (
+        macroStatus === "Devolu\u00E7\u00E3o" ||
+        macroStatus === "Devolvido" ||
+        Boolean(pedido.motivoDevolucao?.trim())
+      )
+    ) {
+      totalDevolucao += 1;
+    }
+
+    if (
+      entraPrometidos &&
+      macroStatus === "Extravio/Sinistro/Avaria"
+    ) {
+      totalPerdas += 1;
+    }
+
+    if (
+      entraPrometidos &&
+      (
+        macroStatus === "Tratativa CX" ||
+        macroStatus === "Retirada Correios"
+      )
+    ) {
+      totalTratativaCx += 1;
+    }
+
+    if (
+      pedido.dataDespacho &&
+      macroStatus !== "N\u00E3o Processado"
+    ) {
+      totalProcessado += 1;
+    }
+  }
+
+  const percentualInsucesso = calcularPercentual(
+    totalInsucesso,
+    totalPrometidos,
+  );
+
+  const percentualDevolucao = calcularPercentual(
+    totalDevolucao,
+    totalPrometidos,
+  );
+
+  const percentualPerdas = calcularPercentual(
+    totalPerdas,
+    totalPrometidos,
+  );
+
+  const percentualTratativaCx = calcularPercentual(
+    totalTratativaCx,
+    totalPrometidos,
+  );
+
+  const percentualProcessado = calcularPercentual(
+    totalProcessado,
+    totalPedidos,
   );
 
   const totalPedidosCard: KpiCard = {
@@ -273,37 +397,42 @@ export async function montarDadosKpiCarousel(
     slaCliente: slaClienteCard,
 
     taxaInsucesso: {
-      ...EM_CONSTRUCAO,
       icon: "?",
       label: "Taxa de Insucesso",
+      value: `${percentualInsucesso}%`,
+      hint: `${totalInsucesso.toLocaleString("pt-BR")} pedido(s) com Macro Insucesso de ${totalPrometidos.toLocaleString("pt-BR")} prometidos`,
     },
 
     taxaDevolucao: {
-      ...EM_CONSTRUCAO,
       icon: "?",
       label: "Taxa de Devolu\u00e7\u00e3o",
+      value: `${percentualDevolucao}%`,
+      hint: `${totalDevolucao.toLocaleString("pt-BR")} pedido(s) em devolu\u00e7\u00e3o/devolvidos de ${totalPrometidos.toLocaleString("pt-BR")} prometidos`,
     },
 
     pedidosAbertos: pedidosAbertosCard,
 
     tratativaCx: {
-      ...EM_CONSTRUCAO,
       icon: "?",
       label: "Tratativa CX",
+      value: `${percentualTratativaCx}%`,
+      hint: `${totalTratativaCx.toLocaleString("pt-BR")} pedido(s) em Tratativa CX/Retirada Correios de ${totalPrometidos.toLocaleString("pt-BR")} prometidos`,
     },
 
     riscoAtraso: pedidosVencidosCard,
 
     processado: {
-      ...EM_CONSTRUCAO,
       icon: "?",
       label: "Processado",
+      value: `${percentualProcessado}%`,
+      hint: `${totalProcessado.toLocaleString("pt-BR")} pedido(s) processados de ${totalPedidos.toLocaleString("pt-BR")} linhas`,
     },
 
     perdas: {
-      ...EM_CONSTRUCAO,
       icon: "?",
       label: "Perdas Extr/Sint/Avar",
+      value: `${percentualPerdas}%`,
+      hint: `${totalPerdas.toLocaleString("pt-BR")} pedido(s) com Extravio/Sinistro/Avaria de ${totalPrometidos.toLocaleString("pt-BR")} prometidos`,
     },
 
     totalPedidos: totalPedidosCard,
