@@ -66,7 +66,6 @@ export interface RowError {
 
 const REQUIRED_STRING_FIELDS: Array<keyof PedidoIntelipostRow> = [
   "pedido",
-  "nome_destinatario",
   "cidade_destinatario",
   "uf",
   "cep_destinatario",
@@ -226,7 +225,7 @@ export function parseIntelipostPedidoRow(
     ok: true,
     data: {
       pedido,
-      nomeDestinatario: (row.nome_destinatario as string).trim(),
+      nomeDestinatario: typeof row.nome_destinatario === "string" ? row.nome_destinatario.trim() : "",
       canalVendas: canalVendasOrigem,
       cidadeDestinatario: (row.cidade_destinatario as string).trim(),
       uf: (row.uf as string).trim().toUpperCase(),
