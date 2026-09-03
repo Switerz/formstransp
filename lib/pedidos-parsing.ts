@@ -67,7 +67,6 @@ export interface RowError {
 const REQUIRED_STRING_FIELDS: Array<keyof PedidoIntelipostRow> = [
   "pedido",
   "nome_destinatario",
-  "canal_vendas",
   "cidade_destinatario",
   "uf",
   "cep_destinatario",
@@ -146,6 +145,22 @@ export function parseIntelipostPedidoRow(
   }
 
   const pedido = (row.pedido as string).trim();
+
+  const isReversa = pedido.toUpperCase().includes("-REVERSA");
+  const canalVendasOrigem =
+    typeof row.canal_vendas === "string" ? row.canal_vendas.trim() : "";
+
+  if (!isReversa && !canalVendasOrigem) {
+    return {
+      ok: false,
+      error: {
+        index,
+        pedido,
+        motivo: 'Campo obrigatorio ausente ou vazio: "canal_vendas".',
+      },
+    };
+  }
+
   const dataCriacaoPedido = parseFlexibleDate(row.data_criacao as string);
   if (!dataCriacaoPedido) {
     return {
@@ -212,7 +227,7 @@ export function parseIntelipostPedidoRow(
     data: {
       pedido,
       nomeDestinatario: (row.nome_destinatario as string).trim(),
-      canalVendas: (row.canal_vendas as string).trim(),
+      canalVendas: canalVendasOrigem,
       cidadeDestinatario: (row.cidade_destinatario as string).trim(),
       uf: (row.uf as string).trim().toUpperCase(),
       cepDestinatario: (row.cep_destinatario as string).trim(),
