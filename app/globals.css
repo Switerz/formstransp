@@ -2320,3 +2320,18 @@ th {
 .kpi-card.kpi-card-building .kpi-card-icon {
   opacity: 0.55;
 }
+
+/* Ajuste do botao Editar usuario */
+.row-action-menu .edit-user-button {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Editar usuario ocupa a mesma largura das demais acoes */
+.row-action-menu.edit-user-menu {
+  width: 100%;
+}
+
+.row-action-menu.edit-user-menu > .edit-user-button {
+  width: 100%;
+}

@@ -73,7 +73,10 @@ export async function montarDadosKpiCarousel(
       where: {
         ...escopoTransportadora,
         dataEntregaOrigem: null,
-        previsaoEntregaTransportadoraOrigem: intervaloPeriodo,
+        previsaoEntregaTransportadoraOrigem: {
+          gte: intervaloPeriodo.gte,
+          lt: intervaloPeriodo.lt,
+        },
       },
     }),
 
