@@ -91,8 +91,8 @@ function EditUserForm({ user, transportadoras }: { user: UserRow; transportadora
   const [state, action] = useActionState(updateAppUser, initialState);
 
   return (
-    <details className="row-action-menu">
-      <summary className="btn secondary compact">
+    <details className="row-action-menu edit-user-menu">
+      <summary className="btn secondary compact edit-user-button">
         <Pencil size={16} />
         <span>Editar usuário</span>
       </summary>
