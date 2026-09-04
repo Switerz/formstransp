@@ -31,15 +31,7 @@ export function parsePeriodoFilters(
   let de = isDataValida(raw.de) ? raw.de! : defaultPeriodo.de;
   let ate = isDataValida(raw.ate) ? raw.ate! : defaultPeriodo.ate;
 
-  // TEMP 02/09/2026 - DEMO
-  // Enquanto a carga de 01/09 ainda n?o est? dispon?vel,
-  // qualquer sele??o posterior a 31/08 usa 31/08 como data m?xima.
-  const DEMO_MAX_DATE = "2026-08-31";
-
-  if (de > DEMO_MAX_DATE) de = DEMO_MAX_DATE;
-  if (ate > DEMO_MAX_DATE) ate = DEMO_MAX_DATE;
-
-  return { de, ate };
+return { de, ate };
 }
 
 function isDataValida(value: string | undefined): boolean {
