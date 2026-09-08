@@ -89,6 +89,13 @@ export function BasePanel({
     startTransition(async () => {
       try {
         const result = await uploadAction(formData);
+
+        if (result.erroSistema) {
+          setResumo(null);
+          setErro(result.erroSistema);
+          return;
+        }
+
         setResumo(result);
         setAccordionOpen(false);
       } catch (err) {
