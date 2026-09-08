@@ -80,6 +80,39 @@ const FILL_COLUMN_TO_FIELD: Record<string, keyof PedidoAtualDevolucao> = {
   "DATA EM QUE O PEDIDO FOI RESOLVIDO PARA DEVOLUÇÃO": "dataResolucaoDevolucao",
 };
 
+/**
+ * Converte valores usados apenas no resumo/diff para tipos serializáveis
+ * pelo Next.js. Prisma.Decimal e outros objetos com toString() não devem
+ * atravessar diretamente de Server Components para Client Components.
+ */
+function toSerializableDiffValue(value: unknown): unknown {
+  if (value === null || value === undefined) return "";
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+
+  if (typeof value === "bigint") {
+    return value.toString();
+  }
+
+  if (typeof value === "object") {
+    const obj = value as { toString?: () => string };
+    if (typeof obj.toString === "function") {
+      return obj.toString();
+    }
+  }
+
+  return String(value);
+}
 export interface DiffCampo {
   campo: string;
   antes: unknown;
@@ -146,7 +179,7 @@ export function processarLinhaDevolucao(
     const enviado = toComparable(row[coluna], isDateColumn);
     const atual = toComparable(pedidoAtual.protegidosAtuais[coluna], isDateColumn);
     if (enviado !== atual) {
-      violacoesProtegidas.push({ campo: coluna, antes: pedidoAtual.protegidosAtuais[coluna] ?? "", depois: row[coluna] });
+      violacoesProtegidas.push({ campo: coluna, antes: toSerializableDiffValue(pedidoAtual.protegidosAtuais[coluna]), depois: toSerializableDiffValue(row[coluna]) });
     }
   }
 
@@ -178,12 +211,12 @@ export function processarLinhaDevolucao(
 
     if (!isBlank(valorAtualRaw as string | null)) {
       // já tinha resposta diferente -> bloqueado, preserva o valor atual.
-      tentativasBloqueadas.push({ campo: coluna, antes: valorAtualRaw, depois: enviadoRaw });
+      tentativasBloqueadas.push({ campo: coluna, antes: toSerializableDiffValue(valorAtualRaw), depois: toSerializableDiffValue(enviadoRaw) });
       continue;
     }
 
     // 1º preenchimento deste campo.
-    alteracoesAplicadas.push({ campo: coluna, antes: valorAtualRaw ?? "", depois: enviadoRaw });
+    alteracoesAplicadas.push({ campo: coluna, antes: toSerializableDiffValue(valorAtualRaw), depois: toSerializableDiffValue(enviadoRaw) });
     updateData[campoPrisma] = isDateColumn
       ? new Date(enviadoComparavel)
       : coluna === "PRAZO DE ENTREGA (DIAS ÚTEIS)"
