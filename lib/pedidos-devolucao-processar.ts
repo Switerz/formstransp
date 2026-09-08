@@ -186,10 +186,6 @@ export function processarLinhaDevolucao(
   // 2) Validação de formato dos campos operacionais.
   const errosValidacao = validarLinhaDevolucao(row, linha);
 
-  if (violacoesProtegidas.length > 0 || errosValidacao.length > 0) {
-    return { ...base, violacoesProtegidas, errosValidacao, status: "erro_validacao" };
-  }
-
   // 3) Campo a campo: aplica, bloqueia ou ignora.
   const tentativasBloqueadas: DiffCampo[] = [];
   const alteracoesAplicadas: DiffCampo[] = [];
@@ -199,6 +195,9 @@ export function processarLinhaDevolucao(
     if (!(coluna in row)) continue;
     const enviadoRaw = row[coluna];
     if (isBlank(enviadoRaw)) continue; // vazio no upload = não mexe
+
+    const temErroNestaColuna = errosValidacao.some((erro) => erro.coluna === coluna);
+    if (temErroNestaColuna) continue;
 
     const campoPrisma = FILL_COLUMN_TO_FIELD[coluna];
     const valorAtualRaw = pedidoAtual[campoPrisma];
