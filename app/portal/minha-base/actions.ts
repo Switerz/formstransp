@@ -20,6 +20,7 @@ export interface DevolucaoResumo {
   pedidosNaoEncontrados: number;
   pedidosDeOutraTransportadora: number;
   detalhes: ResultadoLinha[];
+  erroSistema?: string;
 }
 
 function linhaVazia(linha: number, pedido: string, status: ResultadoLinha["status"], mensagem?: string): ResultadoLinha {
@@ -45,15 +46,23 @@ function linhaVazia(linha: number, pedido: string, status: ResultadoLinha["statu
  * são bloqueadas e registradas em PedidoFieldChangeAttempt.
  */
 export async function uploadDevolucaoTransportadora(formData: FormData): Promise<DevolucaoResumo> {
-  await assertSameOrigin();
-  const user = await requireCarrierUser("/portal/minha-base");
+  let etapa = "seguranca da requisicao";
+
+  try {
+    await assertSameOrigin();
+
+    etapa = "autenticacao da transportadora";
+    const user = await requireCarrierUser("/portal/minha-base");
 
   const file = formData.get("arquivo");
   if (!(file instanceof File) || file.size === 0) {
     throw new Error("Selecione um arquivo .xlsx preenchido antes de enviar.");
   }
 
+  etapa = "leitura do arquivo enviado";
   const buffer = Buffer.from(await file.arrayBuffer());
+
+  etapa = "leitura da planilha XLSX";
   const { rows } = await readXlsxTable(buffer);
 
   const resumo: DevolucaoResumo = {
@@ -77,6 +86,8 @@ export async function uploadDevolucaoTransportadora(formData: FormData): Promise
     ),
   );
 
+  etapa = "consulta dos pedidos no banco";
+
   const pedidosDb = await prisma.pedido.findMany({
     where: {
       pedido: { in: pedidosChave },
@@ -95,6 +106,8 @@ export async function uploadDevolucaoTransportadora(formData: FormData): Promise
     id: string;
     data: Parameters<typeof prisma.pedido.update>[0]["data"];
   }> = [];
+
+  etapa = "validacao e processamento das linhas";
 
   for (let index = 0; index < rows.length; index += 1) {
     const linha = index + 2; // linha 1 = cabeçalho
@@ -192,11 +205,15 @@ export async function uploadDevolucaoTransportadora(formData: FormData): Promise
     }
   }
 
+  etapa = "registro das tentativas bloqueadas";
+
   if (tentativasParaCriar.length > 0) {
     await prisma.pedidoFieldChangeAttempt.createMany({
       data: tentativasParaCriar,
     });
   }
+
+  etapa = "atualizacao dos pedidos no banco";
 
   const TAMANHO_LOTE_DEVOLUCAO = 25;
 
@@ -213,6 +230,8 @@ export async function uploadDevolucaoTransportadora(formData: FormData): Promise
     );
   }
 
+  etapa = "registro do log da devolucao";
+
   await prisma.automationLog.create({
     data: {
       transportadoraId: user.transportadoraId,
@@ -225,4 +244,18 @@ export async function uploadDevolucaoTransportadora(formData: FormData): Promise
   });
 
   return resumo;
+  } catch (err) {
+    console.error(`[uploadDevolucaoTransportadora] Falha em: ${etapa}`, err);
+
+    return {
+      totalLinhas: 0,
+      aplicados: 0,
+      semAlteracao: 0,
+      erros: 1,
+      pedidosNaoEncontrados: 0,
+      pedidosDeOutraTransportadora: 0,
+      detalhes: [],
+      erroSistema: `Falha na etapa: ${etapa}.`,
+    };
+  }
 }
