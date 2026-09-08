@@ -272,6 +272,36 @@ export async function uploadDevolucaoInterna(formData: FormData): Promise<Devolu
     detalhes: [],
   };
 
+  const pedidosChave = Array.from(
+    new Set(
+      rows
+        .map((row) => {
+          const normalizado = normalizarColunasLinha(row);
+          return String(normalizado["Pedido"] ?? "").trim();
+        })
+        .filter(Boolean),
+    ),
+  );
+
+  const pedidosDb = await prisma.pedido.findMany({
+    where: {
+      pedido: { in: pedidosChave },
+    },
+    include: {
+      transportadora: { select: { nome: true } },
+    },
+  });
+
+  const pedidosPorChave = new Map(
+    pedidosDb.map((pedido) => [pedido.pedido, pedido]),
+  );
+
+  const tentativasParaCriar: Prisma.PedidoFieldChangeAttemptCreateManyInput[] = [];
+  const atualizacoes: Array<{
+    id: string;
+    data: Prisma.PedidoUpdateInput;
+  }> = [];
+
   for (let index = 0; index < rows.length; index += 1) {
     const linha = index + 2;
     const normalizado = normalizarColunasLinha(rows[index]);
@@ -283,10 +313,7 @@ export async function uploadDevolucaoInterna(formData: FormData): Promise<Devolu
       continue;
     }
 
-    const pedidoDb = await prisma.pedido.findUnique({
-      where: { pedido: pedidoChave },
-      include: { transportadora: { select: { nome: true } } },
-    });
+    const pedidoDb = pedidosPorChave.get(pedidoChave);
 
     if (!pedidoDb) {
       resumo.pedidosNaoEncontrados += 1;
@@ -353,25 +380,44 @@ export async function uploadDevolucaoInterna(formData: FormData): Promise<Devolu
       ...resultado.tentativasBloqueadas.map((v) => ({ ...v, tipo: "campo_ja_respondido" as const })),
     ];
     for (const tentativa of tentativas) {
-      await prisma.pedidoFieldChangeAttempt.create({
-        data: {
-          pedidoId: pedidoDb.id,
-          transportadoraId,
-          userId: user.id,
-          campo: tentativa.campo,
-          valorAtual: tentativa.antes === null || tentativa.antes === undefined ? null : String(tentativa.antes),
-          valorTentado: tentativa.depois === null || tentativa.depois === undefined ? null : String(tentativa.depois),
-          status: "blocked",
-        },
+      tentativasParaCriar.push({
+        pedidoId: pedidoDb.id,
+        transportadoraId,
+        userId: user.id,
+        campo: tentativa.campo,
+        valorAtual: tentativa.antes === null || tentativa.antes === undefined ? null : String(tentativa.antes),
+        valorTentado: tentativa.depois === null || tentativa.depois === undefined ? null : String(tentativa.depois),
+        status: "blocked",
       });
     }
 
     if (Object.keys(resultado.updateData).length > 0) {
-      await prisma.pedido.update({
-        where: { id: pedidoDb.id },
+      atualizacoes.push({
+        id: pedidoDb.id,
         data: { ...resultado.updateData, operacionalAtualizadoEm: new Date() },
       });
     }
+  }
+
+  if (tentativasParaCriar.length > 0) {
+    await prisma.pedidoFieldChangeAttempt.createMany({
+      data: tentativasParaCriar,
+    });
+  }
+
+  const TAMANHO_LOTE_DEVOLUCAO = 25;
+
+  for (let offset = 0; offset < atualizacoes.length; offset += TAMANHO_LOTE_DEVOLUCAO) {
+    const lote = atualizacoes.slice(offset, offset + TAMANHO_LOTE_DEVOLUCAO);
+
+    await prisma.$transaction(
+      lote.map((item) =>
+        prisma.pedido.update({
+          where: { id: item.id },
+          data: item.data,
+        }),
+      ),
+    );
   }
 
   await prisma.automationLog.create({
