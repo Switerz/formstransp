@@ -29,7 +29,6 @@ export default async function MinhaBasePage({
     where: { transportadoraId, dataEntregaOrigem: null },
     include: { transportadora: { select: { nome: true } } },
     orderBy: { dataCriacaoPedido: "desc" },
-    take: 1000,
   });
 
   const linhas = (pedidosDb as unknown as PedidoParaTabela[]).map(pedidoParaLinhaTabela);
