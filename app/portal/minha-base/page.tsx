@@ -7,7 +7,7 @@ import { PeriodoFilter } from "@/components/pedidos/PeriodoFilter";
 import { pedidoParaLinhaTabela, type PedidoParaTabela } from "@/lib/pedidos-table-row";
 import { summarizeFillStatus } from "@/lib/pedidos-kpis";
 import { montarDadosKpiCarousel } from "@/lib/pedidos-kpi-carousel";
-import { uploadDevolucaoTransportadora } from "@/app/portal/minha-base/actions";
+import { uploadDevolucaoTransportadora, type DevolucaoResumo } from "@/app/portal/minha-base/actions";
 import "@/components/pedidos/minha-base.css";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,91 @@ export default async function MinhaBasePage({
 
   // Mesma função usada pela aba Início - única fonte de verdade dos
   // Big Numbers, sem duplicar consulta/lógica entre as duas telas.
-  const dadosKpi = await montarDadosKpiCarousel(transportadoraId, raw);
+  const periodoDisponivel = await prisma.pedido.aggregate({
+    where: {
+      transportadoraId,
+      dataEntregaOrigem: null,
+      previsaoEntregaTransportadoraOrigem: {
+        not: null,
+      },
+    },
+    _min: {
+      previsaoEntregaTransportadoraOrigem: true,
+    },
+    _max: {
+      previsaoEntregaTransportadoraOrigem: true,
+    },
+  });
+
+  const dataParaIso = (data: Date | null) => {
+    if (!data) return undefined;
+
+    const ano = data.getFullYear();
+    const mes = String(data.getMonth() + 1).padStart(2, "0");
+    const dia = String(data.getDate()).padStart(2, "0");
+
+    return `${ano}-${mes}-${dia}`;
+  };
+
+  const parametrosComPeriodoPadrao = {
+    ...raw,
+    de:
+      raw.de ??
+      dataParaIso(
+        periodoDisponivel._min.previsaoEntregaTransportadoraOrigem,
+      ),
+    ate:
+      raw.ate ??
+      dataParaIso(
+        periodoDisponivel._max.previsaoEntregaTransportadoraOrigem,
+      ),
+  };
+
+  const dadosKpi = await montarDadosKpiCarousel(
+    transportadoraId,
+    parametrosComPeriodoPadrao,
+  );
+
+  const ultimaDevolucao = await prisma.automationLog.findFirst({
+    where: {
+      transportadoraId,
+      tipo: "pedidos_devolucao",
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    select: {
+      createdAt: true,
+      payload: true,
+    },
+  });
+
+  let resumoPersistido: DevolucaoResumo | null = null;
+
+  if (ultimaDevolucao?.payload) {
+    try {
+      resumoPersistido = JSON.parse(ultimaDevolucao.payload) as DevolucaoResumo;
+    } catch {
+      resumoPersistido = null;
+    }
+  }
+
+  const formatarDataSaoPaulo = (data: Date) =>
+    data.toLocaleDateString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+    });
+
+  const ultimaDevolucaoLabel = ultimaDevolucao
+    ? ultimaDevolucao.createdAt.toLocaleString("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        dateStyle: "short",
+        timeStyle: "short",
+      })
+    : "Nenhuma devolução recebida";
+
+  const hasDevolucaoHoje = ultimaDevolucao
+    ? formatarDataSaoPaulo(ultimaDevolucao.createdAt) === formatarDataSaoPaulo(new Date())
+    : false;
 
   const pedidosDb = await prisma.pedido.findMany({
     where: { transportadoraId, dataEntregaOrigem: null },
@@ -31,8 +115,48 @@ export default async function MinhaBasePage({
     orderBy: { dataCriacaoPedido: "desc" },
   });
 
-  const linhas = (pedidosDb as unknown as PedidoParaTabela[]).map(pedidoParaLinhaTabela);
-  const preenchimento = summarizeFillStatus(pedidosDb as unknown as PedidoParaTabela[]);
+  const pedidosTabela = pedidosDb as unknown as PedidoParaTabela[];
+
+  const datasDisponiveis = Array.from(
+    new Set(
+      pedidosTabela
+        .map((pedido) => pedido.previsaoEntregaTransportadoraOrigem)
+        .filter((data): data is Date => data instanceof Date)
+        .map((data) => {
+          const ano = data.getFullYear();
+          const mes = String(data.getMonth() + 1).padStart(2, "0");
+          const dia = String(data.getDate()).padStart(2, "0");
+          return `${ano}-${mes}-${dia}`;
+        }),
+    ),
+  ).sort();
+
+  const todasAsLinhas = pedidosTabela.map(pedidoParaLinhaTabela);
+  const preenchimento = summarizeFillStatus(pedidosTabela);
+
+  const filtroPreenchimento =
+    raw.preenchimento === "preenchidas" ? "preenchidas" : "todas";
+
+  const linhas =
+    filtroPreenchimento === "preenchidas"
+      ? todasAsLinhas.filter((linha) => linha.fillStatus !== "pending")
+      : todasAsLinhas;
+
+  const criarHrefPreenchimento = (valor: "todas" | "preenchidas") => {
+    const parametros = new URLSearchParams();
+
+    parametros.set("de", dadosKpi.periodo.de);
+    parametros.set("ate", dadosKpi.periodo.ate);
+
+    if (valor === "preenchidas") {
+      parametros.set("preenchimento", "preenchidas");
+    }
+
+    return `/portal/minha-base?${parametros.toString()}`;
+  };
+
+  const allHref = criarHrefPreenchimento("todas");
+  const filledHref = criarHrefPreenchimento("preenchidas");
 
   return (
     <div className="mb-html">
@@ -47,7 +171,12 @@ export default async function MinhaBasePage({
           </div>
         </div>
 
-        <PeriodoFilter action="/portal/minha-base" de={dadosKpi.periodo.de} ate={dadosKpi.periodo.ate} />
+        <PeriodoFilter
+          action="/portal/minha-base"
+          de={dadosKpi.periodo.de}
+          ate={dadosKpi.periodo.ate}
+          datasDisponiveis={datasDisponiveis}
+        />
 
         <section className="grid">
           <KpiCarousel {...dadosKpi.props} />
@@ -56,9 +185,29 @@ export default async function MinhaBasePage({
             linhas={linhas}
             lastBaseUpdateLabel={dadosKpi.ultimaCargaLabel}
             hasBaseUpdate={dadosKpi.hasBaseUpdate}
+            initialResumo={resumoPersistido}
+            lastDevolucaoLabel={ultimaDevolucaoLabel}
+            hasDevolucaoHoje={hasDevolucaoHoje}
             fillPending={preenchimento.pending}
             fillPartial={preenchimento.partial}
             fillDone={preenchimento.done}
+            serverFillFilter={filtroPreenchimento}
+            allHref={allHref}
+            filledHref={filledHref}
+            toolbarDateFilter={
+              <PeriodoFilter
+                key="filtro-combinado-minha-base"
+                action="/portal/minha-base"
+                de={dadosKpi.periodo.de}
+                ate={dadosKpi.periodo.ate}
+                datasDisponiveis={datasDisponiveis}
+                hiddenFields={{ preenchimento: filtroPreenchimento }}
+                compact
+                fillFilter={filtroPreenchimento}
+                allHref={allHref}
+                filledHref={filledHref}
+              />
+            }
             downloadHref="/portal/minha-base/download"
             uploadAction={uploadDevolucaoTransportadora}
           />

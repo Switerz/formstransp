@@ -58,15 +58,133 @@ export default async function BaseCompletaPage({
     ...(transportadoraIdFiltro ? { transportadoraId: transportadoraIdFiltro } : {}),
   };
 
-  const pedidosDb = await prisma.pedido.findMany({
-    where,
-    include: { transportadora: { select: { nome: true } } },
-    orderBy: { dataCriacaoPedido: "desc" },
-    take: 1000,
+  const paginaRaw = Number(raw.pagina ?? "1");
+  const pagina = Number.isFinite(paginaRaw) && paginaRaw > 0 ? Math.floor(paginaRaw) : 1;
+  const filtroPreenchimento = raw.preenchimento === "preenchidas" ? "preenchidas" : "todas";
+  const porPagina = 1000;
+
+  const whereAlgumPreenchido = {
+    OR: [
+      { dataColetaProcessamento: { not: null } },
+      { dataPrevisao: { not: null } },
+      { prazoEntregaDiasUteis: { not: null } },
+      { dataEntrega: { not: null } },
+      { statusAtual: { not: null } },
+      { ocorrencia: { not: null } },
+      { motivoDevolucao: { not: null } },
+      { slaStatus: { not: null } },
+      { justificativaAtraso: { not: null } },
+      { novaDataPrevisao: { not: null } },
+      { dataResolucaoDevolucao: { not: null } },
+    ],
+  };
+
+  const whereTodosPreenchidos = {
+    AND: [
+      { dataColetaProcessamento: { not: null } },
+      { dataPrevisao: { not: null } },
+      { prazoEntregaDiasUteis: { not: null } },
+      { dataEntrega: { not: null } },
+      { statusAtual: { not: null } },
+      { ocorrencia: { not: null } },
+      { motivoDevolucao: { not: null } },
+      { slaStatus: { not: null } },
+      { justificativaAtraso: { not: null } },
+      { novaDataPrevisao: { not: null } },
+      { dataResolucaoDevolucao: { not: null } },
+    ],
+  };
+
+  const [totalBase, totalPreenchidos, totalRespondidos] = await Promise.all([
+    prisma.pedido.count({ where }),
+    prisma.pedido.count({
+      where: {
+        AND: [where, whereAlgumPreenchido],
+      },
+    }),
+    prisma.pedido.count({
+      where: {
+        AND: [where, whereTodosPreenchidos],
+      },
+    }),
+  ]);
+
+  const preenchimento = {
+    pending: totalBase - totalPreenchidos,
+    partial: totalPreenchidos - totalRespondidos,
+    done: totalRespondidos,
+  };
+
+  const totalPaginas = Math.max(1, Math.ceil(totalBase / porPagina));
+
+  const datasDisponiveisDb = await prisma.pedido.findMany({
+    where: {
+      AND: [
+        where,
+        {
+          previsaoEntregaTransportadoraOrigem: {
+            not: null,
+          },
+        },
+      ],
+    },
+    select: {
+      previsaoEntregaTransportadoraOrigem: true,
+    },
+    distinct: ["previsaoEntregaTransportadoraOrigem"],
+    orderBy: {
+      previsaoEntregaTransportadoraOrigem: "asc",
+    },
   });
 
+  const datasDisponiveis = Array.from(
+    new Set(
+      datasDisponiveisDb
+        .map((pedido) => pedido.previsaoEntregaTransportadoraOrigem)
+        .filter((data): data is Date => data instanceof Date)
+        .map((data) => {
+          const ano = data.getFullYear();
+          const mes = String(data.getMonth() + 1).padStart(2, "0");
+          const dia = String(data.getDate()).padStart(2, "0");
+          return `${ano}-${mes}-${dia}`;
+        }),
+    ),
+  ).sort();
+
+  const pedidosDb =
+    filtroPreenchimento === "preenchidas"
+      ? await prisma.pedido.findMany({
+          where: {
+            AND: [where, whereAlgumPreenchido],
+          },
+          include: { transportadora: { select: { nome: true } } },
+          orderBy: { dataCriacaoPedido: "desc" },
+        })
+      : await prisma.pedido.findMany({
+          where,
+          include: { transportadora: { select: { nome: true } } },
+          orderBy: { dataCriacaoPedido: "desc" },
+          skip: (pagina - 1) * porPagina,
+          take: porPagina,
+        });
+
   const linhas = (pedidosDb as unknown as PedidoParaTabela[]).map(pedidoParaLinhaTabela);
-  const preenchimento = summarizeFillStatus(pedidosDb as unknown as PedidoParaTabela[]);
+
+  const montarHref = (novaPagina: number, novoFiltro: "todas" | "preenchidas") => {
+    const params = new URLSearchParams();
+
+    if (raw.de) params.set("de", raw.de);
+    if (raw.ate) params.set("ate", raw.ate);
+    if (transportadoraIdFiltro) params.set("transportadoraId", transportadoraIdFiltro);
+
+    if (novoFiltro === "preenchidas") {
+      params.set("preenchimento", "preenchidas");
+    } else {
+      params.set("pagina", String(novaPagina));
+    }
+
+    return `/base-completa?${params.toString()}`;
+  };
 
   const downloadHref = transportadoraIdFiltro
     ? `/base-completa/download?transportadoraId=${transportadoraIdFiltro}`
@@ -91,7 +209,8 @@ export default async function BaseCompletaPage({
           ate={dadosKpi.periodo.ate}
           transportadoras={transportadoras}
           transportadoraId={transportadoraIdFiltro ?? undefined}
-        />
+                    datasDisponiveis={datasDisponiveis}
+          />
 
         <section className="grid">
           <KpiCarousel {...dadosKpi.props} />
@@ -103,7 +222,35 @@ export default async function BaseCompletaPage({
             fillPending={preenchimento.pending}
             fillPartial={preenchimento.partial}
             fillDone={preenchimento.done}
-            downloadHref={downloadHref}
+            serverFillFilter={filtroPreenchimento}
+            totalRows={filtroPreenchimento === "preenchidas" ? totalPreenchidos : totalBase}
+            page={pagina}
+            totalPages={totalPaginas}
+            previousHref={pagina > 1 ? montarHref(pagina - 1, "todas") : undefined}
+            nextHref={pagina < totalPaginas ? montarHref(pagina + 1, "todas") : undefined}
+            allHref={montarHref(1, "todas")}
+            filledHref={montarHref(1, "preenchidas")}
+              toolbarDateFilter={
+                <PeriodoFilter
+                  action="/base-completa"
+                  de={dadosKpi.periodo.de}
+                  ate={dadosKpi.periodo.ate}
+                  transportadoras={transportadoras}
+                  transportadoraId={transportadoraIdFiltro ?? undefined}
+                  datasDisponiveis={datasDisponiveis}
+                  hiddenFields={{
+                    preenchimento:
+                      filtroPreenchimento === "preenchidas"
+                        ? "preenchidas"
+                        : "",
+                  }}
+                  fillFilter={filtroPreenchimento}
+                  allHref={montarHref(1, "todas")}
+                  filledHref={montarHref(1, "preenchidas")}
+                  compact
+                />
+              }
+              downloadHref={downloadHref}
             downloadLabel="Baixar Base Completa"
             backendNote="Visão interna - últimos 45 dias pela Data Criação, todas as transportadoras, incluindo pedidos finalizados."
             uploadAction={podeGerenciarBases ? uploadDevolucaoInterna : undefined}
