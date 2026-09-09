@@ -386,7 +386,7 @@ export function BasePanel({
             <div>{activeTab === "compare" ? TAB_INFO[activeTab].hint(linhas.length) : textoQuantidade}</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {activeTab !== "compare" ? (
+            {activeTab !== "compare" && !toolbarDateFilter ? (
                 <select
                   value={filtroAtual}
                 onChange={(e) => {
