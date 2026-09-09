@@ -8,6 +8,7 @@
  */
 
 export const STATUS_DE_PARA: Record<string, string> = {
+  "EM DEVOLU\u00c7\u00c3O": "Devolu\u00e7\u00e3o",
   // TRANSPORTADORA
   "Encomenda expedido mas não chegou": "Transportadora",
   "AVERIGUAR FALHA NA ENTREGA": "Transportadora",
