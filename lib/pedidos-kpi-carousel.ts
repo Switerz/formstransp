@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+﻿import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatBrazilianDate } from "@/lib/dates";
 import type { KpiCard, KpiCarouselProps } from "@/components/pedidos/KpiCarousel";
@@ -54,102 +54,92 @@ export async function montarDadosKpiCarousel(
     dataCriacaoPedido: intervaloPeriodo,
   };
 
-  const [
-    totalPedidos,
-    pedidosAbertosCount,
-    pedidosVencidosCount,
-    pedidosParaSla,
-    ultimaCarga,
-    ultimaDevolucao,
-    pedidosParaClassificacao,
-  ] = await Promise.all([
-    prisma.pedido.count({
-      where: escopoPeriodo,
-    }),
+  const totalPedidos = await prisma.pedido.count({
+    where: escopoPeriodo,
+  });
 
-    prisma.pedido.count({
-      where: {
-        ...escopoPeriodo,
-        dataEntregaOrigem: null,
+  const pedidosAbertosCount = await prisma.pedido.count({
+    where: {
+      ...escopoPeriodo,
+      dataEntregaOrigem: null,
+    },
+  });
+
+  const pedidosVencidosCount = await prisma.pedido.count({
+    where: {
+      ...escopoTransportadora,
+      dataEntregaOrigem: null,
+      previsaoEntregaTransportadoraOrigem: {
+        gte: intervaloPeriodo.gte,
+        lt: intervaloPeriodo.lt,
       },
-    }),
+    },
+  });
 
-    prisma.pedido.count({
-      where: {
-        ...escopoTransportadora,
-        dataEntregaOrigem: null,
-        previsaoEntregaTransportadoraOrigem: {
-          gte: intervaloPeriodo.gte,
-          lt: intervaloPeriodo.lt,
-        },
+  const pedidosParaSla = await prisma.pedido.findMany({
+    where: {
+      ...escopoPeriodo,
+      dataEntregaOrigem: {
+        not: null,
       },
-    }),
-
-    prisma.pedido.findMany({
-      where: {
-        ...escopoPeriodo,
-        dataEntregaOrigem: {
-          not: null,
-        },
-        OR: [
-          {
-            previsaoEntregaTransportadoraOrigem: {
-              not: null,
-            },
+      OR: [
+        {
+          previsaoEntregaTransportadoraOrigem: {
+            not: null,
           },
-          {
-            previsaoEntregaClienteOrigem: {
-              not: null,
-            },
+        },
+        {
+          previsaoEntregaClienteOrigem: {
+            not: null,
           },
-        ],
-      },
-      select: {
-        dataEntregaOrigem: true,
-        previsaoEntregaTransportadoraOrigem: true,
-        previsaoEntregaClienteOrigem: true,
-      },
-    }),
+        },
+      ],
+    },
+    select: {
+      dataEntregaOrigem: true,
+      previsaoEntregaTransportadoraOrigem: true,
+      previsaoEntregaClienteOrigem: true,
+    },
+  });
 
-    prisma.automationLog.findFirst({
-      where: {
-        tipo: "pedidos_import",
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      select: {
-        createdAt: true,
-      },
-    }),
+  const ultimaCarga = await prisma.automationLog.findFirst({
+    where: {
+      tipo: "pedidos_import",
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    select: {
+      createdAt: true,
+    },
+  });
 
-    prisma.automationLog.findFirst({
-      where: {
-        tipo: "pedidos_devolucao",
-        ...(transportadoraId ? { transportadoraId } : {}),
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      select: {
-        createdAt: true,
-      },
-    }),
+  const ultimaDevolucao = await prisma.automationLog.findFirst({
+    where: {
+      tipo: "pedidos_devolucao",
+      ...(transportadoraId ? { transportadoraId } : {}),
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    select: {
+      createdAt: true,
+    },
+  });
 
-    prisma.pedido.findMany({
-      where: escopoPeriodo,
-      select: {
-        microStatus: true,
-        statusTransportador: true,
-        quantidadeOcorrencias: true,
-        ultimaOcorrenciaMicro: true,
-        dataDespacho: true,
-        motivoDevolucao: true,
-        ocorrencia: true,
-        canalVendas: true,
-      },
-    }),
-  ]);
+  const pedidosParaClassificacao = await prisma.pedido.findMany({
+    where: escopoPeriodo,
+    select: {
+      microStatus: true,
+      statusTransportador: true,
+      quantidadeOcorrencias: true,
+      ultimaOcorrenciaMicro: true,
+      dataDespacho: true,
+      motivoDevolucao: true,
+      ocorrencia: true,
+      canalVendas: true,
+    },
+  });
 
   const percentualAbertoTotal = calcularPercentualAbertoTotal(
     totalPedidos,
@@ -321,9 +311,7 @@ export async function montarDadosKpiCarousel(
     icon: "?",
     label: "Total Expedido",
     value: totalPedidos.toLocaleString("pt-BR"),
-    hint: `Pedidos criados entre ${formatBrazilianDate(
-      intervaloPeriodo.gte,
-    )} e ${periodo.ate.split("-").reverse().join("/")}`,
+    hint: `Pedidos criados entre ${periodo.de.split("-").reverse().join("/")} e ${periodo.ate.split("-").reverse().join("/")}`,
   };
 
   const pedidosAbertosCard: KpiCard = {
@@ -380,9 +368,7 @@ export async function montarDadosKpiCarousel(
     icon: "?",
     label: "Pedidos Vencidos",
     value: pedidosVencidosCount.toLocaleString("pt-BR"),
-    hint: `Previs\u00e3o Entrega Transportadora entre ${formatBrazilianDate(
-      intervaloPeriodo.gte,
-    )} e ${periodo.ate.split("-").reverse().join("/")}`,
+    hint: `Previs\u00e3o Entrega Transportadora entre ${periodo.de.split("-").reverse().join("/")} e ${periodo.ate.split("-").reverse().join("/")}`,
   };
 
   const props: KpiCarouselProps = {
@@ -467,3 +453,4 @@ export async function montarDadosKpiCarousel(
     hasBaseUpdate: Boolean(ultimaCarga),
   };
 }
+
