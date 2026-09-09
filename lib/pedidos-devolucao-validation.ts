@@ -97,6 +97,20 @@ export const ACCEPTED_RETURN_REASONS = [
 
 export const ACCEPTED_SLA = ["No prazo", "Atrasado"];
 
+export const ACCEPTED_STATUS = [
+  "N\u00E3o Processado",
+  "Em Tr\u00E2nsito",
+  "Tratativa CX",
+  "Saiu Para Entrega",
+  "Entregue",
+  "Retirada Correios",
+  "Devolu\u00E7\u00E3o",
+  "Devolvido",
+  "Avaria",
+  "Sinistro",
+  "Extravio",
+];
+
 function normHeader(value: unknown): string {
   return String(value ?? "")
     .normalize("NFD")
@@ -170,6 +184,20 @@ export function validarLinhaDevolucao(row: Record<string, unknown>, linha: numbe
       coluna: "PRAZO DE ENTREGA (DIAS ÚTEIS)",
       valor: prazo,
       mensagem: "Aceito somente número inteiro de dias úteis ou campo em branco.",
+    });
+  }
+
+  const statusAtual = row["STATUS ATUAL"];
+  if (
+    "STATUS ATUAL" in row &&
+    !isBlank(statusAtual) &&
+    !sameAllowedValue(statusAtual, ACCEPTED_STATUS)
+  ) {
+    erros.push({
+      linha,
+      coluna: "STATUS ATUAL",
+      valor: statusAtual,
+      mensagem: "Valor fora do de/para de status.",
     });
   }
 

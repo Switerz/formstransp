@@ -136,15 +136,13 @@ export interface ResultadoLinha {
  * o estado atual real do pedido (já carregado do banco pelo chamador).
  * Função pura - não toca em IO/Prisma.
  *
- * Regra por linha (documentada explicitamente):
- * - Se houver erro de validação de formato OU violação de campo protegido,
- *   a linha inteira é rejeitada (nenhum campo é aplicado).
- * - Se a linha for válida, cada campo operacional é avaliado individualmente:
- *   - vazio no upload -> ignorado (não altera o que já existe);
- *   - igual ao valor atual -> sem alteração (idempotente);
- *   - valor atual vazio e upload preenchido -> aplica (1º preenchimento);
- *   - valor atual preenchido e upload diferente -> BLOQUEADO (preserva o
- *     valor atual, registra a tentativa - item 7 do design original).
+ * Regra por linha:
+ * - Erro de validacao em campo operacional rejeita a linha inteira.
+ * - Divergencia em campo protegido e apenas registrada:
+ *   nunca sobrescreve a origem e nao impede atualizacoes operacionais validas.
+ * - Campo operacional vazio no upload e ignorado.
+ * - Campo operacional igual ao valor atual nao gera alteracao.
+ * - Campo operacional valido e diferente pode atualizar mesmo se ja houver valor.
  */
 export function processarLinhaDevolucao(
   rawRow: Record<string, unknown>,
@@ -186,7 +184,22 @@ export function processarLinhaDevolucao(
   // 2) Validação de formato dos campos operacionais.
   const errosValidacao = validarLinhaDevolucao(row, linha);
 
-  // 3) Campo a campo: aplica, bloqueia ou ignora.
+  // 3) Erro em campo operacional invalida a linha inteira.
+  // Divergencias em campos protegidos sao apenas registradas:
+  // nunca sobrescrevem a origem, mas nao impedem atualizacoes operacionais validas.
+  if (errosValidacao.length > 0) {
+    return {
+      ...base,
+      violacoesProtegidas,
+      errosValidacao,
+      tentativasBloqueadas: [],
+      alteracoesAplicadas: [],
+      updateData: {},
+      status: "erro_validacao",
+    };
+  }
+
+  // 4) Campo a campo: aplica ou ignora.
   const tentativasBloqueadas: DiffCampo[] = [];
   const alteracoesAplicadas: DiffCampo[] = [];
   const updateData: Record<string, unknown> = {};
@@ -208,13 +221,8 @@ export function processarLinhaDevolucao(
 
     if (enviadoComparavel === atualComparavel) continue; // já é isso, no-op
 
-    if (!isBlank(valorAtualRaw as string | null)) {
-      // já tinha resposta diferente -> bloqueado, preserva o valor atual.
-      tentativasBloqueadas.push({ campo: coluna, antes: toSerializableDiffValue(valorAtualRaw), depois: toSerializableDiffValue(enviadoRaw) });
-      continue;
-    }
-
-    // 1º preenchimento deste campo.
+    // Campo operacional válido pode ser atualizado sempre.
+    // Se for diferente do atual e passar na validação, aplica a atualização.
     alteracoesAplicadas.push({ campo: coluna, antes: toSerializableDiffValue(valorAtualRaw), depois: toSerializableDiffValue(enviadoRaw) });
     updateData[campoPrisma] = isDateColumn
       ? new Date(enviadoComparavel)
