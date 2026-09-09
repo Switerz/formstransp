@@ -3,8 +3,6 @@
 import { PRIMARY_COLUMNS, FILL_COLUMNS, PROTECTED_COLUMNS } from "@/lib/pedidos-devolucao-validation";
 import { ORDEM_COLUNAS_TABELA, type LinhaTabela } from "@/lib/pedidos-table-row";
 
-const LIMITE_LINHAS_EXIBIDAS = 1000;
-
 function classeColuna(col: string): string {
   if ((PRIMARY_COLUMNS as readonly string[]).includes(col)) return "primary-col";
   if ((FILL_COLUMNS as readonly string[]).includes(col)) return "fill-col";
@@ -39,7 +37,7 @@ export function PedidosTable({ linhas, busca, mostrarProtegidas, onToggleProtegi
       !(PROTECTED_COLUMNS as readonly string[]).includes(col),
   );
 
-  const visiveis = filtradas.slice(0, LIMITE_LINHAS_EXIBIDAS);
+  const visiveis = filtradas;
 
   if (!linhas.length) {
     return <div className="empty">Nenhuma base carregada para esta visão.</div>;
@@ -90,11 +88,6 @@ export function PedidosTable({ linhas, busca, mostrarProtegidas, onToggleProtegi
         </table>
       </div>
 
-      {filtradas.length > LIMITE_LINHAS_EXIBIDAS ? (
-        <div style={{ paddingTop: 8, fontSize: 11, color: "var(--gray)" }}>
-          Exibindo as primeiras {LIMITE_LINHAS_EXIBIDAS.toLocaleString("pt-BR")} de {filtradas.length.toLocaleString("pt-BR")} linhas filtradas.
-        </div>
-      ) : null}
     </>
   );
 }

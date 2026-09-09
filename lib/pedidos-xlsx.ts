@@ -123,21 +123,21 @@ export async function buildPedidosXlsx(pedidos: PedidoParaXlsx[]): Promise<Buffe
   });
 
   for (const p of pedidos) {
-    sheet.addRow([
+    const row = sheet.addRow([
       p.nomeDestinatario,
       p.canalVendas,
       p.cidadeDestinatario,
       p.uf,
-      p.cepDestinatario,
-      p.pedidoDeVenda,
-      p.pedido,
-      p.codigoRastreio ?? "",
-      p.notaFiscal ?? "",
+      String(p.cepDestinatario ?? ""),
+      String(p.pedidoDeVenda ?? ""),
+      String(p.pedido ?? ""),
+      String(p.codigoRastreio ?? ""),
+      String(p.notaFiscal ?? ""),
       p.metodoEnvio ?? "",
       p.transportadora?.nome ?? "",
       cellDecimal(p.valorNota),
       cellDecimal(p.pesoFisico),
-      p.chaveNota ?? "",
+      String(p.chaveNota ?? ""),
       cellDate(p.dataCriacaoPedido),
       cellDate(p.dataEntregaOrigem),
       cellDate(p.previsaoEntregaClienteOrigem),
@@ -160,6 +160,18 @@ export async function buildPedidosXlsx(pedidos: PedidoParaXlsx[]): Promise<Buffe
       cellDate(p.novaDataPrevisao),
       cellDate(p.dataResolucaoDevolucao),
     ]);
+
+    // Identificadores devem permanecer TEXTO no Excel.
+    // Evita perda de zeros à esquerda e arredondamento de números longos.
+    for (const columnIndex of [5, 6, 7, 8, 9, 14]) {
+      row.getCell(columnIndex).numFmt = "@";
+    }
+  }
+
+
+  // Mantém as colunas de identificadores como texto mesmo após edição no Excel.
+  for (const columnIndex of [5, 6, 7, 8, 9, 14]) {
+    sheet.getColumn(columnIndex).numFmt = "@";
   }
 
   COLUMN_WIDTHS.forEach((width, index) => {

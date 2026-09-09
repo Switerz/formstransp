@@ -18,9 +18,21 @@ interface BasePanelProps {
   linhas: LinhaTabela[];
   lastBaseUpdateLabel: string;
   hasBaseUpdate: boolean;
+  initialResumo?: DevolucaoResumo | null;
+  lastDevolucaoLabel?: string;
+  hasDevolucaoHoje?: boolean;
   fillPending: number;
   fillPartial: number;
   fillDone: number;
+  serverFillFilter?: "todas" | "preenchidas";
+  totalRows?: number;
+  page?: number;
+  totalPages?: number;
+  previousHref?: string;
+  nextHref?: string;
+  allHref?: string;
+  filledHref?: string;
+  toolbarDateFilter?: React.ReactNode;
   downloadHref: string;
   /**
    * Opcional. Quando ausente (transportadora comum), o lado "Base
@@ -57,9 +69,21 @@ export function BasePanel({
   linhas,
   lastBaseUpdateLabel,
   hasBaseUpdate,
+  initialResumo = null,
+  lastDevolucaoLabel = "Nenhuma devolução recebida",
+  hasDevolucaoHoje = false,
   fillPending,
   fillPartial,
   fillDone,
+  serverFillFilter,
+  totalRows,
+  page = 1,
+  totalPages = 1,
+  previousHref,
+  nextHref,
+  allHref,
+  filledHref,
+  toolbarDateFilter,
   downloadHref,
   uploadAction,
   uploadOriginalAction,
@@ -73,8 +97,11 @@ export function BasePanel({
   const [accordionOpen, setAccordionOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("original");
   const [busca, setBusca] = useState("");
+  const [filtroPreenchimento, setFiltroPreenchimento] = useState<"todas" | "preenchidas">("todas");
   const [mostrarProtegidas, setMostrarProtegidas] = useState(false);
-  const [resumo, setResumo] = useState<DevolucaoResumo | null>(null);
+  const [resumo, setResumo] = useState<DevolucaoResumo | null>(initialResumo);
+  const [devolucaoRecebidaHoje, setDevolucaoRecebidaHoje] = useState(hasDevolucaoHoje);
+  const [ultimaDevolucaoLabelAtual, setUltimaDevolucaoLabelAtual] = useState(lastDevolucaoLabel);
   const [erro, setErro] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [alertOpen, setAlertOpen] = useState(false);
@@ -97,6 +124,14 @@ export function BasePanel({
         }
 
         setResumo(result);
+        setDevolucaoRecebidaHoje(true);
+        setUltimaDevolucaoLabelAtual(
+          new Date().toLocaleString("pt-BR", {
+            timeZone: "America/Sao_Paulo",
+            dateStyle: "short",
+            timeStyle: "short",
+          }),
+        );
         setAccordionOpen(false);
       } catch (err) {
         setErro(err instanceof Error ? err.message : "Não foi possível processar a devolução.");
@@ -121,6 +156,26 @@ export function BasePanel({
   const tentativasBloqueadas = resumo?.detalhes.flatMap((d) => d.tentativasBloqueadas.map((v) => ({ ...v, linha: d.linha }))) ?? [];
   const alteracoesAplicadas = resumo?.detalhes.flatMap((d) => d.alteracoesAplicadas.map((v) => ({ ...v, linha: d.linha }))) ?? [];
   const temViolacao = violacoesProtegidas.length > 0;
+
+  const usarFiltroServidor = Boolean(allHref && filledHref);
+
+  const filtroAtual = usarFiltroServidor
+    ? serverFillFilter ?? "todas"
+    : filtroPreenchimento;
+
+  const linhasExibidas =
+    usarFiltroServidor
+      ? linhas
+      : filtroAtual === "preenchidas"
+        ? linhas.filter((linha) => linha.fillStatus !== "pending")
+        : linhas;
+
+  const textoQuantidade =
+    usarFiltroServidor && typeof totalRows === "number"
+      ? filtroAtual === "preenchidas"
+        ? `${totalRows.toLocaleString("pt-BR")} registros preenchidos.`
+        : `${linhas.length.toLocaleString("pt-BR")} registros nesta página de ${totalRows.toLocaleString("pt-BR")} no total.`
+      : TAB_INFO[activeTab].hint(linhas.length);
 
   return (
     <>
@@ -209,7 +264,7 @@ export function BasePanel({
                   <input type="file" id="fileUpdated" name="arquivo" accept=".xlsx" required disabled={pending} />
                   <div className="mini-actions">
                     <button className="btn-secondary" type="submit" disabled={pending}>
-                      {pending ? "Enviando..." : "Enviar devolução"}
+                      {pending ? "Enviando..." : devolucaoRecebidaHoje ? "Reenviar devolução" : "Enviar devolução"}
                     </button>
                   </div>
                 </form>
@@ -290,6 +345,14 @@ export function BasePanel({
               <span className="backend-dot" style={{ background: hasBaseUpdate ? "#16a34a" : "#94a3b8" }} />
               Última atualização: <strong>{lastBaseUpdateLabel}</strong>
             </span>
+            <span className="backend-pill">
+              <span
+                className="backend-dot"
+                style={{ background: devolucaoRecebidaHoje ? "#16a34a" : "#94a3b8" }}
+              />
+              {devolucaoRecebidaHoje ? "Devolução recebida hoje:" : "Última devolução:"}{" "}
+              <strong>{ultimaDevolucaoLabelAtual}</strong>
+            </span>
           </div>
           <div className="backend-ready-right">
             <span className="backend-pill">
@@ -320,18 +383,106 @@ export function BasePanel({
         <div className="toolbar">
           <div className="toolbar-left">
             <strong>{TAB_INFO[activeTab].title}</strong>
-            <div>{TAB_INFO[activeTab].hint(linhas.length)}</div>
+            <div>{activeTab === "compare" ? TAB_INFO[activeTab].hint(linhas.length) : textoQuantidade}</div>
           </div>
-          <input className="search" placeholder="Pesquisar em qualquer coluna..." value={busca} onChange={(e) => setBusca(e.target.value)} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {activeTab !== "compare" && !toolbarDateFilter ? (
+                <select
+                  value={filtroAtual}
+                onChange={(e) => {
+                  const valor = e.target.value as "todas" | "preenchidas";
+
+                  if (usarFiltroServidor) {
+                    const destino =
+                      valor === "preenchidas" ? filledHref : allHref;
+
+                    if (destino) {
+                      window.location.href = destino;
+                    }
+
+                    return;
+                  }
+
+                  setFiltroPreenchimento(valor);
+                }}
+                aria-label="Filtrar preenchimento da base"
+                style={{
+                  height: 40,
+                  padding: "0 12px",
+                  border: "1px solid #d8dee8",
+                  borderRadius: 8,
+                  background: "#fff",
+                  color: "#0f2742",
+                  fontWeight: 600,
+                }}
+              >
+                <option value="todas">Todas</option>
+                <option value="preenchidas">Somente preenchidas</option>
+              </select>
+            ) : null}
+              {toolbarDateFilter}
+
+
+            <input
+              className="search"
+              placeholder="Pesquisar em qualquer coluna..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </div>
         </div>
 
-        {activeTab !== "compare" ? (
+        {activeTab !== "compare" && !toolbarDateFilter ? (
+          <>
           <PedidosTable
-            linhas={linhas}
+            linhas={linhasExibidas}
             busca={busca}
             mostrarProtegidas={mostrarProtegidas}
             onToggleProtegidas={() => setMostrarProtegidas((v) => !v)}
           />
+
+          {usarFiltroServidor && filtroAtual === "todas" && totalPages > 1 ? (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 12,
+                paddingTop: 14,
+              }}
+            >
+              {previousHref ? (
+                <a className="btn-secondary" href={previousHref}>
+                  ← Anterior
+                </a>
+              ) : (
+                <span
+                  className="btn-secondary"
+                  style={{ opacity: 0.45, pointerEvents: "none" }}
+                >
+                  ← Anterior
+                </span>
+              )}
+
+              <strong style={{ fontSize: 12 }}>
+                Página {page.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
+              </strong>
+
+              {nextHref ? (
+                <a className="btn-secondary" href={nextHref}>
+                  Próxima →
+                </a>
+              ) : (
+                <span
+                  className="btn-secondary"
+                  style={{ opacity: 0.45, pointerEvents: "none" }}
+                >
+                  Próxima →
+                </span>
+              )}
+            </div>
+          ) : null}
+          </>
         ) : (
           <div>
             {!resumo ? (

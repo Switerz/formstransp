@@ -48,7 +48,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   ) : (
                     <div className="nav-section">
                       <span className="nav-section-label">Portal</span>
-                      <Link href="/portal">Início</Link>
+                      
                       <Link href="/portal/minha-base">Minha Base</Link>
                     </div>
                   )}
