@@ -85,17 +85,20 @@ describe("processarLinhaDevolucao — TESTE 7: upload legítimo altera só campo
 });
 
 describe("processarLinhaDevolucao — TESTE 8: campo protegido manipulado é rejeitado", () => {
-  it("UF diferente da atual é bloqueada como violação, nada é aplicado na linha", () => {
+  it("UF diferente e registrada, mas nao impede STATUS ATUAL valido de ser aplicado", () => {
     const resultado = processarLinhaDevolucao(
       { Pedido: "BR123456789", UF: "RJ", "STATUS ATUAL": "DEVOLVIDO" },
       pedidoBase(),
       1,
     );
-    expect(resultado.status).toBe("erro_validacao");
-    expect(resultado.violacoesProtegidas).toEqual([{ campo: "UF", antes: "SP", depois: "RJ" }]);
-    expect(resultado.updateData).toEqual({});
-    // mesmo o campo operacional válido (STATUS ATUAL) da mesma linha não é aplicado.
-    expect(resultado.alteracoesAplicadas).toEqual([]);
+
+    expect(resultado.status).toBe("aplicado");
+    expect(resultado.violacoesProtegidas).toEqual([
+      { campo: "UF", antes: "SP", depois: "RJ" },
+    ]);
+
+    expect(resultado.updateData.statusAtual).toBe("DEVOLVIDO");
+    expect(resultado.updateData.uf).toBeUndefined();
   });
 
   it("reenviar o campo protegido com o MESMO valor não é violação", () => {
@@ -109,28 +112,36 @@ describe("processarLinhaDevolucao — TESTE 8: campo protegido manipulado é rej
   });
 });
 
-describe("processarLinhaDevolucao — bloqueio de campo operacional já respondido", () => {
-  it("tentativa de mudar STATUS ATUAL já preenchido é bloqueada e o valor atual é preservado", () => {
+describe("processarLinhaDevolucao - atualizacao de campo operacional", () => {
+  it("permite mudar STATUS ATUAL ja preenchido quando o novo status e valido", () => {
     const resultado = processarLinhaDevolucao(
-      { Pedido: "BR123456789", "STATUS ATUAL": "CANCELADO" },
-      pedidoBase({ statusAtual: "DEVOLVIDO" }),
+      { Pedido: "BR123456789", "STATUS ATUAL": "Extravio" },
+      pedidoBase({ statusAtual: "Devolvido" }),
       1,
     );
-    expect(resultado.status).toBe("sem_alteracao");
-    expect(resultado.tentativasBloqueadas).toEqual([{ campo: "STATUS ATUAL", antes: "DEVOLVIDO", depois: "CANCELADO" }]);
-    expect(resultado.updateData.statusAtual).toBeUndefined();
+
+    expect(resultado.status).toBe("aplicado");
+    expect(resultado.tentativasBloqueadas).toEqual([]);
+    expect(resultado.updateData.statusAtual).toBe("Extravio");
   });
 
-  it("um campo bloqueado não impede que OUTRO campo (ainda vazio) da mesma linha seja aplicado", () => {
+  it("rejeita STATUS ATUAL fora do padrao e preserva o valor atual", () => {
     const resultado = processarLinhaDevolucao(
-      { Pedido: "BR123456789", "STATUS ATUAL": "CANCELADO", OCORRÊNCIA: "Cliente Ausente" },
-      pedidoBase({ statusAtual: "DEVOLVIDO" }),
+      { Pedido: "BR123456789", "STATUS ATUAL": "STATUS INVENTADO" },
+      pedidoBase({ statusAtual: "Transportadora" }),
       1,
     );
-    expect(resultado.status).toBe("aplicado");
-    expect(resultado.tentativasBloqueadas).toHaveLength(1);
+
+    expect(resultado.status).toBe("erro_validacao");
+    expect(resultado.errosValidacao).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          coluna: "STATUS ATUAL",
+          valor: "STATUS INVENTADO",
+        }),
+      ]),
+    );
     expect(resultado.updateData.statusAtual).toBeUndefined();
-    expect(resultado.updateData.ocorrencia).toBe("Cliente Ausente");
   });
 });
 
