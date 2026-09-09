@@ -6,7 +6,7 @@ import { getCurrentUser, isInternalAdmin, isInternalRole } from "@/lib/auth";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Relatório Diário do Transportador",
+  title: "Forms Transp",
   description: "MVP de diário de bordo operacional para transportadoras",
 };
 
@@ -22,9 +22,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <header className="topbar">
           <div className="topbar-inner">
             <Link className="brand-lockup" href={isInternal ? "/" : currentUser ? "/portal" : "/login"}>
-              <span className="brand-mark" aria-hidden="true">RT</span>
+              <span className="brand-mark" aria-hidden="true">FT</span>
               <span>
-                <strong>Relatório Transportador</strong>
+                <strong>Forms Transp</strong>
                 <small>Controle operacional</small>
               </span>
             </Link>
