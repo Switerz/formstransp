@@ -174,8 +174,57 @@ export function processarLinhaDevolucao(
       "Previsão Entrega Cliente",
       "Previsão Entrega Transportadora",
     ].includes(coluna);
-    const enviado = toComparable(row[coluna], isDateColumn);
-    const atual = toComparable(pedidoAtual.protegidosAtuais[coluna], isDateColumn);
+    const enviadoRaw = row[coluna];
+
+    // Campo protegido vazio no upload nao representa alteracao.
+    if (isBlank(enviadoRaw)) continue;
+
+    let enviado = toComparable(enviadoRaw, isDateColumn);
+    let atual = toComparable(
+      pedidoAtual.protegidosAtuais[coluna],
+      isDateColumn,
+    );
+
+    // O Excel pode representar uma nota fiscal inteira como "123.0".
+    if (coluna === "Nota Fiscal") {
+      enviado = enviado.replace(/^([+-]?\d+)[.,]0+$/, "$1");
+      atual = atual.replace(/^([+-]?\d+)[.,]0+$/, "$1");
+    }
+
+    // J&T e J&T Express representam a mesma transportadora.
+    if (coluna === "Transportadora") {
+      const normalizarTransportadora = (valor: string) => {
+        const normalizado = valor
+          .trim()
+          .toLocaleLowerCase("pt-BR")
+          .replace(/\s+/g, " ");
+
+        if (
+          normalizado === "j&t express" ||
+          normalizado === "j & t express"
+        ) {
+          return "j&t";
+        }
+
+        return normalizado;
+      };
+
+      enviado = normalizarTransportadora(enviado);
+      atual = normalizarTransportadora(atual);
+    }
+
+    // Identificadores longos podem perder precisao no Excel.
+    // Esses campos continuam protegidos contra atualizacao.
+    const identificadorLongo =
+      coluna === "C\u00f3digo de rastreio" ||
+      coluna === "Chave da Nota";
+
+    const possuiNotacaoCientifica =
+      /[+-]?\d+(?:[.,]\d+)?e[+-]?\d+/i.test(enviado) ||
+      /[+-]?\d+(?:[.,]\d+)?e[+-]?\d+/i.test(atual);
+
+    if (identificadorLongo && possuiNotacaoCientifica) continue;
+
     if (enviado !== atual) {
       violacoesProtegidas.push({ campo: coluna, antes: toSerializableDiffValue(pedidoAtual.protegidosAtuais[coluna]), depois: toSerializableDiffValue(row[coluna]) });
     }

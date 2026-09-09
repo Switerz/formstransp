@@ -203,9 +203,6 @@ export default async function MinhaBasePage({
                 datasDisponiveis={datasDisponiveis}
                 hiddenFields={{ preenchimento: filtroPreenchimento }}
                 compact
-                fillFilter={filtroPreenchimento}
-                allHref={allHref}
-                filledHref={filledHref}
               />
             }
             downloadHref="/portal/minha-base/download"
