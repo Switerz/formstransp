@@ -68,16 +68,16 @@ export interface PedidoAtualDevolucao {
 
 const FILL_COLUMN_TO_FIELD: Record<string, keyof PedidoAtualDevolucao> = {
   "DATA COLETA/PROCESSAMENTO": "dataColetaProcessamento",
-  "DATA DE PREVIS?O": "dataPrevisao",
-  "PRAZO DE ENTREGA (DIAS ?TEIS)": "prazoEntregaDiasUteis",
+  "DATA DE PREVISÃO": "dataPrevisao",
+  "PRAZO DE ENTREGA (DIAS ÚTEIS)": "prazoEntregaDiasUteis",
   "DATA DE ENTREGA": "dataEntrega",
   "STATUS ATUAL": "statusAtual",
-  "OCORR?NCIA": "ocorrencia",
-  "MOTIVO DEVOLU??O": "motivoDevolucao",
+  "OCORRÊNCIA": "ocorrencia",
+  "MOTIVO DEVOLUÇÃO": "motivoDevolucao",
   "SLA (NO PRAZO/ATRASADO)": "slaStatus",
   "JUSTIFICATIVA DE ATRASO": "justificativaAtraso",
-  "NOVA DATA DE PREVIS?O (SE ATRASADO)": "novaDataPrevisao",
-  "DATA EM QUE O PEDIDO FOI RESOLVIDO PARA DEVOLU??O": "dataResolucaoDevolucao",
+  "NOVA DATA DE PREVISÃO (SE ATRASADO)": "novaDataPrevisao",
+  "DATA EM QUE O PEDIDO FOI RESOLVIDO PARA DEVOLUÇÃO": "dataResolucaoDevolucao",
 };
 
 /**
