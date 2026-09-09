@@ -1,3 +1,5 @@
+import { getStatusPadrao } from "@/lib/pedidos-status-de-para";
+
 /**
  * Constantes e validação da devolução da transportadora ("Minha Base").
  *
@@ -188,10 +190,14 @@ export function validarLinhaDevolucao(row: Record<string, unknown>, linha: numbe
   }
 
   const statusAtual = row["STATUS ATUAL"];
+  const statusReconhecido =
+    sameAllowedValue(statusAtual, ACCEPTED_STATUS) ||
+    getStatusPadrao(statusAtual) !== null;
+
   if (
     "STATUS ATUAL" in row &&
     !isBlank(statusAtual) &&
-    !sameAllowedValue(statusAtual, ACCEPTED_STATUS)
+    !statusReconhecido
   ) {
     erros.push({
       linha,

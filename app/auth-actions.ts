@@ -61,11 +61,19 @@ export async function login(formData: FormData) {
   await prisma.appUser.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await createSession(user.id);
 
+  const destinoAposLogin = isInternalRole(user.role)
+    ? next === "/"
+      ? "/"
+      : next
+    : "/portal/minha-base";
+
   if (user.passwordMustChange) {
-    redirect(`/alterar-senha?next=${encodeURIComponent(next === "/" ? (isInternalRole(user.role) ? "/" : "/portal") : next)}`);
+    redirect(
+      `/alterar-senha?next=${encodeURIComponent(destinoAposLogin)}`,
+    );
   }
-  if (next !== "/") redirect(next);
-  redirect(isInternalRole(user.role) ? "/" : "/portal");
+
+  redirect(destinoAposLogin);
 }
 
 export async function logout() {

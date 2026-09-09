@@ -223,7 +223,16 @@ export function processarLinhaDevolucao(
       /[+-]?\d+(?:[.,]\d+)?e[+-]?\d+/i.test(enviado) ||
       /[+-]?\d+(?:[.,]\d+)?e[+-]?\d+/i.test(atual);
 
-    if (identificadorLongo && possuiNotacaoCientifica) continue;
+    const identificadorNumericoImpreciso =
+      typeof enviadoRaw === "number" &&
+      !Number.isSafeInteger(enviadoRaw);
+
+    if (
+      identificadorLongo &&
+      (possuiNotacaoCientifica || identificadorNumericoImpreciso)
+    ) {
+      continue;
+    }
 
     if (enviado !== atual) {
       violacoesProtegidas.push({ campo: coluna, antes: toSerializableDiffValue(pedidoAtual.protegidosAtuais[coluna]), depois: toSerializableDiffValue(row[coluna]) });
