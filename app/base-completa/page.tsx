@@ -244,9 +244,6 @@ export default async function BaseCompletaPage({
                         ? "preenchidas"
                         : "",
                   }}
-                  fillFilter={filtroPreenchimento}
-                  allHref={montarHref(1, "todas")}
-                  filledHref={montarHref(1, "preenchidas")}
                   compact
                 />
               }
