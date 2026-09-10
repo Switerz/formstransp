@@ -202,6 +202,9 @@ export default async function MinhaBasePage({
                 ate={dadosKpi.periodo.ate}
                 datasDisponiveis={datasDisponiveis}
                 hiddenFields={{ preenchimento: filtroPreenchimento }}
+                fillFilter={filtroPreenchimento}
+                allHref={allHref}
+                filledHref={filledHref}
                 compact
               />
             }
