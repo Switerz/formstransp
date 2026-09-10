@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import { useState, useTransition } from "react";
 import { Download } from "lucide-react";
 import { PedidosTable } from "@/components/pedidos/PedidosTable";
@@ -91,6 +93,7 @@ export function BasePanel({
   downloadLabel = "Baixar minha base",
   backendNote = "Você está autenticado como transportadora - os downloads e a devolução acima só afetam os pedidos vinculados à sua sessão.",
 }: BasePanelProps) {
+  const router = useRouter();
   const permiteDevolucao = Boolean(uploadAction);
   const permiteBaseOriginal = Boolean(uploadOriginalAction);
   const mostrarAccordion = permiteDevolucao || permiteBaseOriginal;
@@ -133,6 +136,7 @@ export function BasePanel({
           }),
         );
         setAccordionOpen(false);
+        router.refresh();
       } catch (err) {
         setErro(err instanceof Error ? err.message : "Não foi possível processar a devolução.");
       }
@@ -386,7 +390,7 @@ export function BasePanel({
             <div>{activeTab === "compare" ? TAB_INFO[activeTab].hint(linhas.length) : textoQuantidade}</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {activeTab !== "compare" && !toolbarDateFilter ? (
+            {activeTab !== "compare" ? (
                 <select
                   value={filtroAtual}
                 onChange={(e) => {
