@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { formatDateInput } from "@/lib/dates";
+import path from "node:path";
 
 // Formato de entrada desacoplado do tipo exato gerado pelo Prisma (que não
 // está disponível neste ambiente de edição) - mas corresponde 1:1 aos campos
@@ -42,57 +42,19 @@ export interface PedidoParaXlsx {
   dataResolucaoDevolucao: Date | null;
 }
 
-// 18 campos de origem + 11 operacionais.
-const HEADERS = [
-  "Nome do Destinatário",
-  "Canal de Vendas",
-  "Cidade do Destinatário",
-  "UF",
-  "CEP do destinatário",
-  "Pedido de Venda",
-  "Pedido",
-  "Código de rastreio",
-  "Nota Fiscal",
-  "Método de envio",
-  "Transportadora",
-  "Valor da Nota",
-  "Peso fisico",
-  "Chave da Nota",
-  "Data Criação",
-  "Data Entrega Origem",
-  "Previsão Entrega Cliente",
-  "Previsão Entrega Transportadora",
-  "Data Despacho",
-  "Previs?o Entrega Transportadora Original",
-  "MicroStatus",
-  "Status Transportador",
-  "Quantidade de Ocorr?ncias",
-  "?ltima Ocorr?ncia (Micro)",
-  "DATA COLETA/PROCESSAMENTO",
-  "DATA DE PREVISÃO",
-  "PRAZO DE ENTREGA (DIAS ÚTEIS)",
-  "DATA DE ENTREGA",
-  "STATUS ATUAL",
-  "OCORRÊNCIA",
-  "MOTIVO DEVOLUÇÃO",
-  "SLA (NO PRAZO/ATRASADO)",
-  "JUSTIFICATIVA DE ATRASO",
-  "NOVA DATA DE PREVISÃO (SE ATRASADO)",
-  "DATA EM QUE O PEDIDO FOI RESOLVIDO PARA DEVOLUÇÃO",
-] as const;
+const TEMPLATE_PATH = path.join(
+  process.cwd(),
+  "public",
+  "templates",
+  "Base Padrao.xlsx",
+);
 
-const COLUMN_WIDTHS = [
-  26, 18, 20, 6, 14, 16, 20, 20, 16, 14, 18, 12, 10, 24,
-  16, 20, 24, 30,
-  18, 32, 24, 24,
-  22, 22, 16, 18, 16, 16, 20, 20, 24, 26, 32,
-];
+const FIRST_DATA_ROW = 2;
+const LAST_COLUMN = 25; // Y
+const FIRST_EDITABLE_COLUMN = 15; // O
 
-const HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEEF4FB" } };
-const HEADER_FONT: Partial<ExcelJS.Font> = { bold: true, color: { argb: "FF0F2742" } };
-
-function cellDate(date: Date | null): string {
-  return date ? formatDateInput(date) : "";
+function cellDate(date: Date | null): Date | null {
+  return date ? new Date(date) : null;
 }
 
 function cellDecimal(value: unknown): number | string {
@@ -111,19 +73,42 @@ function cellDecimal(value: unknown): number | string {
 /** Gera o XLSX no layout padrão Forms Transp a partir de uma lista de Pedido. */
 export async function buildPedidosXlsx(pedidos: PedidoParaXlsx[]): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "FormsTransp";
-  workbook.created = new Date();
+  await workbook.xlsx.readFile(TEMPLATE_PATH);
 
-  const sheet = workbook.addWorksheet("Base");
-  sheet.addRow([...HEADERS]);
-  sheet.getRow(1).eachCell((cell) => {
-    cell.fill = HEADER_FILL;
-    cell.font = HEADER_FONT;
-    cell.border = { bottom: { style: "thin", color: { argb: "FFD8DEE8" } } };
-  });
+  const sheet = workbook.getWorksheet("BASE");
+  if (!sheet) {
+    throw new Error('A planilha modelo não possui a aba obrigatória "BASE".');
+  }
 
-  for (const p of pedidos) {
-    const row = sheet.addRow([
+  // Preserva o estilo oficial da primeira linha de dados para replicá-lo
+  // quando o download tiver mais registros do que as linhas do template.
+  const modelRow = sheet.getRow(FIRST_DATA_ROW);
+  const modelHeight = modelRow.height;
+  const modelStyles = Array.from({ length: LAST_COLUMN }, (_, index) =>
+    modelRow.getCell(index + 1).style,
+  );
+
+  // Remove somente valores antigos. Formatação, comentários, validações,
+  // proteção e as abas DE/PARA permanecem exatamente como no modelo.
+  for (let rowNumber = FIRST_DATA_ROW; rowNumber <= sheet.rowCount; rowNumber += 1) {
+    const row = sheet.getRow(rowNumber);
+    for (let column = 1; column <= LAST_COLUMN; column += 1) {
+      row.getCell(column).value = null;
+    }
+  }
+
+  pedidos.forEach((p, index) => {
+    const rowNumber = FIRST_DATA_ROW + index;
+    const row = sheet.getRow(rowNumber);
+
+    if (rowNumber > modelRow.number) {
+      row.height = modelHeight;
+      for (let column = 1; column <= LAST_COLUMN; column += 1) {
+        row.getCell(column).style = modelStyles[column - 1];
+      }
+    }
+
+    row.values = [
       p.nomeDestinatario,
       p.canalVendas,
       p.cidadeDestinatario,
@@ -138,16 +123,6 @@ export async function buildPedidosXlsx(pedidos: PedidoParaXlsx[]): Promise<Buffe
       cellDecimal(p.valorNota),
       cellDecimal(p.pesoFisico),
       String(p.chaveNota ?? ""),
-      cellDate(p.dataCriacaoPedido),
-      cellDate(p.dataEntregaOrigem),
-      cellDate(p.previsaoEntregaClienteOrigem),
-      cellDate(p.previsaoEntregaTransportadoraOrigem),
-      cellDate(p.dataDespacho),
-      cellDate(p.previsaoEntregaTransportadoraOriginal),
-      p.microStatus ?? "",
-      p.statusTransportador ?? "",
-      p.quantidadeOcorrencias ?? "",
-    p.ultimaOcorrenciaMicro ?? "",
       cellDate(p.dataColetaProcessamento),
       cellDate(p.dataPrevisao),
       p.prazoEntregaDiasUteis ?? "",
@@ -159,24 +134,68 @@ export async function buildPedidosXlsx(pedidos: PedidoParaXlsx[]): Promise<Buffe
       p.justificativaAtraso ?? "",
       cellDate(p.novaDataPrevisao),
       cellDate(p.dataResolucaoDevolucao),
-    ]);
+    ];
 
     // Identificadores devem permanecer TEXTO no Excel.
     // Evita perda de zeros à esquerda e arredondamento de números longos.
     for (const columnIndex of [5, 6, 7, 8, 9, 14]) {
       row.getCell(columnIndex).numFmt = "@";
     }
-  }
+    for (const columnIndex of [15, 16, 18, 24, 25]) {
+      row.getCell(columnIndex).numFmt = "dd/mm/yyyy";
+    }
 
-
-  // Mantém as colunas de identificadores como texto mesmo após edição no Excel.
-  for (const columnIndex of [5, 6, 7, 8, 9, 14]) {
-    sheet.getColumn(columnIndex).numFmt = "@";
-  }
-
-  COLUMN_WIDTHS.forEach((width, index) => {
-    sheet.getColumn(index + 1).width = width;
+    // A:N são dados de origem bloqueados; O:Y são campos operacionais.
+    for (let column = 1; column <= LAST_COLUMN; column += 1) {
+      row.getCell(column).protection = {
+        locked: column < FIRST_EDITABLE_COLUMN,
+      };
+    }
   });
+
+  const lastRow = Math.max(FIRST_DATA_ROW, pedidos.length + 1);
+  sheet.autoFilter = `A1:Y${lastRow}`;
+
+  // O template cobre 100 mil linhas nas listas principais. Estende as
+  // validações apenas quando uma transportadora exceder esse volume.
+  if (lastRow > 100000) {
+    const dataValidations = (
+      sheet as ExcelJS.Worksheet & {
+        dataValidations: {
+          add(range: string, validation: ExcelJS.DataValidation): void;
+        };
+      }
+    ).dataValidations;
+
+    dataValidations.add(`T100001:T${lastRow}`, {
+      type: "list",
+      allowBlank: true,
+      formulae: ["ListaOcorrenciaFormsTransp"],
+      showErrorMessage: true,
+      errorTitle: "Valor inválido",
+      error: "Selecione um valor válido da lista.",
+    });
+    dataValidations.add(`U100001:U${lastRow}`, {
+      type: "list",
+      allowBlank: true,
+      formulae: ["ListaMotivoDevolucaoFormsTransp"],
+      showErrorMessage: true,
+      errorTitle: "Valor inválido",
+      error: "Selecione um valor válido da lista.",
+    });
+
+    for (const column of ["O", "P", "R", "X", "Y"]) {
+      dataValidations.add(`${column}100001:${column}${lastRow}`, {
+        type: "date",
+        operator: "between",
+        allowBlank: true,
+        formulae: [new Date(2000, 0, 1), new Date(2100, 11, 31)],
+        showErrorMessage: true,
+        errorTitle: "Data inválida",
+        error: "Informe uma data válida ou deixe em branco.",
+      });
+    }
+  }
 
   const arrayBuffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(arrayBuffer);
