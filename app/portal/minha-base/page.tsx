@@ -1,4 +1,4 @@
-﻿import { requireCarrierUser } from "@/lib/auth";
+import { requireCarrierUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { KpiCarousel } from "@/components/pedidos/KpiCarousel";
 import { BasePanel } from "@/components/pedidos/BasePanel";
@@ -89,8 +89,8 @@ export default async function MinhaBasePage({
       },
     }),
 
-    // A tela exibe somente uma prÃ©via dos pedidos mais recentes.
-    // A base maior continua disponÃ­vel pelo botÃ£o de download.
+    // A tela exibe somente uma prévia dos pedidos mais recentes.
+    // A base maior continua disponível pelo botão de download.
     prisma.pedido.findMany({
       where: {
         transportadoraId,
@@ -133,7 +133,7 @@ export default async function MinhaBasePage({
         dateStyle: "short",
         timeStyle: "short",
       })
-    : "Nenhuma devoluÃ§Ã£o recebida";
+    : "Nenhuma devolução recebida";
 
   const hasDevolucaoHoje = ultimaDevolucao
     ? formatarDataSaoPaulo(ultimaDevolucao.createdAt) ===
@@ -208,14 +208,14 @@ export default async function MinhaBasePage({
         <div className="page-header">
           <div>
             <h1>
-              Envio, atualizaÃ§Ã£o e conferÃªncia de bases
+              Envio, atualização e conferência de bases
             </h1>
 
             <p>
               A Intelipost disponibiliza a base de origem
-              automaticamente, vocÃª faz o download, atualiza as
-              informaÃ§Ãµes operacionais e devolve a nova versÃ£o na
-              mesma tela. O portal mantÃ©m as duas visÃµes e destaca
+              automaticamente, você faz o download, atualiza as
+              informações operacionais e devolve a nova versão na
+              mesma tela. O portal mantém as duas visões e destaca
               o que mudou.
             </p>
           </div>
