@@ -1,16 +1,24 @@
-import { requireCarrierUser } from "@/lib/auth";
+﻿import { requireCarrierUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { KpiCarousel } from "@/components/pedidos/KpiCarousel";
 import { BasePanel } from "@/components/pedidos/BasePanel";
 import { HelpPanel } from "@/components/pedidos/HelpPanel";
 import { PeriodoFilter } from "@/components/pedidos/PeriodoFilter";
-import { pedidoParaLinhaTabela, type PedidoParaTabela } from "@/lib/pedidos-table-row";
+import {
+  pedidoParaLinhaTabela,
+  type PedidoParaTabela,
+} from "@/lib/pedidos-table-row";
 import { summarizeFillStatus } from "@/lib/pedidos-kpis";
 import { montarDadosKpiCarousel } from "@/lib/pedidos-kpi-carousel";
-import { uploadDevolucaoTransportadora, type DevolucaoResumo } from "@/app/portal/minha-base/actions";
+import {
+  uploadDevolucaoTransportadora,
+  type DevolucaoResumo,
+} from "@/app/portal/minha-base/actions";
 import "@/components/pedidos/minha-base.css";
 
 export const dynamic = "force-dynamic";
+
+const MAX_TABLE_ROWS = 500;
 
 export default async function MinhaBasePage({
   searchParams,
@@ -21,8 +29,6 @@ export default async function MinhaBasePage({
   const transportadoraId = user.transportadoraId!;
   const raw = await searchParams;
 
-  // Mesma função usada pela aba Início - única fonte de verdade dos
-  // Big Numbers, sem duplicar consulta/lógica entre as duas telas.
   const periodoDisponivel = await prisma.pedido.aggregate({
     where: {
       transportadoraId,
@@ -68,25 +74,49 @@ export default async function MinhaBasePage({
     parametrosComPeriodoPadrao,
   );
 
-  const ultimaDevolucao = await prisma.automationLog.findFirst({
-    where: {
-      transportadoraId,
-      tipo: "pedidos_devolucao",
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-    select: {
-      createdAt: true,
-      payload: true,
-    },
-  });
+  const [ultimaDevolucao, pedidosDb] = await Promise.all([
+    prisma.automationLog.findFirst({
+      where: {
+        transportadoraId,
+        tipo: "pedidos_devolucao",
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        createdAt: true,
+        payload: true,
+      },
+    }),
+
+    // A tela exibe somente uma prÃ©via dos pedidos mais recentes.
+    // A base maior continua disponÃ­vel pelo botÃ£o de download.
+    prisma.pedido.findMany({
+      where: {
+        transportadoraId,
+        dataEntregaOrigem: null,
+      },
+      include: {
+        transportadora: {
+          select: {
+            nome: true,
+          },
+        },
+      },
+      orderBy: {
+        dataCriacaoPedido: "desc",
+      },
+      take: MAX_TABLE_ROWS,
+    }),
+  ]);
 
   let resumoPersistido: DevolucaoResumo | null = null;
 
   if (ultimaDevolucao?.payload) {
     try {
-      resumoPersistido = JSON.parse(ultimaDevolucao.payload) as DevolucaoResumo;
+      resumoPersistido = JSON.parse(
+        ultimaDevolucao.payload,
+      ) as DevolucaoResumo;
     } catch {
       resumoPersistido = null;
     }
@@ -103,46 +133,60 @@ export default async function MinhaBasePage({
         dateStyle: "short",
         timeStyle: "short",
       })
-    : "Nenhuma devolução recebida";
+    : "Nenhuma devoluÃ§Ã£o recebida";
 
   const hasDevolucaoHoje = ultimaDevolucao
-    ? formatarDataSaoPaulo(ultimaDevolucao.createdAt) === formatarDataSaoPaulo(new Date())
+    ? formatarDataSaoPaulo(ultimaDevolucao.createdAt) ===
+      formatarDataSaoPaulo(new Date())
     : false;
 
-  const pedidosDb = await prisma.pedido.findMany({
-    where: { transportadoraId, dataEntregaOrigem: null },
-    include: { transportadora: { select: { nome: true } } },
-    orderBy: { dataCriacaoPedido: "desc" },
-  });
-
-  const pedidosTabela = pedidosDb as unknown as PedidoParaTabela[];
+  const pedidosTabela =
+    pedidosDb as unknown as PedidoParaTabela[];
 
   const datasDisponiveis = Array.from(
     new Set(
       pedidosTabela
-        .map((pedido) => pedido.previsaoEntregaTransportadoraOrigem)
-        .filter((data): data is Date => data instanceof Date)
+        .map(
+          (pedido) =>
+            pedido.previsaoEntregaTransportadoraOrigem,
+        )
+        .filter(
+          (data): data is Date => data instanceof Date,
+        )
         .map((data) => {
           const ano = data.getFullYear();
-          const mes = String(data.getMonth() + 1).padStart(2, "0");
+          const mes = String(data.getMonth() + 1).padStart(
+            2,
+            "0",
+          );
           const dia = String(data.getDate()).padStart(2, "0");
+
           return `${ano}-${mes}-${dia}`;
         }),
     ),
   ).sort();
 
-  const todasAsLinhas = pedidosTabela.map(pedidoParaLinhaTabela);
+  const todasAsLinhas = pedidosTabela.map(
+    pedidoParaLinhaTabela,
+  );
+
   const preenchimento = summarizeFillStatus(pedidosTabela);
 
   const filtroPreenchimento =
-    raw.preenchimento === "preenchidas" ? "preenchidas" : "todas";
+    raw.preenchimento === "preenchidas"
+      ? "preenchidas"
+      : "todas";
 
   const linhas =
     filtroPreenchimento === "preenchidas"
-      ? todasAsLinhas.filter((linha) => linha.fillStatus !== "pending")
+      ? todasAsLinhas.filter(
+          (linha) => linha.fillStatus !== "pending",
+        )
       : todasAsLinhas;
 
-  const criarHrefPreenchimento = (valor: "todas" | "preenchidas") => {
+  const criarHrefPreenchimento = (
+    valor: "todas" | "preenchidas",
+  ) => {
     const parametros = new URLSearchParams();
 
     parametros.set("de", dadosKpi.periodo.de);
@@ -163,10 +207,16 @@ export default async function MinhaBasePage({
       <main className="page">
         <div className="page-header">
           <div>
-            <h1>Envio, atualização e conferência de bases</h1>
+            <h1>
+              Envio, atualizaÃ§Ã£o e conferÃªncia de bases
+            </h1>
+
             <p>
-              A Intelipost disponibiliza a base de origem automaticamente, você faz o download, atualiza as informações
-              operacionais e devolve a nova versão na mesma tela. O portal mantém as duas visões e destaca o que mudou.
+              A Intelipost disponibiliza a base de origem
+              automaticamente, vocÃª faz o download, atualiza as
+              informaÃ§Ãµes operacionais e devolve a nova versÃ£o na
+              mesma tela. O portal mantÃ©m as duas visÃµes e destaca
+              o que mudou.
             </p>
           </div>
         </div>
@@ -201,7 +251,9 @@ export default async function MinhaBasePage({
                 de={dadosKpi.periodo.de}
                 ate={dadosKpi.periodo.ate}
                 datasDisponiveis={datasDisponiveis}
-                hiddenFields={{ preenchimento: filtroPreenchimento }}
+                hiddenFields={{
+                  preenchimento: filtroPreenchimento,
+                }}
                 fillFilter={filtroPreenchimento}
                 allHref={allHref}
                 filledHref={filledHref}
