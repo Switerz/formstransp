@@ -1,11 +1,18 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { requireCarrierUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { parsePedidosFilters, buildPedidosWhere } from "@/lib/pedidos-query";
-import { buildPedidosXlsx } from "@/lib/pedidos-xlsx";
+import {
+  parsePedidosFilters,
+  buildPedidosWhere,
+} from "@/lib/pedidos-query";
+import {
+  buildPedidosXlsx,
+  type PedidoParaXlsx,
+} from "@/lib/pedidos-xlsx";
 import { formatDateInput } from "@/lib/dates";
 
 const MAX_EXPORT_ROWS = 50000;
+const QUERY_BATCH_SIZE = 2000;
 
 export async function GET(request: NextRequest) {
   const user = await requireCarrierUser("/portal/minha-base");
@@ -18,37 +25,86 @@ export async function GET(request: NextRequest) {
     transportadoraId: user.transportadoraId!,
   });
 
-  const pedidosEncontrados = await prisma.pedido.findMany({
-    where,
-    include: {
-      transportadora: {
-        select: { nome: true },
+  const pedidos: PedidoParaXlsx[] = [];
+  let offset = 0;
+
+  while (pedidos.length < MAX_EXPORT_ROWS) {
+    const lote = await prisma.pedido.findMany({
+      where,
+      select: {
+        nomeDestinatario: true,
+        canalVendas: true,
+        cidadeDestinatario: true,
+        uf: true,
+        cepDestinatario: true,
+        pedidoDeVenda: true,
+        pedido: true,
+        codigoRastreio: true,
+        notaFiscal: true,
+        metodoEnvio: true,
+        transportadora: {
+          select: { nome: true },
+        },
+        valorNota: true,
+        pesoFisico: true,
+        chaveNota: true,
+        dataCriacaoPedido: true,
+        dataEntregaOrigem: true,
+        previsaoEntregaClienteOrigem: true,
+        previsaoEntregaTransportadoraOrigem: true,
+        dataDespacho: true,
+        previsaoEntregaTransportadoraOriginal: true,
+        microStatus: true,
+        statusTransportador: true,
+        quantidadeOcorrencias: true,
+        ultimaOcorrenciaMicro: true,
+        dataColetaProcessamento: true,
+        dataPrevisao: true,
+        prazoEntregaDiasUteis: true,
+        dataEntrega: true,
+        statusAtual: true,
+        ocorrencia: true,
+        motivoDevolucao: true,
+        slaStatus: true,
+        justificativaAtraso: true,
+        novaDataPrevisao: true,
+        dataResolucaoDevolucao: true,
       },
-    },
-    orderBy: {
-      dataCriacaoPedido: "desc",
-    },
-  });
+      orderBy: {
+        dataCriacaoPedido: "desc",
+      },
+      skip: offset,
+      take: QUERY_BATCH_SIZE,
+    });
 
-  // Inclui os pedidos em aberto e os finalizados entregues com atraso.
-  const pedidos = pedidosEncontrados
-    .filter((pedido) => {
-      // Sem data de entrega da Intelipost: pedido em aberto.
-      if (!pedido.dataEntregaOrigem) {
-        return true;
-      }
+    if (lote.length === 0) {
+      break;
+    }
 
-      // Sem previsão da transportadora não é possível calcular o atraso.
-      if (!pedido.previsaoEntregaTransportadoraOrigem) {
-        return false;
-      }
+    for (const pedido of lote) {
+      const estaEmAberto = !pedido.dataEntregaOrigem;
 
-      return (
+      const foiEntregueComAtraso =
+        pedido.dataEntregaOrigem !== null &&
+        pedido.previsaoEntregaTransportadoraOrigem !== null &&
         pedido.dataEntregaOrigem.getTime() >
-        pedido.previsaoEntregaTransportadoraOrigem.getTime()
-      );
-    })
-    .slice(0, MAX_EXPORT_ROWS);
+          pedido.previsaoEntregaTransportadoraOrigem.getTime();
+
+      if (estaEmAberto || foiEntregueComAtraso) {
+        pedidos.push(pedido);
+
+        if (pedidos.length >= MAX_EXPORT_ROWS) {
+          break;
+        }
+      }
+    }
+
+    offset += lote.length;
+
+    if (lote.length < QUERY_BATCH_SIZE) {
+      break;
+    }
+  }
 
   const buffer = await buildPedidosXlsx(pedidos);
 
