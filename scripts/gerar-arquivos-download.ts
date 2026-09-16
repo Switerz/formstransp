@@ -6,6 +6,7 @@ import path from "node:path";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { buildPedidosXlsx } from "../lib/pedidos-xlsx";
 import { getBaseCompletaWindowStart } from "../lib/base-completa-window";
+import { salvarKpiSnapshot } from "../lib/pedidos-kpi-snapshot";
 
 const prisma = new PrismaClient();
 const BATCH_SIZE = 5_000;
@@ -59,16 +60,15 @@ function envObrigatoria(nome: string) {
   return valor.replace(/\/$/, "");
 }
 
-const supabaseUrl = envObrigatoria("SUPABASE_URL");
-const supabaseKey = envObrigatoria("SUPABASE_SERVICE_ROLE_KEY");
-const bucket = envObrigatoria("SUPABASE_EXPORTS_BUCKET");
-
 function storageObjectUrl(storagePath: string, sufixo = "") {
+  const supabaseUrl = envObrigatoria("SUPABASE_URL");
+  const bucket = envObrigatoria("SUPABASE_EXPORTS_BUCKET");
   const partes = [bucket, ...storagePath.split("/")].map(encodeURIComponent).join("/");
   return `${supabaseUrl}/storage/v1/object/${sufixo}${partes}`;
 }
 
 async function upload(storagePath: string, conteudo: Buffer, contentType: string) {
+  const supabaseKey = envObrigatoria("SUPABASE_SERVICE_ROLE_KEY");
   const resposta = await fetch(storageObjectUrl(storagePath), {
     method: "POST",
     headers: {
@@ -83,6 +83,8 @@ async function upload(storagePath: string, conteudo: Buffer, contentType: string
 }
 
 async function criarLinkAssinado(storagePath: string) {
+  const supabaseUrl = envObrigatoria("SUPABASE_URL");
+  const supabaseKey = envObrigatoria("SUPABASE_SERVICE_ROLE_KEY");
   const resposta = await fetch(storageObjectUrl(storagePath, "sign/"), {
     method: "POST",
     headers: {
@@ -163,6 +165,7 @@ function slug(valor: string) {
 }
 
 async function gerarTransportadoras(inicio: Date) {
+  const somenteSnapshots = process.argv.includes("--snapshots-only");
   const transportadoras = await prisma.transportadora.findMany({
     select: { id: true, nome: true, codigoSlug: true },
     orderBy: { nome: "asc" },
@@ -170,6 +173,9 @@ async function gerarTransportadoras(inicio: Date) {
   for (const transportadora of transportadoras) {
     console.log(`Gerando transportadora: ${transportadora.nome}`);
     const todos = await buscarTodos({ transportadoraId: transportadora.id, dataCriacaoPedido: { gte: inicio } });
+    await salvarKpiSnapshot(transportadora.id, todos);
+    console.log(`  Snapshot de KPIs salvo (${todos.length.toLocaleString("pt-BR")} pedidos).`);
+    if (somenteSnapshots) continue;
     const pedidos = todos.filter(pedidoVisivelTransportadora);
     const conteudo = await buildPedidosXlsx(pedidos);
     const identificador = slug(transportadora.codigoSlug || transportadora.nome);
@@ -265,7 +271,7 @@ async function main() {
   const inicio = getBaseCompletaWindowStart();
   console.log(`Janela de dados iniciada em ${inicio.toISOString()}.`);
   if (!process.argv.includes("--admin-only")) await gerarTransportadoras(inicio);
-  await gerarAdmin(inicio);
+  if (!process.argv.includes("--snapshots-only")) await gerarAdmin(inicio);
   console.log("Todos os downloads foram publicados com sucesso.");
 }
 

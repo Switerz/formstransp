@@ -4,10 +4,11 @@ import { formatBrazilianDate } from "@/lib/dates";
 import type { KpiCard, KpiCarouselProps } from "@/components/pedidos/KpiCarousel";
 import { calcularPercentualAbertoTotal } from "@/lib/pedidos-kpis";
 import { parsePeriodoFilters, periodoParaIntervaloDatas, type Periodo } from "@/lib/pedidos-periodo";
+import { obterKpiSnapshot, resumirKpiSnapshot } from "@/lib/pedidos-kpi-snapshot";
 
 const ATUALIZANDO: Omit<KpiCard, "icon" | "label"> = {
-  value: "Atualizando",
-  hint: "Indicador sendo consolidado pela atualização automática",
+  value: "Em consolidação",
+  hint: "Indicador temporariamente indisponível durante a otimização",
   className: "kpi-card-building",
 };
 
@@ -33,6 +34,48 @@ export async function montarDadosKpiCarousel(
     ...escopoTransportadora,
     dataCriacaoPedido: intervaloPeriodo,
   };
+
+  if (transportadoraId) {
+    const [snapshot, ultimaCarga, ultimaDevolucao] = await Promise.all([
+      obterKpiSnapshot(transportadoraId),
+      prisma.automationLog.findFirst({
+        where: { tipo: "pedidos_import" }, orderBy: { createdAt: "desc" }, select: { createdAt: true },
+      }),
+      prisma.automationLog.findFirst({
+        where: { tipo: "pedidos_devolucao", transportadoraId },
+        orderBy: { createdAt: "desc" }, select: { createdAt: true },
+      }),
+    ]);
+    if (snapshot) {
+      const r = resumirKpiSnapshot(snapshot.payload, periodo.de, periodo.ate);
+      const percentual = (ok: number, total: number) => total ? Math.round((ok / total) * 1000) / 10 : 0;
+      const cardPercentual = (label: string, ok: number, total: number, descricao: string): KpiCard => ({
+        icon: "•", label, value: total ? `${percentual(ok, total)}%` : "0%",
+        hint: `${ok.toLocaleString("pt-BR")} de ${total.toLocaleString("pt-BR")} ${descricao}`,
+      });
+      const props: KpiCarouselProps = {
+        slaAjusteTransporte: cardPercentual("SLA Ajuste Transporte", r.slaAjusteOk, r.slaAjusteTotal, "no prazo ajustado"),
+        slaTransporte: cardPercentual("SLA Transporte", r.slaTransOk, r.slaTransTotal, "entregues no prazo"),
+        slaCliente: cardPercentual("SLA Cliente", r.slaClienteOk, r.slaClienteTotal, "entregues no prazo"),
+        taxaInsucesso: cardPercentual("Taxa de Insucesso", r.insucesso, r.prometidos, "prometidos com insucesso"),
+        taxaDevolucao: cardPercentual("Taxa de Devolução", r.devolucao, r.prometidos, "prometidos em devolução/devolvidos"),
+        pedidosAbertos: { icon: "•", label: "Pedidos em Aberto", value: r.abertos.toLocaleString("pt-BR"), hint: "Pedidos do período sem Data Entrega Origem" },
+        tratativaCx: cardPercentual("Tratativa CX", r.tratativa, r.prometidos, "prometidos em tratativa"),
+        riscoAtraso: { icon: "•", label: "Pedidos Vencidos", value: r.vencidos.toLocaleString("pt-BR"), hint: "Pedidos abertos com previsão no período" },
+        processado: cardPercentual("Processado", r.processado, r.total, "pedidos processados"),
+        perdas: cardPercentual("Perdas Extr/Sint/Avar", r.perdas, r.prometidos, "prometidos com perda"),
+        totalPedidos: { icon: "•", label: "Total Expedido", value: r.total.toLocaleString("pt-BR"), hint: "Pedidos criados no período selecionado" },
+        abertoTotal: cardPercentual("% Aberto/Total", r.abertos, r.total, "pedidos em aberto"),
+        integridade: { icon: "•", label: "Integridade da devolução", value: "Aguardando", hint: "Envie a devolução da base", id: "iIntegrity" },
+        status: { icon: "•", label: "Status", value: ultimaDevolucao ? "Recebida" : "Aguardando", hint: ultimaDevolucao ? formatBrazilianDate(ultimaDevolucao.createdAt) : "Nenhuma devolução recebida ainda", id: "mStatus" },
+      };
+      return {
+        periodo, props,
+        ultimaCargaLabel: ultimaCarga ? formatBrazilianDate(ultimaCarga.createdAt) : "Aguardando carga",
+        hasBaseUpdate: Boolean(ultimaCarga),
+      };
+    }
+  }
 
   // A abertura da página executa somente agregações indexadas. Os indicadores
   // que exigem percorrer milhares de linhas serão consolidados fora da web.

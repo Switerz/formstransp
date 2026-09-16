@@ -8,7 +8,7 @@ import {
   pedidoParaLinhaTabela,
   type PedidoParaTabela,
 } from "@/lib/pedidos-table-row";
-import { summarizeFillStatus } from "@/lib/pedidos-kpis";
+import { obterResumoPreenchimentoCompleto } from "@/lib/pedidos-preenchimento";
 import { montarDadosKpiCarousel } from "@/lib/pedidos-kpi-carousel";
 import {
   uploadDevolucaoTransportadora,
@@ -75,7 +75,7 @@ export default async function MinhaBasePage({
     parametrosComPeriodoPadrao,
   );
 
-  const [ultimaDevolucao, pedidosDb] = await Promise.all([
+  const [ultimaDevolucao, pedidosDb, preenchimento] = await Promise.all([
     prisma.automationLog.findFirst({
       where: {
         transportadoraId,
@@ -109,6 +109,7 @@ export default async function MinhaBasePage({
       },
       take: MAX_TABLE_ROWS,
     }),
+    obterResumoPreenchimentoCompleto(transportadoraId),
   ]);
 
   let resumoPersistido: DevolucaoResumo | null = null;
@@ -170,8 +171,6 @@ export default async function MinhaBasePage({
   const todasAsLinhas = pedidosTabela.map(
     pedidoParaLinhaTabela,
   );
-
-  const preenchimento = summarizeFillStatus(pedidosTabela);
 
   const filtroPreenchimento =
     raw.preenchimento === "preenchidas"
