@@ -54,29 +54,40 @@ export async function montarDadosKpiCarousel(
     dataCriacaoPedido: intervaloPeriodo,
   };
 
-  const totalPedidos = await prisma.pedido.count({
-    where: escopoPeriodo,
-  });
-
-  const pedidosAbertosCount = await prisma.pedido.count({
-    where: {
-      ...escopoPeriodo,
-      dataEntregaOrigem: null,
-    },
-  });
-
-  const pedidosVencidosCount = await prisma.pedido.count({
-    where: {
-      ...escopoTransportadora,
-      dataEntregaOrigem: null,
-      previsaoEntregaTransportadoraOrigem: {
-        gte: intervaloPeriodo.gte,
-        lt: intervaloPeriodo.lt,
+  /*
+   * Todas as leituras abaixo são independentes. Executá-las em paralelo evita
+   * que o tempo de resposta da página seja a soma de sete consultas. Os índices
+   * compostos da migration 20260915123000 sustentam os três recortes críticos.
+   */
+  const [
+    totalPedidos,
+    pedidosAbertosCount,
+    pedidosVencidosCount,
+    pedidosParaSla,
+    ultimaCarga,
+    ultimaDevolucao,
+    pedidosParaClassificacao,
+  ] = await Promise.all([
+    prisma.pedido.count({
+      where: escopoPeriodo,
+    }),
+    prisma.pedido.count({
+      where: {
+        ...escopoPeriodo,
+        dataEntregaOrigem: null,
       },
-    },
-  });
-
-  const pedidosParaSla = await prisma.pedido.findMany({
+    }),
+    prisma.pedido.count({
+      where: {
+        ...escopoTransportadora,
+        dataEntregaOrigem: null,
+        previsaoEntregaTransportadoraOrigem: {
+          gte: intervaloPeriodo.gte,
+          lt: intervaloPeriodo.lt,
+        },
+      },
+    }),
+    prisma.pedido.findMany({
     where: {
       ...escopoPeriodo,
       dataEntregaOrigem: {
@@ -100,46 +111,34 @@ export async function montarDadosKpiCarousel(
       previsaoEntregaTransportadoraOrigem: true,
       previsaoEntregaClienteOrigem: true,
     },
-  });
-
-  const ultimaCarga = await prisma.automationLog.findFirst({
-    where: {
-      tipo: "pedidos_import",
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-    select: {
-      createdAt: true,
-    },
-  });
-
-  const ultimaDevolucao = await prisma.automationLog.findFirst({
-    where: {
-      tipo: "pedidos_devolucao",
-      ...(transportadoraId ? { transportadoraId } : {}),
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-    select: {
-      createdAt: true,
-    },
-  });
-
-  const pedidosParaClassificacao = await prisma.pedido.findMany({
-    where: escopoPeriodo,
-    select: {
-      microStatus: true,
-      statusTransportador: true,
-      quantidadeOcorrencias: true,
-      ultimaOcorrenciaMicro: true,
-      dataDespacho: true,
-      motivoDevolucao: true,
-      ocorrencia: true,
-      canalVendas: true,
-    },
-  });
+    }),
+    prisma.automationLog.findFirst({
+      where: { tipo: "pedidos_import" },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    }),
+    prisma.automationLog.findFirst({
+      where: {
+        tipo: "pedidos_devolucao",
+        ...(transportadoraId ? { transportadoraId } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    }),
+    prisma.pedido.findMany({
+      where: escopoPeriodo,
+      select: {
+        microStatus: true,
+        statusTransportador: true,
+        quantidadeOcorrencias: true,
+        ultimaOcorrenciaMicro: true,
+        dataDespacho: true,
+        motivoDevolucao: true,
+        ocorrencia: true,
+        canalVendas: true,
+      },
+    }),
+  ]);
 
   const percentualAbertoTotal = calcularPercentualAbertoTotal(
     totalPedidos,

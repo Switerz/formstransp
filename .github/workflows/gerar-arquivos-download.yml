@@ -1,0 +1,40 @@
+name: Gerar arquivos de download
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 07:00 no horário de Brasília (UTC-3).
+    - cron: "0 10 * * *"
+
+concurrency:
+  group: gerar-arquivos-download
+  cancel-in-progress: false
+
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_EXPORTS_BUCKET: ${{ secrets.SUPABASE_EXPORTS_BUCKET }}
+      NODE_OPTIONS: --max-old-space-size=6144
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Gerar Prisma Client
+        run: npx prisma generate
+
+      - name: Gerar e publicar arquivos
+        run: npm run exports:generate

@@ -26,6 +26,7 @@ model Transportadora {
   pedidos                Pedido[]
   pedidoChangeAttempts   PedidoFieldChangeAttempt[]
   aliases                TransportadoraAlias[]
+  exportacoes            ExportacaoArquivo[]
 
   @@map("transportadoras")
 }
@@ -250,7 +251,32 @@ model Pedido {
 
   @@index([transportadoraId, dataEntregaOrigem])
   @@index([dataCriacaoPedido])
+  @@index([transportadoraId, dataCriacaoPedido])
+  @@index([transportadoraId, dataEntregaOrigem, dataCriacaoPedido])
+  @@index([transportadoraId, dataEntregaOrigem, previsaoEntregaTransportadoraOrigem])
   @@map("pedidos")
+}
+
+model ExportacaoArquivo {
+  id               String          @id @default(cuid())
+  chave            String          @unique
+  escopo           String
+  transportadoraId String?
+  nomeArquivo      String
+  storagePath      String
+  signedUrl        String
+  expiresAt        DateTime
+  totalLinhas      Int
+  totalPartes      Int             @default(1)
+  status           String          @default("ready")
+  geradoEm         DateTime        @default(now())
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  transportadora   Transportadora? @relation(fields: [transportadoraId], references: [id], onDelete: Cascade)
+
+  @@index([transportadoraId])
+  @@index([status, expiresAt])
+  @@map("exportacoes_arquivos")
 }
 
 // Item 7: registro de tentativa de alterar um campo operacional que já havia
