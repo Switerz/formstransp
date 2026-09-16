@@ -106,10 +106,13 @@ export function BasePanel({
   const [devolucaoRecebidaHoje, setDevolucaoRecebidaHoje] = useState(hasDevolucaoHoje);
   const [ultimaDevolucaoLabelAtual, setUltimaDevolucaoLabelAtual] = useState(lastDevolucaoLabel);
   const [erro, setErro] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [alertOpen, setAlertOpen] = useState(false);
   const [arquivoAtualNome, setArquivoAtualNome] = useState("");
   const [progressoUpload, setProgressoUpload] = useState(0);
+  const [linhasUploadTotal, setLinhasUploadTotal] = useState(0);
+  const [linhasUploadProcessadas, setLinhasUploadProcessadas] = useState(0);
+  const [processandoUpload, setProcessandoUpload] = useState(false);
 
   const [origResumo, setOrigResumo] = useState<BaseOriginalResumo | null>(null);
   const [origErro, setOrigErro] = useState<string | null>(null);
@@ -167,6 +170,8 @@ export function BasePanel({
     });
 
     if (!linhas.length) throw new Error("A planilha não possui pedidos para processar.");
+    setLinhasUploadTotal(linhas.length);
+    setLinhasUploadProcessadas(0);
 
     // Lotes adaptativos: aceleram bases grandes sem ultrapassar o limite de
     // corpo das funções da Vercel. O teto em bytes prevalece sobre a quantidade.
@@ -227,17 +232,29 @@ export function BasePanel({
 
       const resultado = await uploadAction!(dadosLote);
       if (resultado.erroSistema) throw new Error(resultado.erroSistema);
-      acumulado = indice === totalLotes - 1 ? resultado : somarResumos(acumulado, resultado);
+      acumulado = somarResumos(acumulado, resultado);
+      setLinhasUploadProcessadas(Math.min(inicio + lote.length, linhas.length));
       setProgressoUpload(Math.round(((indice + 1) / totalLotes) * 100));
     }
 
-    return acumulado;
+    // O total de linhas vem da leitura local do Excel, portanto não depende
+    // da resposta parcial do último lote.
+    return {
+      ...acumulado,
+      totalLinhas: linhas.length,
+      arquivoNome: file.name,
+      loteAtual: totalLotes,
+      totalLotes,
+    };
   }
 
   function onSubmit(formData: FormData) {
     if (!uploadAction) return;
     setErro(null);
     setProgressoUpload(0);
+    setLinhasUploadTotal(0);
+    setLinhasUploadProcessadas(0);
+    setProcessandoUpload(true);
     startTransition(async () => {
       try {
         const arquivo = formData.get("arquivo");
@@ -248,6 +265,12 @@ export function BasePanel({
         const result = arquivo.size > 3.5 * 1024 * 1024
           ? await enviarArquivoGrandeEmLotes(arquivo, formData)
           : await uploadAction(formData);
+
+        if (arquivo.size <= 3.5 * 1024 * 1024) {
+          setLinhasUploadTotal(result.totalLinhas);
+          setLinhasUploadProcessadas(result.totalLinhas);
+          setProgressoUpload(100);
+        }
 
         if (result.erroSistema) {
           setResumo(null);
@@ -273,6 +296,8 @@ export function BasePanel({
             ? "O servidor interrompeu um dos lotes. Tente novamente; nenhum lote concluído será enviado outra vez automaticamente."
             : mensagem || "Não foi possível processar a devolução.",
         );
+      } finally {
+        setProcessandoUpload(false);
       }
     });
   }
@@ -405,7 +430,7 @@ export function BasePanel({
                   <label className="dropzone compact" htmlFor="fileUpdated">
                     <div className="drop-icon">↻</div>
                     <strong>
-                      {pending
+                      {processandoUpload
                         ? `${arquivoAtualNome || "Base selecionada"} · ${progressoUpload || 0}%`
                         : arquivoAtualNome || "Subir base atualizada"}
                     </strong>
@@ -417,16 +442,17 @@ export function BasePanel({
                     name="arquivo"
                     accept=".xlsx"
                     required
-                    disabled={pending}
+                    disabled={processandoUpload}
                     onChange={(event) => {
                       setArquivoAtualNome(event.target.files?.[0]?.name ?? "");
                       setProgressoUpload(0);
                       setErro(null);
+                      setResumo(null);
                     }}
                   />
                   <div className="mini-actions">
-                    <button className="btn-secondary" type="submit" disabled={pending}>
-                      {pending ? "Enviando..." : devolucaoRecebidaHoje ? "Reenviar devolução" : "Enviar devolução"}
+                    <button className="btn-secondary" type="submit" disabled={processandoUpload}>
+                      {processandoUpload ? "Processando..." : devolucaoRecebidaHoje ? "Reenviar devolução" : "Enviar devolução"}
                     </button>
                   </div>
                 </form>
@@ -442,6 +468,35 @@ export function BasePanel({
       </div>
       ) : null}
 
+      {processandoUpload ? (
+        <div className="compact-alert open" role="status" aria-live="polite">
+          <div style={{ padding: "12px 16px", width: "100%" }}>
+            <div className="compact-alert-title" style={{ marginBottom: 8 }}>
+              ↻ Processando: {arquivoAtualNome || "arquivo selecionado"}
+            </div>
+            <div style={{ fontSize: 13, marginBottom: 8 }}>
+              {linhasUploadTotal > 0 ? (
+                <>
+                  {linhasUploadProcessadas.toLocaleString("pt-BR")} de {linhasUploadTotal.toLocaleString("pt-BR")} linhas concluídas · faltam {Math.max(0, linhasUploadTotal - linhasUploadProcessadas).toLocaleString("pt-BR")} · {progressoUpload}%
+                </>
+              ) : (
+                <>Lendo e preparando o arquivo...</>
+              )}
+            </div>
+            <div style={{ height: 8, borderRadius: 999, overflow: "hidden", background: "#dbe5f1" }}>
+              <div
+                style={{
+                  width: `${progressoUpload}%`,
+                  height: "100%",
+                  background: "#2563eb",
+                  transition: "width 250ms ease",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {erro ? (
         <div className="compact-alert open">
           <button type="button" className="compact-alert-toggle" disabled>
@@ -450,11 +505,11 @@ export function BasePanel({
         </div>
       ) : null}
 
-      {!pending && !erro && resumo && arquivoAtualNome ? (
+      {!processandoUpload && !erro && resumo && arquivoAtualNome ? (
         <div className="compact-alert open ok">
           <button type="button" className="compact-alert-toggle" disabled>
             <span className="compact-alert-title">
-              ✓ Arquivo processado: {resumo.arquivoNome || arquivoAtualNome} · {resumo.totalLinhas.toLocaleString("pt-BR")} linha(s)
+              ✓ Finalizado: {resumo.arquivoNome || arquivoAtualNome} · {resumo.totalLinhas.toLocaleString("pt-BR")} linha(s) lida(s) · {resumo.aplicados.toLocaleString("pt-BR")} atualizada(s) · {resumo.semAlteracao.toLocaleString("pt-BR")} sem alteração · {(resumo.erros + resumo.pedidosNaoEncontrados + resumo.pedidosDeOutraTransportadora).toLocaleString("pt-BR")} com pendência
             </span>
           </button>
         </div>
@@ -542,7 +597,7 @@ export function BasePanel({
           </div>
         </div>
 
-        {pending ? (
+        {processandoUpload ? (
           <div className="backend-loading show">
             Processando {arquivoAtualNome || "devolução"}{progressoUpload ? ` · ${progressoUpload}%` : "..."}
           </div>
