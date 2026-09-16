@@ -292,7 +292,9 @@ export async function uploadDevolucaoTransportadora(formData: FormData): Promise
     },
   });
 
-  return resumoFinal;
+  // Cada chamada em lote devolve somente o próprio lote. A interface soma os
+  // resultados progressivamente; o log final usa resumoFinal acima.
+  return resumo;
   } catch (err) {
     console.error(`[uploadDevolucaoTransportadora] Falha em: ${etapa}`, err);
 
