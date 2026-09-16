@@ -21,6 +21,19 @@ export interface DevolucaoResumo {
   pedidosDeOutraTransportadora: number;
   detalhes: ResultadoLinha[];
   erroSistema?: string;
+  arquivoNome?: string;
+  loteAtual?: number;
+  totalLotes?: number;
+}
+
+const TAMANHO_LOTE_CONSULTA = 2_000;
+const TAMANHO_LOTE_DEVOLUCAO = 25;
+const MAX_DETALHES_RETORNO = 250;
+
+function adicionarDetalhe(resumo: DevolucaoResumo, detalhe: ResultadoLinha) {
+  if (resumo.detalhes.length < MAX_DETALHES_RETORNO) {
+    resumo.detalhes.push(detalhe);
+  }
 }
 
 function linhaVazia(linha: number, pedido: string, status: ResultadoLinha["status"], mensagem?: string): ResultadoLinha {
@@ -54,16 +67,33 @@ export async function uploadDevolucaoTransportadora(formData: FormData): Promise
     etapa = "autenticacao da transportadora";
     const user = await requireCarrierUser("/portal/minha-base");
 
-  const file = formData.get("arquivo");
-  if (!(file instanceof File) || file.size === 0) {
-    throw new Error("Selecione um arquivo .xlsx preenchido antes de enviar.");
+  const loteJson = formData.get("loteJson");
+  let arquivoNome = String(formData.get("arquivoNome") ?? "").trim();
+  const loteAtual = Number(formData.get("loteAtual") ?? 1);
+  const totalLotes = Number(formData.get("totalLotes") ?? 1);
+  const linhaInicial = Number(formData.get("linhaInicial") ?? 2);
+  const ultimoLote = String(formData.get("ultimoLote") ?? "false") === "true";
+
+  let rows: Record<string, unknown>[];
+
+  if (typeof loteJson === "string" && loteJson) {
+    etapa = "leitura do lote enviado";
+    const parsed = JSON.parse(loteJson) as unknown;
+    if (!Array.isArray(parsed)) throw new Error("O lote enviado é inválido.");
+    rows = parsed as Record<string, unknown>[];
+  } else {
+    const file = formData.get("arquivo");
+    if (!(file instanceof File) || file.size === 0) {
+      throw new Error("Selecione um arquivo .xlsx preenchido antes de enviar.");
+    }
+    arquivoNome = file.name;
+
+    etapa = "leitura do arquivo enviado";
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    etapa = "leitura da planilha XLSX";
+    ({ rows } = await readXlsxTable(buffer));
   }
-
-  etapa = "leitura do arquivo enviado";
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  etapa = "leitura da planilha XLSX";
-  const { rows } = await readXlsxTable(buffer);
 
   const resumo: DevolucaoResumo = {
     totalLinhas: rows.length,
@@ -73,6 +103,9 @@ export async function uploadDevolucaoTransportadora(formData: FormData): Promise
     pedidosNaoEncontrados: 0,
     pedidosDeOutraTransportadora: 0,
     detalhes: [],
+    arquivoNome: arquivoNome || undefined,
+    loteAtual,
+    totalLotes,
   };
 
   const pedidosChave = Array.from(
@@ -88,14 +121,15 @@ export async function uploadDevolucaoTransportadora(formData: FormData): Promise
 
   etapa = "consulta dos pedidos no banco";
 
-  const pedidosDb = await prisma.pedido.findMany({
-    where: {
-      pedido: { in: pedidosChave },
-    },
-    include: {
-      transportadora: { select: { nome: true } },
-    },
-  });
+  const pedidosDb = [];
+  for (let offset = 0; offset < pedidosChave.length; offset += TAMANHO_LOTE_CONSULTA) {
+    const lote = pedidosChave.slice(offset, offset + TAMANHO_LOTE_CONSULTA);
+    const encontrados = await prisma.pedido.findMany({
+      where: { pedido: { in: lote } },
+      include: { transportadora: { select: { nome: true } } },
+    });
+    pedidosDb.push(...encontrados);
+  }
 
   const pedidosPorChave = new Map(
     pedidosDb.map((pedido) => [pedido.pedido, pedido]),
@@ -110,13 +144,13 @@ export async function uploadDevolucaoTransportadora(formData: FormData): Promise
   etapa = "validacao e processamento das linhas";
 
   for (let index = 0; index < rows.length; index += 1) {
-    const linha = index + 2; // linha 1 = cabeçalho
+    const linha = linhaInicial + index;
     const normalizado = normalizarColunasLinha(rows[index]);
     const pedidoChave = String(normalizado["Pedido"] ?? "").trim();
 
     if (!pedidoChave) {
       resumo.erros += 1;
-      resumo.detalhes.push(linhaVazia(linha, "", "erro_validacao", "Coluna Pedido ausente ou vazia."));
+      adicionarDetalhe(resumo, linhaVazia(linha, "", "erro_validacao", "Coluna Pedido ausente ou vazia."));
       continue;
     }
 
@@ -124,14 +158,14 @@ export async function uploadDevolucaoTransportadora(formData: FormData): Promise
 
     if (!pedidoDb) {
       resumo.pedidosNaoEncontrados += 1;
-      resumo.detalhes.push(linhaVazia(linha, pedidoChave, "pedido_nao_encontrado"));
+      adicionarDetalhe(resumo, linhaVazia(linha, pedidoChave, "pedido_nao_encontrado"));
       continue;
     }
 
     // TESTE 9: pedido de outra transportadora - rejeitado sem detalhar para quem pertence.
     if (pedidoDb.transportadoraId !== user.transportadoraId) {
       resumo.pedidosDeOutraTransportadora += 1;
-      resumo.detalhes.push(linhaVazia(linha, pedidoChave, "pedido_de_outra_transportadora"));
+      adicionarDetalhe(resumo, linhaVazia(linha, pedidoChave, "pedido_de_outra_transportadora"));
       continue;
     }
 
@@ -173,7 +207,7 @@ export async function uploadDevolucaoTransportadora(formData: FormData): Promise
     };
 
     const resultado = processarLinhaDevolucao(rows[index], pedidoAtual, linha);
-    resumo.detalhes.push(resultado);
+    adicionarDetalhe(resumo, resultado);
 
     if (resultado.status === "erro_validacao") resumo.erros += 1;
     else if (resultado.status === "sem_alteracao") resumo.semAlteracao += 1;
@@ -215,8 +249,6 @@ export async function uploadDevolucaoTransportadora(formData: FormData): Promise
 
   etapa = "atualizacao dos pedidos no banco";
 
-  const TAMANHO_LOTE_DEVOLUCAO = 25;
-
   for (let offset = 0; offset < atualizacoes.length; offset += TAMANHO_LOTE_DEVOLUCAO) {
     const lote = atualizacoes.slice(offset, offset + TAMANHO_LOTE_DEVOLUCAO);
 
@@ -232,18 +264,35 @@ export async function uploadDevolucaoTransportadora(formData: FormData): Promise
 
   etapa = "registro do log da devolucao";
 
-  await prisma.automationLog.create({
+  let resumoFinal = resumo;
+  const acumuladoJson = formData.get("resumoAcumuladoJson");
+  if (ultimoLote && typeof acumuladoJson === "string" && acumuladoJson) {
+    const anterior = JSON.parse(acumuladoJson) as DevolucaoResumo;
+    resumoFinal = {
+      ...resumo,
+      totalLinhas: anterior.totalLinhas + resumo.totalLinhas,
+      aplicados: anterior.aplicados + resumo.aplicados,
+      semAlteracao: anterior.semAlteracao + resumo.semAlteracao,
+      erros: anterior.erros + resumo.erros,
+      pedidosNaoEncontrados: anterior.pedidosNaoEncontrados + resumo.pedidosNaoEncontrados,
+      pedidosDeOutraTransportadora:
+        anterior.pedidosDeOutraTransportadora + resumo.pedidosDeOutraTransportadora,
+      detalhes: [...anterior.detalhes, ...resumo.detalhes].slice(0, MAX_DETALHES_RETORNO),
+    };
+  }
+
+  if (!loteJson || ultimoLote) await prisma.automationLog.create({
     data: {
       transportadoraId: user.transportadoraId,
       dataReport: startOfLocalDay(new Date()),
       tipo: "pedidos_devolucao",
-      status: resumo.erros > 0 || resumo.pedidosNaoEncontrados > 0 || resumo.pedidosDeOutraTransportadora > 0 ? "error" : "success",
-      mensagem: `Devolução de ${user.transportadoraId}: ${resumo.totalLinhas} linha(s), ${resumo.aplicados} aplicada(s), ${resumo.semAlteracao} sem alteração, ${resumo.erros} erro(s), ${resumo.pedidosNaoEncontrados} não encontrado(s), ${resumo.pedidosDeOutraTransportadora} de outra transportadora.`,
-      payload: JSON.stringify(resumo),
+      status: resumoFinal.erros > 0 || resumoFinal.pedidosNaoEncontrados > 0 || resumoFinal.pedidosDeOutraTransportadora > 0 ? "error" : "success",
+      mensagem: `Devolução${arquivoNome ? ` ${arquivoNome}` : ""} de ${user.transportadoraId}: ${resumoFinal.totalLinhas} linha(s), ${resumoFinal.aplicados} aplicada(s), ${resumoFinal.semAlteracao} sem alteração, ${resumoFinal.erros} erro(s), ${resumoFinal.pedidosNaoEncontrados} não encontrado(s), ${resumoFinal.pedidosDeOutraTransportadora} de outra transportadora.`,
+      payload: JSON.stringify({ ...resumoFinal, detalhesLimitados: resumoFinal.totalLinhas > resumoFinal.detalhes.length }),
     },
   });
 
-  return resumo;
+  return resumoFinal;
   } catch (err) {
     console.error(`[uploadDevolucaoTransportadora] Falha em: ${etapa}`, err);
 
