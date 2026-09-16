@@ -215,27 +215,73 @@ export function BasePanel({
       totalLotes,
     };
 
-    for (let indice = 0; indice < totalLotes; indice += 1) {
-      const { inicio, linhas: lote } = lotes[indice];
+    const transportadoraId = formDataOriginal.get("transportadoraId");
+    let linhasConcluidas = 0;
+
+    async function processarLoteComRecuperacao(
+      lote: Record<string, unknown>[],
+      inicio: number,
+      identificador: string,
+    ): Promise<DevolucaoResumo> {
       const dadosLote = new FormData();
-      const transportadoraId = formDataOriginal.get("transportadoraId");
       if (typeof transportadoraId === "string") dadosLote.set("transportadoraId", transportadoraId);
       dadosLote.set("loteJson", JSON.stringify(lote));
       dadosLote.set("arquivoNome", file.name);
-      dadosLote.set("loteAtual", String(indice + 1));
+      dadosLote.set("loteAtual", identificador);
       dadosLote.set("totalLotes", String(totalLotes));
       dadosLote.set("linhaInicial", String(inicio + 2));
-      dadosLote.set("ultimoLote", String(indice === totalLotes - 1));
-      if (indice === totalLotes - 1) {
-        dadosLote.set("resumoAcumuladoJson", JSON.stringify(acumulado));
-      }
+      // O fechamento e o log são enviados separadamente após todos os lotes.
+      dadosLote.set("ultimoLote", "false");
 
-      const resultado = await uploadAction!(dadosLote);
-      if (resultado.erroSistema) throw new Error(resultado.erroSistema);
-      acumulado = somarResumos(acumulado, resultado);
-      setLinhasUploadProcessadas(Math.min(inicio + lote.length, linhas.length));
-      setProgressoUpload(Math.round(((indice + 1) / totalLotes) * 100));
+      try {
+        const resultado = await uploadAction!(dadosLote);
+        if (resultado.erroSistema) throw new Error(`ERRO_SISTEMA:${resultado.erroSistema}`);
+
+        linhasConcluidas += lote.length;
+        setLinhasUploadProcessadas(linhasConcluidas);
+        setProgressoUpload(Math.round((linhasConcluidas / linhas.length) * 100));
+        return resultado;
+      } catch (erro) {
+        const mensagem = erro instanceof Error ? erro.message : "";
+        if (mensagem.startsWith("ERRO_SISTEMA:")) {
+          throw new Error(mensagem.replace("ERRO_SISTEMA:", ""));
+        }
+
+        // Falha de transporte/tempo: reduz somente o lote afetado e continua.
+        if (lote.length <= 100) throw erro;
+        const meio = Math.ceil(lote.length / 2);
+        const primeiraMetade = await processarLoteComRecuperacao(
+          lote.slice(0, meio),
+          inicio,
+          `${identificador}.1`,
+        );
+        const segundaMetade = await processarLoteComRecuperacao(
+          lote.slice(meio),
+          inicio + meio,
+          `${identificador}.2`,
+        );
+        return somarResumos(primeiraMetade, segundaMetade);
+      }
     }
+
+    for (let indice = 0; indice < totalLotes; indice += 1) {
+      const { inicio, linhas: lote } = lotes[indice];
+      const resultado = await processarLoteComRecuperacao(lote, inicio, String(indice + 1));
+      acumulado = somarResumos(acumulado, resultado);
+    }
+
+    // Finaliza uma única vez, com o resumo de todos os lotes já concluídos.
+    const finalizacao = new FormData();
+    if (typeof transportadoraId === "string") finalizacao.set("transportadoraId", transportadoraId);
+    finalizacao.set("loteJson", "[]");
+    finalizacao.set("arquivoNome", file.name);
+    finalizacao.set("loteAtual", String(totalLotes));
+    finalizacao.set("totalLotes", String(totalLotes));
+    finalizacao.set("linhaInicial", String(linhas.length + 2));
+    finalizacao.set("ultimoLote", "true");
+    finalizacao.set("resumoAcumuladoJson", JSON.stringify(acumulado));
+    const resultadoFinalizacao = await uploadAction!(finalizacao);
+    if (resultadoFinalizacao.erroSistema) throw new Error(resultadoFinalizacao.erroSistema);
 
     // O total de linhas vem da leitura local do Excel, portanto não depende
     // da resposta parcial do último lote.
@@ -293,7 +339,7 @@ export function BasePanel({
         const mensagem = err instanceof Error ? err.message : "";
         setErro(
           mensagem.includes("unexpected response")
-            ? "O servidor interrompeu um dos lotes. Tente novamente; nenhum lote concluído será enviado outra vez automaticamente."
+            ? `O servidor interrompeu o processamento e não conseguiu recuperar o lote automaticamente. Foram concluídas ${linhasUploadProcessadas.toLocaleString("pt-BR")} de ${linhasUploadTotal.toLocaleString("pt-BR")} linhas.`
             : mensagem || "Não foi possível processar a devolução.",
         );
       } finally {
