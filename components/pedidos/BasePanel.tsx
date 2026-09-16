@@ -108,17 +108,146 @@ export function BasePanel({
   const [erro, setErro] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [alertOpen, setAlertOpen] = useState(false);
+  const [arquivoAtualNome, setArquivoAtualNome] = useState("");
+  const [progressoUpload, setProgressoUpload] = useState(0);
 
   const [origResumo, setOrigResumo] = useState<BaseOriginalResumo | null>(null);
   const [origErro, setOrigErro] = useState<string | null>(null);
   const [origPending, startOrigTransition] = useTransition();
+  const [arquivoOriginalNome, setArquivoOriginalNome] = useState("");
+
+  function somarResumos(anterior: DevolucaoResumo, atual: DevolucaoResumo): DevolucaoResumo {
+    return {
+      ...atual,
+      totalLinhas: anterior.totalLinhas + atual.totalLinhas,
+      aplicados: anterior.aplicados + atual.aplicados,
+      semAlteracao: anterior.semAlteracao + atual.semAlteracao,
+      erros: anterior.erros + atual.erros,
+      pedidosNaoEncontrados: anterior.pedidosNaoEncontrados + atual.pedidosNaoEncontrados,
+      pedidosDeOutraTransportadora:
+        anterior.pedidosDeOutraTransportadora + atual.pedidosDeOutraTransportadora,
+      detalhes: [...anterior.detalhes, ...atual.detalhes].slice(0, 250),
+    };
+  }
+
+  async function enviarArquivoGrandeEmLotes(file: File, formDataOriginal: FormData) {
+    const ExcelJS = await import("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load((await file.arrayBuffer()) as ArrayBuffer);
+
+    const sheet = workbook.worksheets[0];
+    if (!sheet) throw new Error("A planilha não possui nenhuma aba para processar.");
+
+    const headers: string[] = [];
+    sheet.getRow(1).eachCell({ includeEmpty: false }, (cell, colNumber) => {
+      headers[colNumber - 1] = String(cell.value ?? "").trim();
+    });
+
+    const linhas: Record<string, unknown>[] = [];
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
+      const item: Record<string, unknown> = {};
+      let temValor = false;
+
+      headers.forEach((header, index) => {
+        if (!header) return;
+        let valor: unknown = row.getCell(index + 1).value;
+        if (valor instanceof Date) valor = valor.toISOString();
+        if (valor && typeof valor === "object" && "text" in (valor as Record<string, unknown>)) {
+          valor = (valor as { text: unknown }).text;
+        }
+        if (valor && typeof valor === "object" && "result" in (valor as Record<string, unknown>)) {
+          valor = (valor as { result: unknown }).result;
+        }
+        item[header] = valor ?? "";
+        if (String(valor ?? "").trim()) temValor = true;
+      });
+
+      if (temValor) linhas.push(item);
+    });
+
+    if (!linhas.length) throw new Error("A planilha não possui pedidos para processar.");
+
+    // Lotes adaptativos: aceleram bases grandes sem ultrapassar o limite de
+    // corpo das funções da Vercel. O teto em bytes prevalece sobre a quantidade.
+    const MAX_LINHAS_LOTE = 3_000;
+    const MAX_BYTES_LOTE = 2.5 * 1024 * 1024;
+    const lotes: Array<{ inicio: number; linhas: Record<string, unknown>[] }> = [];
+    let loteAtualLinhas: Record<string, unknown>[] = [];
+    let loteAtualBytes = 2;
+    let inicioLote = 0;
+
+    for (let indice = 0; indice < linhas.length; indice += 1) {
+      const linha = linhas[indice];
+      const tamanhoLinha = new TextEncoder().encode(JSON.stringify(linha)).length + 1;
+      const precisaFechar =
+        loteAtualLinhas.length > 0 &&
+        (loteAtualLinhas.length >= MAX_LINHAS_LOTE || loteAtualBytes + tamanhoLinha > MAX_BYTES_LOTE);
+
+      if (precisaFechar) {
+        lotes.push({ inicio: inicioLote, linhas: loteAtualLinhas });
+        inicioLote = indice;
+        loteAtualLinhas = [];
+        loteAtualBytes = 2;
+      }
+
+      loteAtualLinhas.push(linha);
+      loteAtualBytes += tamanhoLinha;
+    }
+
+    if (loteAtualLinhas.length) lotes.push({ inicio: inicioLote, linhas: loteAtualLinhas });
+
+    const totalLotes = lotes.length;
+    let acumulado: DevolucaoResumo = {
+      totalLinhas: 0,
+      aplicados: 0,
+      semAlteracao: 0,
+      erros: 0,
+      pedidosNaoEncontrados: 0,
+      pedidosDeOutraTransportadora: 0,
+      detalhes: [],
+      arquivoNome: file.name,
+      totalLotes,
+    };
+
+    for (let indice = 0; indice < totalLotes; indice += 1) {
+      const { inicio, linhas: lote } = lotes[indice];
+      const dadosLote = new FormData();
+      const transportadoraId = formDataOriginal.get("transportadoraId");
+      if (typeof transportadoraId === "string") dadosLote.set("transportadoraId", transportadoraId);
+      dadosLote.set("loteJson", JSON.stringify(lote));
+      dadosLote.set("arquivoNome", file.name);
+      dadosLote.set("loteAtual", String(indice + 1));
+      dadosLote.set("totalLotes", String(totalLotes));
+      dadosLote.set("linhaInicial", String(inicio + 2));
+      dadosLote.set("ultimoLote", String(indice === totalLotes - 1));
+      if (indice === totalLotes - 1) {
+        dadosLote.set("resumoAcumuladoJson", JSON.stringify(acumulado));
+      }
+
+      const resultado = await uploadAction!(dadosLote);
+      if (resultado.erroSistema) throw new Error(resultado.erroSistema);
+      acumulado = indice === totalLotes - 1 ? resultado : somarResumos(acumulado, resultado);
+      setProgressoUpload(Math.round(((indice + 1) / totalLotes) * 100));
+    }
+
+    return acumulado;
+  }
 
   function onSubmit(formData: FormData) {
     if (!uploadAction) return;
     setErro(null);
+    setProgressoUpload(0);
     startTransition(async () => {
       try {
-        const result = await uploadAction(formData);
+        const arquivo = formData.get("arquivo");
+        if (!(arquivo instanceof File) || arquivo.size === 0) {
+          throw new Error("Selecione um arquivo .xlsx preenchido antes de enviar.");
+        }
+
+        const result = arquivo.size > 3.5 * 1024 * 1024
+          ? await enviarArquivoGrandeEmLotes(arquivo, formData)
+          : await uploadAction(formData);
 
         if (result.erroSistema) {
           setResumo(null);
@@ -138,7 +267,12 @@ export function BasePanel({
         setAccordionOpen(false);
         router.refresh();
       } catch (err) {
-        setErro(err instanceof Error ? err.message : "Não foi possível processar a devolução.");
+        const mensagem = err instanceof Error ? err.message : "";
+        setErro(
+          mensagem.includes("unexpected response")
+            ? "O servidor interrompeu um dos lotes. Tente novamente; nenhum lote concluído será enviado outra vez automaticamente."
+            : mensagem || "Não foi possível processar a devolução.",
+        );
       }
     });
   }
@@ -211,10 +345,18 @@ export function BasePanel({
                 <form action={onSubmitOriginal}>
                   <label className="dropzone compact" htmlFor="fileOriginal">
                     <div className="drop-icon">⬆</div>
-                    <strong>{origPending ? "Enviando..." : "Selecionar base original"}</strong>
-                    <span>Mesmas colunas de origem da Base Completa</span>
+                    <strong>{origPending ? "Enviando..." : arquivoOriginalNome || "Selecionar base original"}</strong>
+                    <span>{arquivoOriginalNome ? "Arquivo selecionado" : "Mesmas colunas de origem da Base Completa"}</span>
                   </label>
-                  <input type="file" id="fileOriginal" name="arquivo" accept=".xlsx" required disabled={origPending} />
+                  <input
+                    type="file"
+                    id="fileOriginal"
+                    name="arquivo"
+                    accept=".xlsx"
+                    required
+                    disabled={origPending}
+                    onChange={(event) => setArquivoOriginalNome(event.target.files?.[0]?.name ?? "")}
+                  />
                   <div className="mini-actions">
                     <button className="btn-secondary" type="submit" disabled={origPending}>
                       {origPending ? "Enviando..." : "Enviar base original"}
@@ -262,10 +404,26 @@ export function BasePanel({
                   ) : null}
                   <label className="dropzone compact" htmlFor="fileUpdated">
                     <div className="drop-icon">↻</div>
-                    <strong>{pending ? "Enviando..." : "Subir base atualizada"}</strong>
-                    <span>Mantenha a mesma estrutura de colunas</span>
+                    <strong>
+                      {pending
+                        ? `${arquivoAtualNome || "Base selecionada"} · ${progressoUpload || 0}%`
+                        : arquivoAtualNome || "Subir base atualizada"}
+                    </strong>
+                    <span>{arquivoAtualNome ? "Arquivo selecionado" : "Mantenha a mesma estrutura de colunas"}</span>
                   </label>
-                  <input type="file" id="fileUpdated" name="arquivo" accept=".xlsx" required disabled={pending} />
+                  <input
+                    type="file"
+                    id="fileUpdated"
+                    name="arquivo"
+                    accept=".xlsx"
+                    required
+                    disabled={pending}
+                    onChange={(event) => {
+                      setArquivoAtualNome(event.target.files?.[0]?.name ?? "");
+                      setProgressoUpload(0);
+                      setErro(null);
+                    }}
+                  />
                   <div className="mini-actions">
                     <button className="btn-secondary" type="submit" disabled={pending}>
                       {pending ? "Enviando..." : devolucaoRecebidaHoje ? "Reenviar devolução" : "Enviar devolução"}
@@ -288,6 +446,16 @@ export function BasePanel({
         <div className="compact-alert open">
           <button type="button" className="compact-alert-toggle" disabled>
             <span className="compact-alert-title">🚨 Falha ao processar: {erro}</span>
+          </button>
+        </div>
+      ) : null}
+
+      {!pending && !erro && resumo && arquivoAtualNome ? (
+        <div className="compact-alert open ok">
+          <button type="button" className="compact-alert-toggle" disabled>
+            <span className="compact-alert-title">
+              ✓ Arquivo processado: {resumo.arquivoNome || arquivoAtualNome} · {resumo.totalLinhas.toLocaleString("pt-BR")} linha(s)
+            </span>
           </button>
         </div>
       ) : null}
@@ -374,7 +542,11 @@ export function BasePanel({
           </div>
         </div>
 
-        {pending ? <div className="backend-loading show">Processando devolução...</div> : null}
+        {pending ? (
+          <div className="backend-loading show">
+            Processando {arquivoAtualNome || "devolução"}{progressoUpload ? ` · ${progressoUpload}%` : "..."}
+          </div>
+        ) : null}
 
         <div className="panel-download">
           <a href={downloadHref} className="btn-transporter">
