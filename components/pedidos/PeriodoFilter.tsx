@@ -1,6 +1,7 @@
 "use client";
 
-import { type CSSProperties, useMemo, useState } from "react";
+import { type CSSProperties, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Calendar, ChevronDown } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
@@ -54,6 +55,8 @@ export function PeriodoFilter({
   allHref,
   filledHref,
 }: PeriodoFilterProps) {
+  const router = useRouter();
+  const [atualizando, iniciarAtualizacao] = useTransition();
   const [aberto, setAberto] = useState(false);
   const [deSelecionado, setDeSelecionado] = useState(de);
   const [ateSelecionado, setAteSelecionado] = useState(ate);
@@ -102,6 +105,11 @@ export function PeriodoFilter({
     setAteSelecionado(iso);
   };
 
+  const navegarMantendoDados = (destino: string) => {
+    setAberto(false);
+    iniciarAtualizacao(() => router.push(destino, { scroll: false }));
+  };
+
   const dataCalendario =
     campoAtivo === "de"
       ? isoParaDataLocal(deSelecionado)
@@ -119,14 +127,29 @@ export function PeriodoFilter({
   } as CSSProperties;
 
   return (
-    <div
-      className="periodo-filter"
-      style={{
-        position: "relative",
-        width: compact ? "auto" : undefined,
-        margin: 0,
-      }}
-    >
+    <div className="periodo-filter" style={{ position: "relative", width: compact ? "auto" : undefined, margin: 0 }}>
+      {atualizando ? (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            right: 24,
+            bottom: 24,
+            zIndex: 1000,
+            padding: "10px 14px",
+            borderRadius: 999,
+            color: "#0f2742",
+            background: "#ffffff",
+            border: "1px solid #cbd5e1",
+            boxShadow: "0 10px 30px rgba(15, 39, 66, 0.18)",
+            fontSize: 13,
+            fontWeight: 700,
+          }}
+        >
+          Atualizando informações…
+        </div>
+      ) : null}
       <button
         type="button"
         className="periodo-filter-toggle"
@@ -167,6 +190,15 @@ export function PeriodoFilter({
         <form
           className="periodo-filter-body"
           action={action}
+          onSubmit={(evento) => {
+            evento.preventDefault();
+            const dados = new FormData(evento.currentTarget);
+            const parametros = new URLSearchParams();
+            dados.forEach((valor, chave) => {
+              if (typeof valor === "string" && valor) parametros.set(chave, valor);
+            });
+            navegarMantendoDados(`${action}?${parametros.toString()}`);
+          }}
           style={{
             position: "absolute",
             top: "calc(100% + 8px)",
@@ -204,7 +236,7 @@ export function PeriodoFilter({
                       ? filledHref
                       : allHref;
 
-                  window.location.href = destino;
+                  navegarMantendoDados(destino);
                 }}
                 style={{ width: "100%" }}
               >
@@ -401,8 +433,8 @@ export function PeriodoFilter({
               marginTop: 14,
             }}
           >
-            <button className="btn" type="submit">
-              Aplicar período
+            <button className="btn" type="submit" disabled={atualizando}>
+              {atualizando ? "Atualizando..." : "Aplicar período"}
             </button>
           </div>
         </form>

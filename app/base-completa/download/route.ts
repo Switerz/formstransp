@@ -1,36 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireInternalUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { parsePedidosFilters, buildPedidosWhere } from "@/lib/pedidos-query";
-import { buildPedidosXlsx } from "@/lib/pedidos-xlsx";
-import { formatDateInput } from "@/lib/dates";
-import { getBaseCompletaWindowWhere } from "@/lib/base-completa-window";
+import {
+  EXPORTACAO_ADMIN_CHAVE,
+  chaveExportacaoTransportadora,
+  obterExportacaoPronta,
+} from "@/lib/exportacoes-download";
 
-const MAX_EXPORT_ROWS = 50000;
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   await requireInternalUser("/base-completa");
+  const transportadoraId = request.nextUrl.searchParams.get("transportadoraId")?.trim();
+  const chave = transportadoraId
+    ? chaveExportacaoTransportadora(transportadoraId)
+    : EXPORTACAO_ADMIN_CHAVE;
+  const exportacao = await obterExportacaoPronta(chave);
 
-  const filters = parsePedidosFilters(Object.fromEntries(request.nextUrl.searchParams));
-  const where = buildPedidosWhere(filters, getBaseCompletaWindowWhere());
+  if (!exportacao) {
+    return NextResponse.json(
+      { error: "A exportação solicitada ainda não está disponível ou expirou." },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
-  const pedidos = await prisma.pedido.findMany({
-    where,
-    include: { transportadora: { select: { nome: true } } },
-    orderBy: { dataCriacaoPedido: "desc" },
-    take: MAX_EXPORT_ROWS,
-  });
-
-  const buffer = await buildPedidosXlsx(pedidos);
-
-  const filename = `base-completa-${formatDateInput(new Date())}.xlsx`;
-
-  return new NextResponse(new Uint8Array(buffer), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-      "Cache-Control": "no-store",
-    },
-  });
+  return NextResponse.redirect(exportacao.signedUrl, 307);
 }
