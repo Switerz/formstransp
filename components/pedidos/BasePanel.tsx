@@ -106,7 +106,6 @@ export function BasePanel({
   const [devolucaoRecebidaHoje, setDevolucaoRecebidaHoje] = useState(hasDevolucaoHoje);
   const [ultimaDevolucaoLabelAtual, setUltimaDevolucaoLabelAtual] = useState(lastDevolucaoLabel);
   const [erro, setErro] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
   const [alertOpen, setAlertOpen] = useState(false);
   const [arquivoAtualNome, setArquivoAtualNome] = useState("");
   const [progressoUpload, setProgressoUpload] = useState(0);
@@ -294,15 +293,14 @@ export function BasePanel({
     };
   }
 
-  function onSubmit(formData: FormData) {
+  async function onSubmit(formData: FormData) {
     if (!uploadAction) return;
     setErro(null);
     setProgressoUpload(0);
     setLinhasUploadTotal(0);
     setLinhasUploadProcessadas(0);
     setProcessandoUpload(true);
-    startTransition(async () => {
-      try {
+    try {
         const arquivo = formData.get("arquivo");
         if (!(arquivo instanceof File) || arquivo.size === 0) {
           throw new Error("Selecione um arquivo .xlsx preenchido antes de enviar.");
@@ -335,17 +333,16 @@ export function BasePanel({
         );
         setAccordionOpen(false);
         router.refresh();
-      } catch (err) {
+    } catch (err) {
         const mensagem = err instanceof Error ? err.message : "";
         setErro(
           mensagem.includes("unexpected response")
             ? `O servidor interrompeu o processamento e não conseguiu recuperar o lote automaticamente. Foram concluídas ${linhasUploadProcessadas.toLocaleString("pt-BR")} de ${linhasUploadTotal.toLocaleString("pt-BR")} linhas.`
             : mensagem || "Não foi possível processar a devolução.",
         );
-      } finally {
-        setProcessandoUpload(false);
-      }
-    });
+    } finally {
+      setProcessandoUpload(false);
+    }
   }
 
   function onSubmitOriginal(formData: FormData) {
@@ -457,7 +454,12 @@ export function BasePanel({
                 </div>
               </div>
               {permiteDevolucao ? (
-                <form action={onSubmit}>
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void onSubmit(new FormData(event.currentTarget));
+                  }}
+                >
                   {transportadorasParaSelecao ? (
                     <div className="field" style={{ marginBottom: 8 }}>
                       <label htmlFor="transportadoraIdDevolucao">Transportadora</label>
