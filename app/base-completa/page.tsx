@@ -259,16 +259,8 @@ export default async function BaseCompletaPage({
             uploadOriginalAction={podeGerenciarBases ? uploadBaseOriginalInterna : undefined}
             transportadorasParaSelecao={podeGerenciarBases ? transportadoras : undefined}
           />
-          {!transportadoraIdFiltro && podeGerenciarBases && exportacaoAdmin && (
-            <div>
-              {exportacaoAdmin.nomeArquivo.endsWith(".xlsx") && <DownloadAdminZip />}
-              <p>Se o download único falhar, baixe as {exportacaoAdmin.totalPartes} partes separadamente:</p>
-              {Array.from({ length: exportacaoAdmin.totalPartes }, (_, indice) => indice + 1).map((parte) => (
-                <a key={parte} href={`/base-completa/download?parte=${parte}`} style={{ marginRight: 16 }}>
-                  Baixar parte {parte}
-                </a>
-              ))}
-            </div>
+          {!transportadoraIdFiltro && podeGerenciarBases && exportacaoAdmin?.nomeArquivo.endsWith(".xlsx") && (
+            <DownloadAdminZip />
           )}
         </section>
       </main>
