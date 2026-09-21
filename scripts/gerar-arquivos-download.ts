@@ -193,11 +193,55 @@ async function gerarTransportadoras(inicio: Date) {
   }
 }
 
+const CSV_HEADERS = [
+  "Nome do Destinatário", "Canal de Vendas", "Cidade do Destinatário", "UF",
+  "CEP do destinatário", "Pedido de Venda", "Pedido", "Código de rastreio",
+  "Nota Fiscal", "Método de envio", "Transportadora", "Valor da Nota",
+  "Peso fisico", "Chave da Nota", "Data Despacho", "Previsão Entrega Transportadora",
+  "DATA COLETA/PROCESSAMENTO", "DATA DE PREVISÃO", "PRAZO DE ENTREGA (DIAS ÚTEIS)",
+  "DATA DE ENTREGA", "STATUS ATUAL", "OCORRÊNCIA", "MOTIVO DEVOLUÇÃO",
+  "SLA (NO PRAZO/ATRASADO)", "JUSTIFICATIVA DE ATRASO",
+  "NOVA DATA DE PREVISÃO (SE ATRASADO)", "DATA EM QUE O PEDIDO FOI RESOLVIDO PARA DEVOLUÇÃO",
+];
+
+function celulaCsv(valor: unknown): string {
+  if (valor === null || valor === undefined) return "";
+  const texto = valor instanceof Date ? valor.toISOString().slice(0, 10) : String(valor);
+  return `"${texto.replace(/"/g, '""')}"`;
+}
+
+function linhaCsv(p: PedidoExportacao): string {
+  const colunas: unknown[] = [
+    p.nomeDestinatario, p.canalVendas, p.cidadeDestinatario, p.uf,
+    p.cepDestinatario, p.pedidoDeVenda, p.pedido, p.codigoRastreio,
+    p.notaFiscal, p.metodoEnvio, p.transportadora?.nome, p.valorNota,
+    p.pesoFisico, p.chaveNota, p.dataDespacho, p.previsaoEntregaTransportadoraOrigem,
+    p.dataColetaProcessamento, p.dataPrevisao, p.prazoEntregaDiasUteis,
+    p.dataEntrega, p.statusAtual, p.ocorrencia, p.motivoDevolucao,
+    p.slaStatus, p.justificativaAtraso, p.novaDataPrevisao, p.dataResolucaoDevolucao,
+  ];
+  return colunas.map(celulaCsv).join(";") + "\n";
+}
+
 async function gerarAdmin(inicio: Date) {
   console.log("Gerando Base Completa administrativa...");
   const temporario = await mkdtemp(path.join(tmpdir(), "forms-transp-export-"));
   try {
     const arquivos: Array<{ caminho: string; nome: string; linhas: number }> = [];
+    const versao = Date.now();
+    const csvChunks: Array<{ caminho: string; linhas: number }> = [];
+    let csvLinhas: string[] = ["\ufeff" + CSV_HEADERS.map(celulaCsv).join(";") + "\n"];
+    let csvTamanho = Buffer.byteLength(csvLinhas[0], "utf8");
+    let csvQuantidade = 0;
+    const salvarCsvChunk = async () => {
+      if (!csvQuantidade) return;
+      const caminho = path.join(temporario, `csv-${csvChunks.length + 1}.csv`);
+      await writeFile(caminho, csvLinhas.join(""), "utf8");
+      csvChunks.push({ caminho, linhas: csvQuantidade });
+      csvLinhas = [];
+      csvTamanho = 0;
+      csvQuantidade = 0;
+    };
     let cursor: string | undefined;
     let parte: PedidoExportacao[] = [];
     let total = 0;
@@ -233,6 +277,15 @@ async function gerarAdmin(inicio: Date) {
       });
       if (!lote.length) break;
       cursor = lote.at(-1)!.id;
+      for (const pedido of lote) {
+        const linha = linhaCsv(pedido);
+        const tamanho = Buffer.byteLength(linha, "utf8");
+        if (csvQuantidade && csvTamanho + tamanho > ADMIN_MAX_BYTES) await salvarCsvChunk();
+        csvLinhas.push(linha);
+        csvTamanho += tamanho;
+        csvQuantidade += 1;
+        if (csvQuantidade >= 20_000) await salvarCsvChunk();
+      }
       let restantes = lote;
       while (restantes.length) {
         const espaco = ADMIN_PART_SIZE - parte.length;
@@ -243,9 +296,33 @@ async function gerarAdmin(inicio: Date) {
       total += lote.length;
     }
     await gravarParte();
+    await salvarCsvChunk();
+    // Publica o CSV antes do marcador XLSX principal. O manifesto só oferece
+    // os chunks quando todos pertencerem à mesma versão da Base Completa.
+    for (const [indice, chunk] of csvChunks.entries()) {
+      await publicar({
+        chave: `admin:base-completa:csv:parte:${indice + 1}`,
+        escopo: "admin",
+        nomeArquivo: `base-consolidada-parte-${String(indice + 1).padStart(3, "0")}.csv`,
+        storagePath: `current/admin/${versao}/csv/parte-${String(indice + 1).padStart(3, "0")}.csv`,
+        conteudo: await readFile(chunk.caminho),
+        contentType: "text/csv; charset=utf-8",
+        totalLinhas: chunk.linhas,
+        totalPartes: csvChunks.length,
+      });
+    }
+    await publicar({
+      chave: "admin:base-completa:csv",
+      escopo: "admin",
+      nomeArquivo: "base-consolidada.csv",
+      storagePath: `current/admin/${versao}/csv/manifesto.csv`,
+      conteudo: Buffer.from("CSV consolidado: utilize o botao de download do portal.\n"),
+      contentType: "text/plain; charset=utf-8",
+      totalLinhas: total,
+      totalPartes: csvChunks.length,
+    });
 
     // A parte 1 é publicada por último: ela sinaliza que a coleção inteira está pronta.
-    const versao = Date.now();
     for (const [indice, arquivo] of arquivos.entries()) {
       if (indice === 0) continue;
       await publicar({
