@@ -41,8 +41,8 @@ export interface PedidoParaXlsx {
 
 const TEMPLATE_PATH = path.join(process.cwd(), "public", "templates", "Base Padrao.xlsx");
 const FIRST_DATA_ROW = 2;
-const LAST_COLUMN = 25;
-const FIRST_EDITABLE_COLUMN = 15;
+const LAST_COLUMN = 27;
+const FIRST_EDITABLE_COLUMN = 17;
 
 function cellDate(date: Date | null): Date | null {
   return date ? new Date(date) : null;
@@ -67,6 +67,36 @@ export async function buildPedidosXlsx(pedidos: PedidoParaXlsx[]): Promise<Buffe
   const sheet = workbook.getWorksheet("BASE");
   if (!sheet) throw new Error('A planilha modelo não possui a aba obrigatória "BASE".');
 
+  // Acrescenta datas de origem ao modelo homologado, antes dos campos editáveis.
+  if (sheet.getCell("O1").value === "DATA COLETA/PROCESSAMENTO") {
+    for (let column = 25; column >= 15; column -= 1) {
+      const origem = sheet.getColumn(column);
+      const destino = sheet.getColumn(column + 2);
+      destino.width = origem.width;
+      for (const linha of [1, FIRST_DATA_ROW]) {
+        const anterior = sheet.getRow(linha).getCell(column);
+        const proxima = sheet.getRow(linha).getCell(column + 2);
+        proxima.value = anterior.value;
+        proxima.style = { ...anterior.style };
+      }
+    }
+    for (const [coluna, titulo] of [[15, "Data Despacho"], [16, "Previsão Entrega Transportadora"]] as const) {
+      sheet.getColumn(coluna).width = coluna === 15 ? 19 : 31;
+      const cabecalho = sheet.getRow(1).getCell(coluna);
+      cabecalho.value = titulo;
+      cabecalho.style = { ...sheet.getRow(1).getCell(14).style };
+      const modelo = sheet.getRow(FIRST_DATA_ROW).getCell(coluna);
+      modelo.value = null;
+      modelo.style = { ...sheet.getRow(FIRST_DATA_ROW).getCell(14).style };
+      modelo.numFmt = "dd/mm/yyyy";
+      modelo.protection = { locked: true };
+    }
+  }
+  if (sheet.getCell("O1").value !== "Data Despacho" ||
+      sheet.getCell("Q1").value !== "DATA COLETA/PROCESSAMENTO") {
+    throw new Error("O modelo BASE não contém as colunas esperadas para a exportação.");
+  }
+
   const modelRow = sheet.getRow(FIRST_DATA_ROW);
   const modelHeight = modelRow.height;
   const modelStyles = Array.from({ length: LAST_COLUMN }, (_, index) => ({
@@ -89,6 +119,7 @@ export async function buildPedidosXlsx(pedidos: PedidoParaXlsx[]): Promise<Buffe
       String(p.notaFiscal ?? ""), p.metodoEnvio ?? "",
       p.transportadora?.nome ?? "", cellDecimal(p.valorNota),
       cellDecimal(p.pesoFisico), String(p.chaveNota ?? ""),
+      cellDate(p.dataDespacho), cellDate(p.previsaoEntregaTransportadoraOrigem),
       cellDate(p.dataColetaProcessamento), cellDate(p.dataPrevisao),
       p.prazoEntregaDiasUteis ?? "", cellDate(p.dataEntrega),
       p.statusAtual ?? "", p.ocorrencia ?? "", p.motivoDevolucao ?? "",
@@ -101,11 +132,11 @@ export async function buildPedidosXlsx(pedidos: PedidoParaXlsx[]): Promise<Buffe
       row.getCell(column).protection = { locked: column < FIRST_EDITABLE_COLUMN };
     }
     for (const column of [5, 6, 7, 8, 9, 14]) row.getCell(column).numFmt = "@";
-    for (const column of [15, 16, 18, 24, 25]) row.getCell(column).numFmt = "dd/mm/yyyy";
+    for (const column of [15, 16, 17, 18, 20, 26, 27]) row.getCell(column).numFmt = "dd/mm/yyyy";
   });
 
   const lastRow = Math.max(FIRST_DATA_ROW, pedidos.length + 1);
-  sheet.autoFilter = `A1:Y${lastRow}`;
+  sheet.autoFilter = `A1:AA${lastRow}`;
 
   const validations = (sheet as ExcelJS.Worksheet & {
     dataValidations: {
@@ -118,17 +149,17 @@ export async function buildPedidosXlsx(pedidos: PedidoParaXlsx[]): Promise<Buffe
   // registrar somente os intervalos realmente usados pelo arquivo atual.
   validations.model = {};
 
-  validations.add(`T2:T${lastRow}`, {
+  validations.add(`V2:V${lastRow}`, {
     type: "list", allowBlank: true, formulae: ["ListaOcorrenciaFormsTransp"],
     showErrorMessage: true, errorTitle: "Valor inválido",
     error: "Selecione um valor válido da lista.",
   });
-  validations.add(`U2:U${lastRow}`, {
+  validations.add(`W2:W${lastRow}`, {
     type: "list", allowBlank: true, formulae: ["ListaMotivoDevolucaoFormsTransp"],
     showErrorMessage: true, errorTitle: "Valor inválido",
     error: "Selecione um valor válido da lista.",
   });
-  for (const column of ["O", "P", "R", "X", "Y"]) {
+  for (const column of ["Q", "R", "T", "Z", "AA"]) {
     validations.add(`${column}2:${column}${lastRow}`, {
       type: "date", operator: "between", allowBlank: true,
       formulae: [new Date(2000, 0, 1), new Date(2100, 11, 31)],
