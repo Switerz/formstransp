@@ -1,5 +1,3 @@
-import archiver from "archiver";
-import { createWriteStream } from "node:fs";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -195,19 +193,6 @@ async function gerarTransportadoras(inicio: Date) {
   }
 }
 
-async function zipar(arquivos: Array<{ caminho: string; nome: string }>, destino: string) {
-  await new Promise<void>((resolve, reject) => {
-    const saida = createWriteStream(destino);
-    const zip = archiver("zip", { zlib: { level: 6 } });
-    saida.on("close", resolve);
-    saida.on("error", reject);
-    zip.on("error", reject);
-    zip.pipe(saida);
-    for (const arquivo of arquivos) zip.file(arquivo.caminho, { name: arquivo.nome });
-    void zip.finalize();
-  });
-}
-
 async function gerarAdmin(inicio: Date) {
   console.log("Gerando Base Completa administrativa...");
   const temporario = await mkdtemp(path.join(tmpdir(), "forms-transp-export-"));
@@ -221,19 +206,15 @@ async function gerarAdmin(inicio: Date) {
       const nome = `base-completa-parte-${String(numero).padStart(3, "0")}.xlsx`;
       const caminhoXlsx = path.join(temporario, nome);
       await writeFile(caminhoXlsx, await buildPedidosXlsx(pedidos));
-      const caminhoZip = path.join(temporario, `base-completa-parte-${String(numero).padStart(3, "0")}.zip`);
-      await zipar([{ caminho: caminhoXlsx, nome }], caminhoZip);
-      if ((await stat(caminhoZip)).size > ADMIN_MAX_BYTES) {
+      if ((await stat(caminhoXlsx)).size > ADMIN_MAX_BYTES) {
         await rm(caminhoXlsx, { force: true });
-        await rm(caminhoZip, { force: true });
         if (pedidos.length <= 1) throw new Error("Uma única linha ultrapassou o limite da exportação administrativa.");
         const meio = Math.floor(pedidos.length / 2);
         await salvarParte(pedidos.slice(0, meio));
         await salvarParte(pedidos.slice(meio));
         return;
       }
-      await rm(caminhoXlsx, { force: true });
-      arquivos.push({ caminho: caminhoZip, nome: path.basename(caminhoZip), linhas: pedidos.length });
+      arquivos.push({ caminho: caminhoXlsx, nome, linhas: pedidos.length });
     };
 
     const gravarParte = async () => {
@@ -273,7 +254,7 @@ async function gerarAdmin(inicio: Date) {
         nomeArquivo: arquivo.nome,
         storagePath: `current/admin/${versao}/${arquivo.nome}`,
         conteudo: await readFile(arquivo.caminho),
-        contentType: "application/zip",
+        contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         totalLinhas: arquivo.linhas,
         totalPartes: arquivos.length,
       });
@@ -284,7 +265,7 @@ async function gerarAdmin(inicio: Date) {
       nomeArquivo: primeira.nome,
       storagePath: `current/admin/${versao}/${primeira.nome}`,
       conteudo: await readFile(primeira.caminho),
-      contentType: "application/zip", totalLinhas: total, totalPartes: arquivos.length,
+      contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", totalLinhas: total, totalPartes: arquivos.length,
     });
     console.log(`  ${total.toLocaleString("pt-BR")} linhas em ${arquivos.length} arquivo(s).`);
   } finally {
