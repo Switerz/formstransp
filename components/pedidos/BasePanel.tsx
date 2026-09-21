@@ -35,7 +35,7 @@ interface BasePanelProps {
   allHref?: string;
   filledHref?: string;
   toolbarDateFilter?: React.ReactNode;
-  downloadHref: string;
+  downloadHref?: string;
   /**
    * Opcional. Quando ausente (transportadora comum), o lado "Base
    * atualizada" fica indisponível junto com o resto do fluxo de
@@ -651,11 +651,13 @@ export function BasePanel({
           </div>
         ) : null}
 
-        <div className="panel-download">
-          <a href={downloadHref} className="btn-transporter">
-            <Download size={13} /> {downloadLabel}
-          </a>
-        </div>
+        {downloadHref && (
+          <div className="panel-download">
+            <a href={downloadHref} className="btn-transporter">
+              <Download size={13} /> {downloadLabel}
+            </a>
+          </div>
+        )}
 
         <div className="backend-note">{backendNote}</div>
 

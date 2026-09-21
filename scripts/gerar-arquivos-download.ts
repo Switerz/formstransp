@@ -1,6 +1,6 @@
 import archiver from "archiver";
 import { createWriteStream } from "node:fs";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Prisma, PrismaClient } from "@prisma/client";
@@ -11,6 +11,7 @@ import { salvarKpiSnapshot } from "../lib/pedidos-kpi-snapshot";
 const prisma = new PrismaClient();
 const BATCH_SIZE = 5_000;
 const ADMIN_PART_SIZE = 100_000;
+const ADMIN_MAX_BYTES = 40 * 1024 * 1024;
 const SIGNED_URL_SECONDS = 7 * 24 * 60 * 60;
 
 const PEDIDO_SELECT = {
@@ -211,20 +212,34 @@ async function gerarAdmin(inicio: Date) {
   console.log("Gerando Base Completa administrativa...");
   const temporario = await mkdtemp(path.join(tmpdir(), "forms-transp-export-"));
   try {
-    const arquivos: Array<{ caminho: string; nome: string }> = [];
+    const arquivos: Array<{ caminho: string; nome: string; linhas: number }> = [];
     let cursor: string | undefined;
     let parte: PedidoExportacao[] = [];
     let total = 0;
-    let numeroParte = 1;
+    const salvarParte = async (pedidos: PedidoExportacao[]): Promise<void> => {
+      const numero = arquivos.length + 1;
+      const nome = `base-completa-parte-${String(numero).padStart(3, "0")}.xlsx`;
+      const caminhoXlsx = path.join(temporario, nome);
+      await writeFile(caminhoXlsx, await buildPedidosXlsx(pedidos));
+      const caminhoZip = path.join(temporario, `base-completa-parte-${String(numero).padStart(3, "0")}.zip`);
+      await zipar([{ caminho: caminhoXlsx, nome }], caminhoZip);
+      if ((await stat(caminhoZip)).size > ADMIN_MAX_BYTES) {
+        await rm(caminhoXlsx, { force: true });
+        await rm(caminhoZip, { force: true });
+        if (pedidos.length <= 1) throw new Error("Uma única linha ultrapassou o limite da exportação administrativa.");
+        const meio = Math.floor(pedidos.length / 2);
+        await salvarParte(pedidos.slice(0, meio));
+        await salvarParte(pedidos.slice(meio));
+        return;
+      }
+      await rm(caminhoXlsx, { force: true });
+      arquivos.push({ caminho: caminhoZip, nome: path.basename(caminhoZip), linhas: pedidos.length });
+    };
 
     const gravarParte = async () => {
       if (!parte.length && arquivos.length) return;
-      const nome = `base-completa-parte-${String(numeroParte).padStart(3, "0")}.xlsx`;
-      const caminho = path.join(temporario, nome);
-      await writeFile(caminho, await buildPedidosXlsx(parte));
-      arquivos.push({ caminho, nome });
+      await salvarParte(parte);
       parte = [];
-      numeroParte += 1;
     };
 
     while (true) {
@@ -248,18 +263,28 @@ async function gerarAdmin(inicio: Date) {
     }
     await gravarParte();
 
-    const caminhoZip = path.join(temporario, "base-completa.zip");
-    await zipar(arquivos, caminhoZip);
-    const conteudo = await readFile(caminhoZip);
+    // A parte 1 é publicada por último: ela sinaliza que a coleção inteira está pronta.
+    const versao = Date.now();
+    for (const [indice, arquivo] of arquivos.entries()) {
+      if (indice === 0) continue;
+      await publicar({
+        chave: `admin:base-completa:parte:${indice + 1}`,
+        escopo: "admin",
+        nomeArquivo: arquivo.nome,
+        storagePath: `current/admin/${versao}/${arquivo.nome}`,
+        conteudo: await readFile(arquivo.caminho),
+        contentType: "application/zip",
+        totalLinhas: arquivo.linhas,
+        totalPartes: arquivos.length,
+      });
+    }
+    const primeira = arquivos[0];
     await publicar({
-      chave: "admin:base-completa",
-      escopo: "admin",
-      nomeArquivo: "base-completa.zip",
-      storagePath: "current/admin/base-completa.zip",
-      conteudo,
-      contentType: "application/zip",
-      totalLinhas: total,
-      totalPartes: arquivos.length,
+      chave: "admin:base-completa", escopo: "admin",
+      nomeArquivo: primeira.nome,
+      storagePath: `current/admin/${versao}/${primeira.nome}`,
+      conteudo: await readFile(primeira.caminho),
+      contentType: "application/zip", totalLinhas: total, totalPartes: arquivos.length,
     });
     console.log(`  ${total.toLocaleString("pt-BR")} linhas em ${arquivos.length} arquivo(s).`);
   } finally {

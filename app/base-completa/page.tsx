@@ -9,6 +9,7 @@ import { summarizeFillStatus } from "@/lib/pedidos-kpis";
 import { montarDadosKpiCarousel } from "@/lib/pedidos-kpi-carousel";
 import { uploadBaseOriginalInterna, uploadDevolucaoInterna } from "@/app/base-completa/actions";
 import { getBaseCompletaWindowWhere } from "@/lib/base-completa-window";
+import { obterExportacaoPronta, EXPORTACAO_ADMIN_CHAVE } from "@/lib/exportacoes-download";
 import "@/components/pedidos/minha-base.css";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,9 @@ export default async function BaseCompletaPage({
   // conta própria (app/base-completa/actions.ts), então mesmo que
   // alguém forjasse a chamada por fora desta página, ela seria recusada.
   const podeGerenciarBases = isInternalAdmin(user.role);
+  const exportacaoAdmin = podeGerenciarBases
+    ? await obterExportacaoPronta(EXPORTACAO_ADMIN_CHAVE)
+    : null;
 
   // Filtro OPCIONAL de transportadora - só existe aqui (Minha Base não
   // precisa, a transportadora já vem da sessão). Sem seleção = todas.
@@ -188,7 +192,7 @@ export default async function BaseCompletaPage({
 
   const downloadHref = transportadoraIdFiltro
     ? `/base-completa/download?transportadoraId=${transportadoraIdFiltro}`
-    : "/base-completa/download";
+    : podeGerenciarBases && exportacaoAdmin ? "/base-completa/download?parte=1" : undefined;
 
   return (
     <div className="mb-html">
@@ -248,12 +252,22 @@ export default async function BaseCompletaPage({
                 />
               }
               downloadHref={downloadHref}
-            downloadLabel="Baixar Base Completa"
+            downloadLabel={transportadoraIdFiltro ? "Baixar Base Completa" : "Baixar Base Completa (parte 1)"}
             backendNote="Visão interna - últimos 45 dias pela Data Criação, todas as transportadoras, incluindo pedidos finalizados."
             uploadAction={podeGerenciarBases ? uploadDevolucaoInterna : undefined}
             uploadOriginalAction={podeGerenciarBases ? uploadBaseOriginalInterna : undefined}
             transportadorasParaSelecao={podeGerenciarBases ? transportadoras : undefined}
           />
+          {!transportadoraIdFiltro && podeGerenciarBases && exportacaoAdmin && exportacaoAdmin.totalPartes > 1 && (
+            <div>
+              <p>Base completa administrativa: baixe todas as {exportacaoAdmin.totalPartes} partes.</p>
+              {Array.from({ length: exportacaoAdmin.totalPartes - 1 }, (_, indice) => indice + 2).map((parte) => (
+                <a key={parte} href={`/base-completa/download?parte=${parte}`} style={{ marginRight: 16 }}>
+                  Baixar parte {parte}
+                </a>
+              ))}
+            </div>
+          )}
         </section>
       </main>
 

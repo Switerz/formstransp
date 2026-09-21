@@ -2,6 +2,11 @@ name: Gerar arquivos de download
 
 on:
   workflow_dispatch:
+    inputs:
+      admin_only:
+        description: "Gerar somente a Base Completa administrativa"
+        type: boolean
+        default: false
   schedule:
     # 07:00 no horário de Brasília (UTC-3).
     - cron: "0 10 * * *"
@@ -37,4 +42,9 @@ jobs:
         run: npx prisma generate
 
       - name: Gerar e publicar arquivos
-        run: npm run exports:generate
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.admin_only }}" = "true" ]; then
+            npm run exports:generate -- --admin-only
+          else
+            npm run exports:generate
+          fi
