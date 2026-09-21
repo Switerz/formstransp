@@ -11,6 +11,7 @@ import { uploadBaseOriginalInterna, uploadDevolucaoInterna } from "@/app/base-co
 import { getBaseCompletaWindowWhere } from "@/lib/base-completa-window";
 import { obterExportacaoPronta, EXPORTACAO_ADMIN_CHAVE } from "@/lib/exportacoes-download";
 import { DownloadAdminZip } from "@/app/base-completa/DownloadAdminZip";
+import { DownloadAdminCsv } from "@/app/base-completa/DownloadAdminCsv";
 import "@/components/pedidos/minha-base.css";
 
 export const dynamic = "force-dynamic";
@@ -36,9 +37,14 @@ export default async function BaseCompletaPage({
   // conta própria (app/base-completa/actions.ts), então mesmo que
   // alguém forjasse a chamada por fora desta página, ela seria recusada.
   const podeGerenciarBases = isInternalAdmin(user.role);
-  const exportacaoAdmin = podeGerenciarBases
-    ? await obterExportacaoPronta(EXPORTACAO_ADMIN_CHAVE)
-    : null;
+  const [exportacaoAdmin, exportacaoCsv] = podeGerenciarBases
+    ? await Promise.all([
+        obterExportacaoPronta(EXPORTACAO_ADMIN_CHAVE),
+        obterExportacaoPronta(`${EXPORTACAO_ADMIN_CHAVE}:csv`),
+      ])
+    : [null, null];
+  const csvDaMesmaGeracao = Boolean(exportacaoAdmin && exportacaoCsv &&
+    exportacaoCsv.storagePath.startsWith(exportacaoAdmin.storagePath.slice(0, exportacaoAdmin.storagePath.lastIndexOf("/") + 1)));
 
   // Filtro OPCIONAL de transportadora - só existe aqui (Minha Base não
   // precisa, a transportadora já vem da sessão). Sem seleção = todas.
@@ -251,7 +257,7 @@ export default async function BaseCompletaPage({
                   compact
                 />
               }
-              adminDownloadControl={!transportadoraIdFiltro && podeGerenciarBases && exportacaoAdmin?.nomeArquivo.endsWith(".xlsx") ? <DownloadAdminZip /> : undefined}
+              adminDownloadControl={!transportadoraIdFiltro && podeGerenciarBases && exportacaoAdmin?.nomeArquivo.endsWith(".xlsx") ? <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-start" }}><DownloadAdminZip />{csvDaMesmaGeracao && <DownloadAdminCsv />}</div> : undefined}
               downloadHref={downloadHref}
             downloadLabel="Baixar Base Completa"
             backendNote="Visão interna - últimos 45 dias pela Data Criação, todas as transportadoras, incluindo pedidos finalizados."
