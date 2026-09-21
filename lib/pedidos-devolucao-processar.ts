@@ -172,6 +172,7 @@ export function processarLinhaDevolucao(
       "Data Criação",
       "Data Entrega Origem",
       "Previsão Entrega Cliente",
+      "Data Despacho",
       "Previsão Entrega Transportadora",
     ].includes(coluna);
     const enviadoRaw = row[coluna];

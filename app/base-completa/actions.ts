@@ -47,6 +47,7 @@ const CANONICAL_TO_ORIGEM_FIELD: Record<string, string> = {
   "Data Criação": "dataCriacaoPedido",
   "Data Entrega Origem": "dataEntregaOrigem",
   "Previsão Entrega Cliente": "previsaoEntregaClienteOrigem",
+  "Data Despacho": "dataDespacho",
   "Previsão Entrega Transportadora": "previsaoEntregaTransportadoraOrigem",
 };
 
@@ -150,7 +151,7 @@ export async function uploadBaseOriginalInterna(formData: FormData): Promise<Bas
       if (!campoPrisma || !(coluna in normalizado)) continue;
       const valor = normalizado[coluna];
       if (coluna === "Valor da Nota" || coluna === "Peso fisico") origemFields[campoPrisma] = decimalOuNull(valor);
-      else if (["Data Criação", "Data Entrega Origem", "Previsão Entrega Cliente", "Previsão Entrega Transportadora"].includes(coluna)) {
+      else if (["Data Criação", "Data Entrega Origem", "Previsão Entrega Cliente", "Data Despacho", "Previsão Entrega Transportadora"].includes(coluna)) {
         const data = dataOuNull(valor);
         if (coluna !== "Data Criação" || data !== null) origemFields[campoPrisma] = data;
       } else origemFields[campoPrisma] = textoOuNull(valor);
@@ -353,6 +354,7 @@ export async function uploadDevolucaoInterna(formData: FormData): Promise<Devolu
         "Data Criação": pedidoDb.dataCriacaoPedido,
         "Data Entrega Origem": pedidoDb.dataEntregaOrigem,
         "Previsão Entrega Cliente": pedidoDb.previsaoEntregaClienteOrigem,
+        "Data Despacho": pedidoDb.dataDespacho,
         "Previsão Entrega Transportadora": pedidoDb.previsaoEntregaTransportadoraOrigem,
       },
       dataColetaProcessamento: pedidoDb.dataColetaProcessamento,

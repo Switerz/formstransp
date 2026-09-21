@@ -191,6 +191,7 @@ export async function uploadDevolucaoTransportadora(formData: FormData): Promise
         "Data Criação": pedidoDb.dataCriacaoPedido,
         "Data Entrega Origem": pedidoDb.dataEntregaOrigem,
         "Previsão Entrega Cliente": pedidoDb.previsaoEntregaClienteOrigem,
+        "Data Despacho": pedidoDb.dataDespacho,
         "Previsão Entrega Transportadora": pedidoDb.previsaoEntregaTransportadoraOrigem,
       },
       dataColetaProcessamento: pedidoDb.dataColetaProcessamento,

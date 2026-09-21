@@ -41,6 +41,7 @@ export const PROTECTED_COLUMNS = [
   "Data Criação",
   "Data Entrega Origem",
   "Previsão Entrega Cliente",
+  "Data Despacho",
   "Previsão Entrega Transportadora",
 ] as const;
 
