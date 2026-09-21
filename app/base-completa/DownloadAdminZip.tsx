@@ -33,7 +33,7 @@ async function gravarZip(destino: FileSystemWritableFileStream, partes: Parte[],
   let posicao = 0;
   const entradas: Array<{ nome: Uint8Array; crc: number; tamanho: number; inicio: number }> = [];
   const escrever = async (dados: Uint8Array) => {
-    if (posicao + dados.length > MAX_ZIP32) throw new Error("A base excedeu o limite do ZIP; use os links individuais.");
+    if (posicao + dados.length > MAX_ZIP32) throw new Error("A base excedeu o limite do ZIP; tente novamente ou consulte o suporte.");
     await destino.write(new Uint8Array(dados));
     posicao += dados.length;
   };
@@ -107,7 +107,7 @@ export function DownloadAdminZip() {
   async function baixar() {
     const salvar = (window as JanelaComSalvar).showSaveFilePicker;
     if (!salvar) {
-      setMensagem("Este navegador nÃ£o permite salvar o ZIP durante o download. Use o Chrome atualizado ou os links das partes abaixo.");
+      setMensagem("Este navegador nÃ£o permite salvar o ZIP durante o download. Use o Chrome atualizado.");
       return;
     }
     let destino: FileSystemWritableFileStream | undefined;
@@ -126,7 +126,7 @@ export function DownloadAdminZip() {
       await gravarZip(destino, dados.partes, setMensagem);
       await destino.close();
       destino = undefined;
-      setMensagem("Download concluÃ­do.");
+      setMensagem("Download finalizado.");
     } catch (erro) {
       await destino?.abort().catch(() => {});
       if ((erro as Error).name !== "AbortError") setMensagem((erro as Error).message || "Falha no download.");
