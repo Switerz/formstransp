@@ -10,6 +10,7 @@ import { montarDadosKpiCarousel } from "@/lib/pedidos-kpi-carousel";
 import { uploadBaseOriginalInterna, uploadDevolucaoInterna } from "@/app/base-completa/actions";
 import { getBaseCompletaWindowWhere } from "@/lib/base-completa-window";
 import { obterExportacaoPronta, EXPORTACAO_ADMIN_CHAVE } from "@/lib/exportacoes-download";
+import { DownloadAdminZip } from "@/app/base-completa/DownloadAdminZip";
 import "@/components/pedidos/minha-base.css";
 
 export const dynamic = "force-dynamic";
@@ -192,7 +193,7 @@ export default async function BaseCompletaPage({
 
   const downloadHref = transportadoraIdFiltro
     ? `/base-completa/download?transportadoraId=${transportadoraIdFiltro}`
-    : podeGerenciarBases && exportacaoAdmin ? "/base-completa/download?parte=1" : undefined;
+    : undefined;
 
   return (
     <div className="mb-html">
@@ -252,16 +253,17 @@ export default async function BaseCompletaPage({
                 />
               }
               downloadHref={downloadHref}
-            downloadLabel={transportadoraIdFiltro ? "Baixar Base Completa" : "Baixar Base Completa (parte 1)"}
+            downloadLabel="Baixar Base Completa"
             backendNote="Visão interna - últimos 45 dias pela Data Criação, todas as transportadoras, incluindo pedidos finalizados."
             uploadAction={podeGerenciarBases ? uploadDevolucaoInterna : undefined}
             uploadOriginalAction={podeGerenciarBases ? uploadBaseOriginalInterna : undefined}
             transportadorasParaSelecao={podeGerenciarBases ? transportadoras : undefined}
           />
-          {!transportadoraIdFiltro && podeGerenciarBases && exportacaoAdmin && exportacaoAdmin.totalPartes > 1 && (
+          {!transportadoraIdFiltro && podeGerenciarBases && exportacaoAdmin && (
             <div>
-              <p>Base completa administrativa: baixe todas as {exportacaoAdmin.totalPartes} partes.</p>
-              {Array.from({ length: exportacaoAdmin.totalPartes - 1 }, (_, indice) => indice + 2).map((parte) => (
+              {exportacaoAdmin.nomeArquivo.endsWith(".xlsx") && <DownloadAdminZip />}
+              <p>Se o download único falhar, baixe as {exportacaoAdmin.totalPartes} partes separadamente:</p>
+              {Array.from({ length: exportacaoAdmin.totalPartes }, (_, indice) => indice + 1).map((parte) => (
                 <a key={parte} href={`/base-completa/download?parte=${parte}`} style={{ marginRight: 16 }}>
                   Baixar parte {parte}
                 </a>
