@@ -120,7 +120,7 @@ export default async function BaseCompletaPage({
     done: totalRespondidos,
   };
 
-  const totalPaginas = Math.max(1, Math.ceil(totalBase / porPagina));
+  const totalPaginas = Math.max(1, Math.ceil((filtroPreenchimento === "preenchidas" ? totalPreenchidos : totalBase) / porPagina));
 
   const datasDisponiveisDb = await prisma.pedido.findMany({
     where: {
@@ -164,6 +164,8 @@ export default async function BaseCompletaPage({
           },
           include: { transportadora: { select: { nome: true } } },
           orderBy: { dataCriacaoPedido: "desc" },
+          skip: (pagina - 1) * porPagina,
+          take: porPagina,
         })
       : await prisma.pedido.findMany({
           where,
@@ -182,11 +184,8 @@ export default async function BaseCompletaPage({
     if (raw.ate) params.set("ate", raw.ate);
     if (transportadoraIdFiltro) params.set("transportadoraId", transportadoraIdFiltro);
 
-    if (novoFiltro === "preenchidas") {
-      params.set("preenchimento", "preenchidas");
-    } else {
-      params.set("pagina", String(novaPagina));
-    }
+    if (novoFiltro === "preenchidas") params.set("preenchimento", "preenchidas");
+    params.set("pagina", String(novaPagina));
 
     return `/base-completa?${params.toString()}`;
   };
@@ -231,8 +230,8 @@ export default async function BaseCompletaPage({
             totalRows={filtroPreenchimento === "preenchidas" ? totalPreenchidos : totalBase}
             page={pagina}
             totalPages={totalPaginas}
-            previousHref={pagina > 1 ? montarHref(pagina - 1, "todas") : undefined}
-            nextHref={pagina < totalPaginas ? montarHref(pagina + 1, "todas") : undefined}
+            previousHref={pagina > 1 ? montarHref(pagina - 1, filtroPreenchimento) : undefined}
+            nextHref={pagina < totalPaginas ? montarHref(pagina + 1, filtroPreenchimento) : undefined}
             allHref={montarHref(1, "todas")}
             filledHref={montarHref(1, "preenchidas")}
               toolbarDateFilter={
