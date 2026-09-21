@@ -5,7 +5,7 @@ import { BasePanel } from "@/components/pedidos/BasePanel";
 import { HelpPanel } from "@/components/pedidos/HelpPanel";
 import { PeriodoFilter } from "@/components/pedidos/PeriodoFilter";
 import { pedidoParaLinhaTabela, type PedidoParaTabela } from "@/lib/pedidos-table-row";
-import { summarizeFillStatus } from "@/lib/pedidos-kpis";
+import { obterResumoPreenchimentoInterno } from "@/lib/pedidos-preenchimento-interno";
 import { montarDadosKpiCarousel } from "@/lib/pedidos-kpi-carousel";
 import { uploadBaseOriginalInterna, uploadDevolucaoInterna } from "@/app/base-completa/actions";
 import { getBaseCompletaWindowWhere } from "@/lib/base-completa-window";
@@ -51,13 +51,6 @@ export default async function BaseCompletaPage({
   const transportadoraIdFiltro = raw.transportadoraId?.trim() || null;
   const janelaBaseCompleta = getBaseCompletaWindowWhere();
 
-  // Mesma função usada por Minha Base/Início - única fonte de verdade dos
-  // Big Numbers. transportadoraIdFiltro null = consolidado de todas.
-  const [transportadoras, dadosKpi] = await Promise.all([
-    prisma.transportadora.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
-    montarDadosKpiCarousel(transportadoraIdFiltro, raw, janelaBaseCompleta),
-  ]);
-
   // Mesma estratégia de consulta/paginação de Minha Base: sem "Carregar
   // mais", take:1000 fixo (o filtro de transportadora + a busca da
   // PedidosTable permitem estreitar quando necessário) - nunca carrega
@@ -90,96 +83,39 @@ export default async function BaseCompletaPage({
     ],
   };
 
-  const whereTodosPreenchidos = {
-    AND: [
-      { dataColetaProcessamento: { not: null } },
-      { dataPrevisao: { not: null } },
-      { prazoEntregaDiasUteis: { not: null } },
-      { dataEntrega: { not: null } },
-      { statusAtual: { not: null } },
-      { ocorrencia: { not: null } },
-      { motivoDevolucao: { not: null } },
-      { slaStatus: { not: null } },
-      { justificativaAtraso: { not: null } },
-      { novaDataPrevisao: { not: null } },
-      { dataResolucaoDevolucao: { not: null } },
-    ],
-  };
-
-  const [totalBase, totalPreenchidos, totalRespondidos] = await Promise.all([
-    prisma.pedido.count({ where }),
-    prisma.pedido.count({
-      where: {
-        AND: [where, whereAlgumPreenchido],
-      },
+  // Carrega dados independentes juntos. O resumo conta todos os pedidos do
+  // recorte em uma única consulta SQL, sem cache de tempo e sem amostragem.
+  const [transportadoras, dadosKpi, resumo, datasDisponiveisDb, pedidosDb] = await Promise.all([
+    prisma.transportadora.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
+    montarDadosKpiCarousel(transportadoraIdFiltro, raw, janelaBaseCompleta),
+    obterResumoPreenchimentoInterno(where),
+    prisma.pedido.findMany({
+      where: { AND: [where, { previsaoEntregaTransportadoraOrigem: { not: null } }] },
+      select: { previsaoEntregaTransportadoraOrigem: true },
+      distinct: ["previsaoEntregaTransportadoraOrigem"],
+      orderBy: { previsaoEntregaTransportadoraOrigem: "asc" },
     }),
-    prisma.pedido.count({
-      where: {
-        AND: [where, whereTodosPreenchidos],
-      },
+    prisma.pedido.findMany({
+      where: filtroPreenchimento === "preenchidas" ? { AND: [where, whereAlgumPreenchido] } : where,
+      include: { transportadora: { select: { nome: true } } },
+      orderBy: { dataCriacaoPedido: "desc" },
+      skip: (pagina - 1) * porPagina,
+      take: porPagina,
     }),
   ]);
-
+  const { total: totalBase, preenchidos: totalPreenchidos, respondidos: totalRespondidos } = resumo;
   const preenchimento = {
     pending: totalBase - totalPreenchidos,
     partial: totalPreenchidos - totalRespondidos,
     done: totalRespondidos,
   };
-
   const totalPaginas = Math.max(1, Math.ceil((filtroPreenchimento === "preenchidas" ? totalPreenchidos : totalBase) / porPagina));
-
-  const datasDisponiveisDb = await prisma.pedido.findMany({
-    where: {
-      AND: [
-        where,
-        {
-          previsaoEntregaTransportadoraOrigem: {
-            not: null,
-          },
-        },
-      ],
-    },
-    select: {
-      previsaoEntregaTransportadoraOrigem: true,
-    },
-    distinct: ["previsaoEntregaTransportadoraOrigem"],
-    orderBy: {
-      previsaoEntregaTransportadoraOrigem: "asc",
-    },
-  });
-
-  const datasDisponiveis = Array.from(
-    new Set(
-      datasDisponiveisDb
-        .map((pedido) => pedido.previsaoEntregaTransportadoraOrigem)
-        .filter((data): data is Date => data instanceof Date)
-        .map((data) => {
-          const ano = data.getFullYear();
-          const mes = String(data.getMonth() + 1).padStart(2, "0");
-          const dia = String(data.getDate()).padStart(2, "0");
-          return `${ano}-${mes}-${dia}`;
-        }),
-    ),
-  ).sort();
-
-  const pedidosDb =
-    filtroPreenchimento === "preenchidas"
-      ? await prisma.pedido.findMany({
-          where: {
-            AND: [where, whereAlgumPreenchido],
-          },
-          include: { transportadora: { select: { nome: true } } },
-          orderBy: { dataCriacaoPedido: "desc" },
-          skip: (pagina - 1) * porPagina,
-          take: porPagina,
-        })
-      : await prisma.pedido.findMany({
-          where,
-          include: { transportadora: { select: { nome: true } } },
-          orderBy: { dataCriacaoPedido: "desc" },
-          skip: (pagina - 1) * porPagina,
-          take: porPagina,
-        });
+  const datasDisponiveis = Array.from(new Set(
+    datasDisponiveisDb
+      .map((pedido) => pedido.previsaoEntregaTransportadoraOrigem)
+      .filter((data): data is Date => data instanceof Date)
+      .map((data) => `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`),
+  )).sort();
 
   const linhas = (pedidosDb as unknown as PedidoParaTabela[]).map(pedidoParaLinhaTabela);
 
