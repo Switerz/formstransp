@@ -252,6 +252,7 @@ export default async function BaseCompletaPage({
                   compact
                 />
               }
+              adminDownloadControl={!transportadoraIdFiltro && podeGerenciarBases && exportacaoAdmin?.nomeArquivo.endsWith(".xlsx") ? <DownloadAdminZip /> : undefined}
               downloadHref={downloadHref}
             downloadLabel="Baixar Base Completa"
             backendNote="Visão interna - últimos 45 dias pela Data Criação, todas as transportadoras, incluindo pedidos finalizados."
@@ -259,9 +260,6 @@ export default async function BaseCompletaPage({
             uploadOriginalAction={podeGerenciarBases ? uploadBaseOriginalInterna : undefined}
             transportadorasParaSelecao={podeGerenciarBases ? transportadoras : undefined}
           />
-          {!transportadoraIdFiltro && podeGerenciarBases && exportacaoAdmin?.nomeArquivo.endsWith(".xlsx") && (
-            <DownloadAdminZip />
-          )}
         </section>
       </main>
 

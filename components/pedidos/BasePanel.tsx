@@ -35,6 +35,7 @@ interface BasePanelProps {
   allHref?: string;
   filledHref?: string;
   toolbarDateFilter?: React.ReactNode;
+  adminDownloadControl?: React.ReactNode;
   downloadHref?: string;
   /**
    * Opcional. Quando ausente (transportadora comum), o lado "Base
@@ -86,6 +87,7 @@ export function BasePanel({
   allHref,
   filledHref,
   toolbarDateFilter,
+  adminDownloadControl,
   downloadHref,
   uploadAction,
   uploadOriginalAction,
@@ -665,6 +667,7 @@ export function BasePanel({
           <div className="toolbar-left">
             <strong>{TAB_INFO[activeTab].title}</strong>
             <div>{activeTab === "compare" ? TAB_INFO[activeTab].hint(linhas.length) : textoQuantidade}</div>
+            {adminDownloadControl ? <div style={{ marginTop: 12 }}>{adminDownloadControl}</div> : null}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {activeTab !== "compare" && !toolbarDateFilter ? (
