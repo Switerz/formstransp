@@ -1,3 +1,4 @@
+import { medirEtapa } from "@/lib/diagnostico-tempo";
 import "server-only";
 
 import { randomBytes, createHash } from "crypto";
@@ -78,10 +79,10 @@ export async function getCurrentUser() {
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
 
-  const session = await prisma.appSession.findUnique({
+  const session = await medirEtapa("sessao:consulta", () => prisma.appSession.findUnique({
     where: { tokenHash: hashToken(token) },
     include: { user: { include: { transportadora: true } } },
-  });
+  }));
 
   if (!session || session.expiresAt <= new Date() || !session.user.ativo) {
     // Durante Server Component/renderiza??o podemos consultar o cookie,

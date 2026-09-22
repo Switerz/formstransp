@@ -1,3 +1,4 @@
+import { medirEtapa } from "@/lib/diagnostico-tempo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LogOut } from "lucide-react";
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const currentUser = await getCurrentUser();
+  const currentUser = await medirEtapa("layout:usuario", () => getCurrentUser());
   const isInternal = currentUser ? isInternalRole(currentUser.role) : false;
   const canManage = currentUser ? isInternalAdmin(currentUser.role) : false;
   const mustChangePassword = Boolean(currentUser?.passwordMustChange);

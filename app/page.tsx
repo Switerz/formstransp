@@ -1,3 +1,4 @@
+import { medirEtapa } from "@/lib/diagnostico-tempo";
 import Link from "next/link";
 import {
   CalendarDays,
@@ -105,7 +106,7 @@ export default async function Home({
 }: {
   searchParams: Promise<{ origem?: string; transportadoraId?: string; pendentes?: string }>;
 }) {
-  const [currentUser, filters] = await Promise.all([requireInternalUser("/"), searchParams]);
+  const [currentUser, filters] = await Promise.all([medirEtapa("admin:autenticacao", () => requireInternalUser("/")), searchParams]);
   const canManage = isInternalAdmin(currentUser.role);
   const origemFilter = filters.origem === "demo" || filters.origem === "todos" ? filters.origem : "real";
   const transportadoraFilter = filters.transportadoraId ?? "";
@@ -116,7 +117,7 @@ export default async function Home({
   const rangeStart = addDays(today, -(HISTORY_DAYS - 1));
   const days = Array.from({ length: HISTORY_DAYS }, (_, index) => addDays(rangeStart, index));
 
-  const transportadoras = await prisma.transportadora.findMany({
+  const transportadoras = await medirEtapa("admin:relatorios", () => prisma.transportadora.findMany({
     include: {
       submissions: {
         where: { dataReport: { gte: rangeStart, lt: tomorrow } },
@@ -125,7 +126,7 @@ export default async function Home({
       },
     },
     orderBy: { nome: "asc" },
-  });
+  }));
 
   const filteredTransportadoras = transportadoras.filter((item) => {
     const matchesOrigem = origemFilter === "todos" || item.origem === origemFilter;
