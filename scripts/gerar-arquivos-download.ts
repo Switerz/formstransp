@@ -38,6 +38,7 @@ const PEDIDO_SELECT = {
   statusTransportador: true,
   quantidadeOcorrencias: true,
   ultimaOcorrenciaMicro: true,
+  transportadoraId: true,
   dataColetaProcessamento: true,
   dataPrevisao: true,
   prazoEntregaDiasUteis: true,
@@ -350,11 +351,212 @@ async function gerarAdmin(inicio: Date) {
   }
 }
 
+/**
+ * Execucao diaria otimizada.
+ *
+ * A consulta e ordenada por transportadora e percorre a janela uma unica vez.
+ * Enquanto cada lote alimenta as partes administrativas, os pedidos da
+ * transportadora corrente sao acumulados e publicados quando a proxima
+ * transportadora comeca. Assim, nao repetimos no banco a mesma leitura para
+ * as bases individuais e para a Base Completa.
+ */
+async function gerarTudo(inicio: Date) {
+  console.log("Gerando transportadoras e Base Completa em uma unica leitura...");
+  const transportadoras = await prisma.transportadora.findMany({
+    select: { id: true, nome: true, codigoSlug: true },
+    orderBy: { nome: "asc" },
+  });
+  const transportadoraPorId = new Map(transportadoras.map((item) => [item.id, item]));
+  const transportadorasProcessadas = new Set<string>();
+  const temporario = await mkdtemp(path.join(tmpdir(), "forms-transp-export-"));
+
+  try {
+    const arquivos: Array<{ caminho: string; nome: string; linhas: number }> = [];
+    const versao = Date.now();
+    const csvChunks: Array<{ caminho: string; linhas: number }> = [];
+    let csvLinhas: string[] = ["\ufeff" + CSV_HEADERS.map(celulaCsv).join(";") + "\n"];
+    let csvTamanho = Buffer.byteLength(csvLinhas[0], "utf8");
+    let csvQuantidade = 0;
+    let parte: PedidoExportacao[] = [];
+    let total = 0;
+
+    const salvarCsvChunk = async () => {
+      if (!csvQuantidade) return;
+      const caminho = path.join(temporario, `csv-${csvChunks.length + 1}.csv`);
+      await writeFile(caminho, csvLinhas.join(""), "utf8");
+      csvChunks.push({ caminho, linhas: csvQuantidade });
+      csvLinhas = [];
+      csvTamanho = 0;
+      csvQuantidade = 0;
+    };
+
+    const salvarParte = async (pedidos: PedidoExportacao[]): Promise<void> => {
+      const numero = arquivos.length + 1;
+      const nome = `base-completa-parte-${String(numero).padStart(3, "0")}.xlsx`;
+      const caminhoXlsx = path.join(temporario, nome);
+      await writeFile(caminhoXlsx, await buildPedidosXlsx(pedidos));
+      if ((await stat(caminhoXlsx)).size > ADMIN_MAX_BYTES) {
+        await rm(caminhoXlsx, { force: true });
+        if (pedidos.length <= 1) throw new Error("Uma unica linha ultrapassou o limite da exportacao administrativa.");
+        const meio = Math.floor(pedidos.length / 2);
+        await salvarParte(pedidos.slice(0, meio));
+        await salvarParte(pedidos.slice(meio));
+        return;
+      }
+      arquivos.push({ caminho: caminhoXlsx, nome, linhas: pedidos.length });
+    };
+
+    const gravarParte = async () => {
+      if (!parte.length && arquivos.length) return;
+      await salvarParte(parte);
+      parte = [];
+    };
+
+    const publicarTransportadora = async (transportadoraId: string, todos: PedidoExportacao[]) => {
+      const transportadora = transportadoraPorId.get(transportadoraId);
+      if (!transportadora) {
+        console.warn(`Transportadora ${transportadoraId} nao encontrada; pedidos mantidos apenas na Base Completa.`);
+        return;
+      }
+      transportadorasProcessadas.add(transportadoraId);
+      console.log(`Gerando transportadora: ${transportadora.nome}`);
+      await salvarKpiSnapshot(transportadoraId, todos);
+      console.log(`  Snapshot de KPIs salvo (${todos.length.toLocaleString("pt-BR")} pedidos).`);
+      const pedidos = todos.filter(pedidoVisivelTransportadora);
+      const conteudo = await buildPedidosXlsx(pedidos);
+      const identificador = slug(transportadora.codigoSlug || transportadora.nome);
+      const nomeArquivo = `base-${identificador}.xlsx`;
+      await publicar({
+        chave: `transportadora:${transportadoraId}`,
+        escopo: "transportadora",
+        transportadoraId,
+        nomeArquivo,
+        storagePath: `current/transportadoras/${nomeArquivo}`,
+        conteudo,
+        contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        totalLinhas: pedidos.length,
+      });
+      console.log(`  ${pedidos.length.toLocaleString("pt-BR")} linhas publicadas.`);
+    };
+
+    let cursor: string | undefined;
+    let transportadoraAtualId: string | undefined;
+    let pedidosTransportadora: PedidoExportacao[] = [];
+
+    while (true) {
+      const lote = await prisma.pedido.findMany({
+        where: { dataCriacaoPedido: { gte: inicio } },
+        select: PEDIDO_SELECT,
+        orderBy: [{ transportadoraId: "asc" }, { id: "asc" }],
+        take: BATCH_SIZE,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      if (!lote.length) break;
+      cursor = lote.at(-1)!.id;
+
+      for (const pedido of lote) {
+        const linha = linhaCsv(pedido);
+        const tamanho = Buffer.byteLength(linha, "utf8");
+        if (csvQuantidade && csvTamanho + tamanho > ADMIN_MAX_BYTES) await salvarCsvChunk();
+        csvLinhas.push(linha);
+        csvTamanho += tamanho;
+        csvQuantidade += 1;
+        if (csvQuantidade >= 20_000) await salvarCsvChunk();
+
+        parte.push(pedido);
+        if (parte.length === ADMIN_PART_SIZE) await gravarParte();
+        total += 1;
+
+        if (transportadoraAtualId !== pedido.transportadoraId) {
+          if (transportadoraAtualId) {
+            await publicarTransportadora(transportadoraAtualId, pedidosTransportadora);
+          }
+          transportadoraAtualId = pedido.transportadoraId;
+          pedidosTransportadora = [];
+        }
+        pedidosTransportadora.push(pedido);
+      }
+    }
+
+    if (transportadoraAtualId) {
+      await publicarTransportadora(transportadoraAtualId, pedidosTransportadora);
+    }
+
+    // Mantem o comportamento anterior para transportadoras sem pedidos na janela:
+    // snapshot e arquivo vazio tambem sao atualizados diariamente.
+    for (const transportadora of transportadoras) {
+      if (!transportadorasProcessadas.has(transportadora.id)) {
+        await publicarTransportadora(transportadora.id, []);
+      }
+    }
+
+    await gravarParte();
+    await salvarCsvChunk();
+
+    for (const [indice, chunk] of csvChunks.entries()) {
+      await publicar({
+        chave: `admin:base-completa:csv:parte:${indice + 1}`,
+        escopo: "admin",
+        nomeArquivo: `base-consolidada-parte-${String(indice + 1).padStart(3, "0")}.csv`,
+        storagePath: `current/admin/${versao}/csv/parte-${String(indice + 1).padStart(3, "0")}.csv`,
+        conteudo: await readFile(chunk.caminho),
+        contentType: "text/csv; charset=utf-8",
+        totalLinhas: chunk.linhas,
+        totalPartes: csvChunks.length,
+      });
+    }
+    await publicar({
+      chave: "admin:base-completa:csv",
+      escopo: "admin",
+      nomeArquivo: "base-consolidada.csv",
+      storagePath: `current/admin/${versao}/csv/manifesto.csv`,
+      conteudo: Buffer.from("CSV consolidado: utilize o botao de download do portal.\n"),
+      contentType: "text/plain; charset=utf-8",
+      totalLinhas: total,
+      totalPartes: csvChunks.length,
+    });
+
+    for (const [indice, arquivo] of arquivos.entries()) {
+      if (indice === 0) continue;
+      await publicar({
+        chave: `admin:base-completa:parte:${indice + 1}`,
+        escopo: "admin",
+        nomeArquivo: arquivo.nome,
+        storagePath: `current/admin/${versao}/${arquivo.nome}`,
+        conteudo: await readFile(arquivo.caminho),
+        contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        totalLinhas: arquivo.linhas,
+        totalPartes: arquivos.length,
+      });
+    }
+    const primeira = arquivos[0];
+    if (!primeira) throw new Error("A Base Completa nao possui pedidos na janela configurada.");
+    await publicar({
+      chave: "admin:base-completa",
+      escopo: "admin",
+      nomeArquivo: primeira.nome,
+      storagePath: `current/admin/${versao}/${primeira.nome}`,
+      conteudo: await readFile(primeira.caminho),
+      contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      totalLinhas: total,
+      totalPartes: arquivos.length,
+    });
+    console.log(`  Base Completa: ${total.toLocaleString("pt-BR")} linhas em ${arquivos.length} arquivo(s).`);
+  } finally {
+    await rm(temporario, { recursive: true, force: true });
+  }
+}
+
 async function main() {
   const inicio = getBaseCompletaWindowStart();
   console.log(`Janela de dados iniciada em ${inicio.toISOString()}.`);
-  if (!process.argv.includes("--admin-only")) await gerarTransportadoras(inicio);
-  if (!process.argv.includes("--snapshots-only")) await gerarAdmin(inicio);
+  if (process.argv.includes("--admin-only")) {
+    await gerarAdmin(inicio);
+  } else if (process.argv.includes("--snapshots-only")) {
+    await gerarTransportadoras(inicio);
+  } else {
+    await gerarTudo(inicio);
+  }
   console.log("Todos os downloads foram publicados com sucesso.");
 }
 
