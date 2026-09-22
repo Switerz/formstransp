@@ -1,3 +1,4 @@
+import { medirEtapa } from "@/lib/diagnostico-tempo";
 import Link from "next/link";
 import { UserAdminPanel } from "@/components/UserAdminPanel";
 import { markCredentialSent, setAppUserStatus } from "@/app/user-actions";
@@ -6,18 +7,18 @@ import { formatBrazilianDate } from "@/lib/dates";
 import { prisma } from "@/lib/prisma";
 
 export default async function UsuariosPage() {
-  const currentUser = await requireInternalAdmin("/usuarios");
+  const currentUser = await medirEtapa("usuarios:autenticacao", () => requireInternalAdmin("/usuarios"));
 
   const [users, transportadoras] = await Promise.all([
-    prisma.appUser.findMany({
+    medirEtapa("usuarios:listar-usuarios", () => prisma.appUser.findMany({
       include: { transportadora: true },
       orderBy: [{ role: "asc" }, { nome: "asc" }],
-    }),
-    prisma.transportadora.findMany({
+    })),
+    medirEtapa("usuarios:listar-transportadoras", () => prisma.transportadora.findMany({
       where: { ativo: true },
       orderBy: { nome: "asc" },
       select: { id: true, nome: true },
-    }),
+    })),
   ]);
 
   return (

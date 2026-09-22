@@ -1,3 +1,4 @@
+import { medirEtapa } from "@/lib/diagnostico-tempo";
 import { requireInternalUser, isInternalAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { KpiCarousel } from "@/components/pedidos/KpiCarousel";
@@ -26,7 +27,7 @@ export default async function BaseCompletaPage({
   // transportadora, e nenhum transportadoraId vindo da sessão para
   // restringir o escopo - o resto da página é literalmente a mesma
   // estrutura de /portal/minha-base/page.tsx.
-  const user = await requireInternalUser("/base-completa");
+  const user = await medirEtapa("base:autenticacao", () => requireInternalUser("/base-completa"));
   const raw = await searchParams;
 
   // Input de bases (upload de Base Original e devolução em nome de uma
@@ -39,8 +40,8 @@ export default async function BaseCompletaPage({
   const podeGerenciarBases = isInternalAdmin(user.role);
   const [exportacaoAdmin, exportacaoCsv] = podeGerenciarBases
     ? await Promise.all([
-        obterExportacaoPronta(EXPORTACAO_ADMIN_CHAVE),
-        obterExportacaoPronta(`${EXPORTACAO_ADMIN_CHAVE}:csv`),
+        medirEtapa("base:exportacao-zip", () => obterExportacaoPronta(EXPORTACAO_ADMIN_CHAVE)),
+        medirEtapa("base:exportacao-csv", () => obterExportacaoPronta(`${EXPORTACAO_ADMIN_CHAVE}:csv`)),
       ])
     : [null, null];
   const csvDaMesmaGeracao = Boolean(exportacaoAdmin && exportacaoCsv &&
@@ -86,22 +87,22 @@ export default async function BaseCompletaPage({
   // Carrega dados independentes juntos. O resumo conta todos os pedidos do
   // recorte em uma única consulta SQL, sem cache de tempo e sem amostragem.
   const [transportadoras, dadosKpi, resumo, datasDisponiveisDb, pedidosDb] = await Promise.all([
-    prisma.transportadora.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
-    montarDadosKpiCarousel(transportadoraIdFiltro, raw, janelaBaseCompleta),
-    obterResumoPreenchimentoInterno(where),
-    prisma.pedido.findMany({
+    medirEtapa("base:transportadoras", () => prisma.transportadora.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } })),
+    medirEtapa("base:kpis", () => montarDadosKpiCarousel(transportadoraIdFiltro, raw, janelaBaseCompleta)),
+    medirEtapa("base:resumo", () => obterResumoPreenchimentoInterno(where)),
+    medirEtapa("base:datas-disponiveis", () => prisma.pedido.findMany({
       where: { AND: [where, { previsaoEntregaTransportadoraOrigem: { not: null } }] },
       select: { previsaoEntregaTransportadoraOrigem: true },
       distinct: ["previsaoEntregaTransportadoraOrigem"],
       orderBy: { previsaoEntregaTransportadoraOrigem: "asc" },
-    }),
-    prisma.pedido.findMany({
+    })),
+    medirEtapa("base:pagina-pedidos", () => prisma.pedido.findMany({
       where: filtroPreenchimento === "preenchidas" ? { AND: [where, whereAlgumPreenchido] } : where,
       include: { transportadora: { select: { nome: true } } },
       orderBy: { dataCriacaoPedido: "desc" },
       skip: (pagina - 1) * porPagina,
       take: porPagina,
-    }),
+    })),
   ]);
   const { total: totalBase, preenchidos: totalPreenchidos, respondidos: totalRespondidos } = resumo;
   const preenchimento = {
