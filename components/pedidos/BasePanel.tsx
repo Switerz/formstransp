@@ -39,33 +39,33 @@ interface BasePanelProps {
   downloadHref?: string;
   /**
    * Opcional. Quando ausente (transportadora comum), o lado "Base
-   * atualizada" fica indisponível junto com o resto do fluxo de
-   * devolução. Quando presente (Base Completa/acesso interno), a
-   * devolução é enviada em nome da transportadora escolhida em
-   * transportadorasParaSelecao (obrigatório nesse caso) - a Server
+   * atualizada" fica indisponÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­vel junto com o resto do fluxo de
+   * devoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o. Quando presente (Base Completa/acesso interno), a
+   * devoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© enviada em nome da transportadora escolhida em
+   * transportadorasParaSelecao (obrigatÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³rio nesse caso) - a Server
    * Action valida isso no servidor (requireInternalAdmin), nunca confia
-   * só no frontend.
+   * sÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ no frontend.
    */
   uploadAction?: (formData: FormData) => Promise<DevolucaoResumo>;
   /**
    * Opcional. Quando ausente (transportadora comum), o lado "Base
    * original" continua bloqueado/decorativo, exatamente como sempre foi
-   * (a base de origem é 100% automática via Intelipost). Quando presente
+   * (a base de origem ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© 100% automÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡tica via Intelipost). Quando presente
    * (Base Completa/acesso interno), libera o upload manual de origem -
-   * protegido no servidor por requireInternalAdmin dentro da própria
-   * action, nunca só escondendo/mostrando botão.
+   * protegido no servidor por requireInternalAdmin dentro da prÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³pria
+   * action, nunca sÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ escondendo/mostrando botÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o.
    */
   uploadOriginalAction?: (formData: FormData) => Promise<BaseOriginalResumo>;
-  /** Lista de transportadoras para o seletor da devolução em modo interno. Sem isso, o upload de devolução não sabe a quem atribuir a base. */
+  /** Lista de transportadoras para o seletor da devoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o em modo interno. Sem isso, o upload de devoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o sabe a quem atribuir a base. */
   transportadorasParaSelecao?: TransportadoraOption[];
   downloadLabel?: string;
   backendNote?: string;
 }
 
 const TAB_INFO: Record<Tab, { title: string; hint: (n: number) => string }> = {
-  original: { title: "Visualização da base original", hint: (n) => (n ? `${n.toLocaleString("pt-BR")} registros carregados.` : "Nenhuma base carregada.") },
-  updated: { title: "Visualização da base atualizada", hint: (n) => (n ? `${n.toLocaleString("pt-BR")} registros carregados.` : "Nenhuma base atualizada carregada.") },
-  compare: { title: "Comparativo antes x depois", hint: () => "Alterações da última devolução recebida." },
+  original: { title: "VisualizaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o da base original", hint: (n) => (n ? `${n.toLocaleString("pt-BR")} registros carregados.` : "Nenhuma base carregada.") },
+  updated: { title: "VisualizaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o da base atualizada", hint: (n) => (n ? `${n.toLocaleString("pt-BR")} registros carregados.` : "Nenhuma base atualizada carregada.") },
+  compare: { title: "Comparativo antes x depois", hint: () => "AlteraÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âµes da ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºltima devoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o recebida." },
 };
 
 export function BasePanel({
@@ -73,7 +73,7 @@ export function BasePanel({
   lastBaseUpdateLabel,
   hasBaseUpdate,
   initialResumo = null,
-  lastDevolucaoLabel = "Nenhuma devolução recebida",
+  lastDevolucaoLabel = "Nenhuma devoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o recebida",
   hasDevolucaoHoje = false,
   fillPending,
   fillPartial,
@@ -93,7 +93,7 @@ export function BasePanel({
   uploadOriginalAction,
   transportadorasParaSelecao,
   downloadLabel = "Baixar minha base",
-  backendNote = "Você está autenticado como transportadora - os downloads e a devolução acima só afetam os pedidos vinculados à sua sessão.",
+  backendNote = "VocÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âª estÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ autenticado como transportadora - os downloads e a devoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o acima sÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ afetam os pedidos vinculados ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  sua sessÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o.",
 }: BasePanelProps) {
   const router = useRouter();
   const permiteDevolucao = Boolean(uploadAction);
@@ -120,233 +120,173 @@ export function BasePanel({
   const [origPending, startOrigTransition] = useTransition();
   const [arquivoOriginalNome, setArquivoOriginalNome] = useState("");
 
-  function somarResumos(anterior: DevolucaoResumo, atual: DevolucaoResumo): DevolucaoResumo {
-    return {
-      ...atual,
-      totalLinhas: anterior.totalLinhas + atual.totalLinhas,
-      aplicados: anterior.aplicados + atual.aplicados,
-      semAlteracao: anterior.semAlteracao + atual.semAlteracao,
-      erros: anterior.erros + atual.erros,
-      pedidosNaoEncontrados: anterior.pedidosNaoEncontrados + atual.pedidosNaoEncontrados,
-      pedidosDeOutraTransportadora:
-        anterior.pedidosDeOutraTransportadora + atual.pedidosDeOutraTransportadora,
-      detalhes: [...anterior.detalhes, ...atual.detalhes].slice(0, 250),
-    };
-  }
-
-  async function enviarArquivoGrandeEmLotes(file: File, formDataOriginal: FormData) {
-    const ExcelJS = await import("exceljs");
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load((await file.arrayBuffer()) as ArrayBuffer);
-
-    const sheet = workbook.worksheets[0];
-    if (!sheet) throw new Error("A planilha não possui nenhuma aba para processar.");
-
-    const headers: string[] = [];
-    sheet.getRow(1).eachCell({ includeEmpty: false }, (cell, colNumber) => {
-      headers[colNumber - 1] = String(cell.value ?? "").trim();
-    });
-
-    const linhas: Record<string, unknown>[] = [];
-    sheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return;
-      const item: Record<string, unknown> = {};
-      let temValor = false;
-
-      headers.forEach((header, index) => {
-        if (!header) return;
-        let valor: unknown = row.getCell(index + 1).value;
-        if (valor instanceof Date) valor = valor.toISOString();
-        if (valor && typeof valor === "object" && "text" in (valor as Record<string, unknown>)) {
-          valor = (valor as { text: unknown }).text;
-        }
-        if (valor && typeof valor === "object" && "result" in (valor as Record<string, unknown>)) {
-          valor = (valor as { result: unknown }).result;
-        }
-        item[header] = valor ?? "";
-        if (String(valor ?? "").trim()) temValor = true;
-      });
-
-      if (temValor) linhas.push(item);
-    });
-
-    if (!linhas.length) throw new Error("A planilha não possui pedidos para processar.");
-    setLinhasUploadTotal(linhas.length);
-    setLinhasUploadProcessadas(0);
-
-    // Lotes adaptativos: aceleram bases grandes sem ultrapassar o limite de
-    // corpo das funções da Vercel. O teto em bytes prevalece sobre a quantidade.
-    const MAX_LINHAS_LOTE = 3_000;
-    const MAX_BYTES_LOTE = 2.5 * 1024 * 1024;
-    const lotes: Array<{ inicio: number; linhas: Record<string, unknown>[] }> = [];
-    let loteAtualLinhas: Record<string, unknown>[] = [];
-    let loteAtualBytes = 2;
-    let inicioLote = 0;
-
-    for (let indice = 0; indice < linhas.length; indice += 1) {
-      const linha = linhas[indice];
-      const tamanhoLinha = new TextEncoder().encode(JSON.stringify(linha)).length + 1;
-      const precisaFechar =
-        loteAtualLinhas.length > 0 &&
-        (loteAtualLinhas.length >= MAX_LINHAS_LOTE || loteAtualBytes + tamanhoLinha > MAX_BYTES_LOTE);
-
-      if (precisaFechar) {
-        lotes.push({ inicio: inicioLote, linhas: loteAtualLinhas });
-        inicioLote = indice;
-        loteAtualLinhas = [];
-        loteAtualBytes = 2;
-      }
-
-      loteAtualLinhas.push(linha);
-      loteAtualBytes += tamanhoLinha;
-    }
-
-    if (loteAtualLinhas.length) lotes.push({ inicio: inicioLote, linhas: loteAtualLinhas });
-
-    const totalLotes = lotes.length;
-    let acumulado: DevolucaoResumo = {
-      totalLinhas: 0,
-      aplicados: 0,
-      semAlteracao: 0,
-      erros: 0,
-      pedidosNaoEncontrados: 0,
-      pedidosDeOutraTransportadora: 0,
-      detalhes: [],
-      arquivoNome: file.name,
-      totalLotes,
-    };
-
-    const transportadoraId = formDataOriginal.get("transportadoraId");
-    let linhasConcluidas = 0;
-
-    async function processarLoteComRecuperacao(
-      lote: Record<string, unknown>[],
-      inicio: number,
-      identificador: string,
-    ): Promise<DevolucaoResumo> {
-      const dadosLote = new FormData();
-      if (typeof transportadoraId === "string") dadosLote.set("transportadoraId", transportadoraId);
-      dadosLote.set("loteJson", JSON.stringify(lote));
-      dadosLote.set("arquivoNome", file.name);
-      dadosLote.set("loteAtual", identificador);
-      dadosLote.set("totalLotes", String(totalLotes));
-      dadosLote.set("linhaInicial", String(inicio + 2));
-      // O fechamento e o log são enviados separadamente após todos os lotes.
-      dadosLote.set("ultimoLote", "false");
-
-      try {
-        const resultado = await uploadAction!(dadosLote);
-        if (resultado.erroSistema) throw new Error(`ERRO_SISTEMA:${resultado.erroSistema}`);
-
-        linhasConcluidas += lote.length;
-        setLinhasUploadProcessadas(linhasConcluidas);
-        setProgressoUpload(Math.round((linhasConcluidas / linhas.length) * 100));
-        return resultado;
-      } catch (erro) {
-        const mensagem = erro instanceof Error ? erro.message : "";
-        if (mensagem.startsWith("ERRO_SISTEMA:")) {
-          throw new Error(mensagem.replace("ERRO_SISTEMA:", ""));
-        }
-
-        // Falha de transporte/tempo: reduz somente o lote afetado e continua.
-        if (lote.length <= 100) throw erro;
-        const meio = Math.ceil(lote.length / 2);
-        const primeiraMetade = await processarLoteComRecuperacao(
-          lote.slice(0, meio),
-          inicio,
-          `${identificador}.1`,
-        );
-        const segundaMetade = await processarLoteComRecuperacao(
-          lote.slice(meio),
-          inicio + meio,
-          `${identificador}.2`,
-        );
-        return somarResumos(primeiraMetade, segundaMetade);
-      }
-    }
-
-    for (let indice = 0; indice < totalLotes; indice += 1) {
-      const { inicio, linhas: lote } = lotes[indice];
-      const resultado = await processarLoteComRecuperacao(lote, inicio, String(indice + 1));
-      acumulado = somarResumos(acumulado, resultado);
-    }
-
-    // Finaliza uma única vez, com o resumo de todos os lotes já concluídos.
-    const finalizacao = new FormData();
-    if (typeof transportadoraId === "string") finalizacao.set("transportadoraId", transportadoraId);
-    finalizacao.set("loteJson", "[]");
-    finalizacao.set("arquivoNome", file.name);
-    finalizacao.set("loteAtual", String(totalLotes));
-    finalizacao.set("totalLotes", String(totalLotes));
-    finalizacao.set("linhaInicial", String(linhas.length + 2));
-    finalizacao.set("ultimoLote", "true");
-    finalizacao.set("resumoAcumuladoJson", JSON.stringify(acumulado));
-    const resultadoFinalizacao = await uploadAction!(finalizacao);
-    if (resultadoFinalizacao.erroSistema) throw new Error(resultadoFinalizacao.erroSistema);
-
-    // O total de linhas vem da leitura local do Excel, portanto não depende
-    // da resposta parcial do último lote.
-    return {
-      ...acumulado,
-      totalLinhas: linhas.length,
-      arquivoNome: file.name,
-      loteAtual: totalLotes,
-      totalLotes,
-    };
-  }
-
   async function onSubmit(formData: FormData) {
-    if (!uploadAction) return;
     setErro(null);
+    setResumo(null);
     setProgressoUpload(0);
     setLinhasUploadTotal(0);
     setLinhasUploadProcessadas(0);
     setProcessandoUpload(true);
+
     try {
-        const arquivo = formData.get("arquivo");
-        if (!(arquivo instanceof File) || arquivo.size === 0) {
-          throw new Error("Selecione um arquivo .xlsx preenchido antes de enviar.");
-        }
+      const arquivo = formData.get("arquivo");
 
-        const result = arquivo.size > 3.5 * 1024 * 1024
-          ? await enviarArquivoGrandeEmLotes(arquivo, formData)
-          : await uploadAction(formData);
+      if (!(arquivo instanceof File) || arquivo.size === 0) {
+        throw new Error(
+          "Selecione um arquivo .xlsx preenchido antes de enviar.",
+        );
+      }
 
-        if (arquivo.size <= 3.5 * 1024 * 1024) {
-          setLinhasUploadTotal(result.totalLinhas);
-          setLinhasUploadProcessadas(result.totalLinhas);
-          setProgressoUpload(100);
-        }
+      if (!arquivo.name.toLowerCase().endsWith(".xlsx")) {
+        throw new Error("O arquivo precisa estar no formato .xlsx.");
+      }
 
-        if (result.erroSistema) {
-          setResumo(null);
-          setErro(result.erroSistema);
-          return;
-        }
-
-        setResumo(result);
-        setDevolucaoRecebidaHoje(true);
-        setUltimaDevolucaoLabelAtual(
-          new Date().toLocaleString("pt-BR", {
-            timeZone: "America/Sao_Paulo",
-            dateStyle: "short",
-            timeStyle: "short",
+      const inicioResposta = await fetch(
+        "/portal/minha-base/upload/iniciar",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            nomeArquivo: arquivo.name,
+            tamanhoBytes: arquivo.size,
           }),
+        },
+      );
+
+      const inicioDados = (await inicioResposta.json()) as {
+        uploadUrl?: string;
+        contentType?: string;
+        erro?: string;
+      };
+
+      if (!inicioResposta.ok || !inicioDados.uploadUrl) {
+        throw new Error(
+          inicioDados.erro ?? "NÃƒÆ’Ã‚Â£o foi possÃƒÆ’Ã‚Â­vel iniciar o envio.",
         );
-        setAccordionOpen(false);
-        router.refresh();
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.open("PUT", inicioDados.uploadUrl!, true);
+
+        xhr.setRequestHeader(
+          "Content-Type",
+          inicioDados.contentType ??
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        );
+
+        xhr.upload.onprogress = (event) => {
+          if (!event.lengthComputable) return;
+
+          const percentual = Math.round(
+            (event.loaded / event.total) * 100,
+          );
+
+          setProgressoUpload(percentual);
+        };
+
+        xhr.onload = async () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const respostaDrive = JSON.parse(xhr.responseText) as {
+                id?: string;
+              };
+
+              if (!respostaDrive.id) {
+                reject(
+                  new Error(
+                    "O Google Drive recebeu o arquivo, mas nÃƒÂ£o retornou sua identificaÃƒÂ§ÃƒÂ£o.",
+                  ),
+                );
+                return;
+              }
+
+              const confirmacao = await fetch(
+                "/portal/minha-base/upload/confirmar",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    fileId: respostaDrive.id,
+                  }),
+                },
+              );
+
+              const dadosConfirmacao = (await confirmacao.json()) as {
+                ok?: boolean;
+                erro?: string;
+              };
+
+              if (!confirmacao.ok || !dadosConfirmacao.ok) {
+                reject(
+                  new Error(
+                    dadosConfirmacao.erro ??
+                      "O arquivo foi enviado, mas nÃƒÂ£o foi possÃƒÂ­vel confirmar o recebimento.",
+                  ),
+                );
+                return;
+              }
+
+              setProgressoUpload(100);
+              resolve();
+            } catch (error) {
+              reject(
+                error instanceof Error
+                  ? error
+                  : new Error(
+                      "NÃƒÂ£o foi possÃƒÂ­vel confirmar o arquivo enviado.",
+                    ),
+              );
+            }
+
+            return;
+          }
+
+          reject(
+            new Error(
+              `O Google Drive recusou o arquivo (${xhr.status}).`,
+            ),
+          );
+        };
+
+        xhr.onerror = () => {
+          reject(
+            new Error(
+              "A conexÃƒÆ’Ã‚Â£o com o Google Drive foi interrompida durante o envio.",
+            ),
+          );
+        };
+
+        xhr.send(arquivo);
+      });
+
+      setDevolucaoRecebidaHoje(true);
+
+      setUltimaDevolucaoLabelAtual(
+        new Date().toLocaleString("pt-BR", {
+          timeZone: "America/Sao_Paulo",
+          dateStyle: "short",
+          timeStyle: "short",
+        }),
+      );
+
+      setAccordionOpen(false);
+      router.refresh();
     } catch (err) {
-        const mensagem = err instanceof Error ? err.message : "";
-        setErro(
-          mensagem.includes("unexpected response")
-            ? `O servidor interrompeu o processamento e não conseguiu recuperar o lote automaticamente. Foram concluídas ${linhasUploadProcessadas.toLocaleString("pt-BR")} de ${linhasUploadTotal.toLocaleString("pt-BR")} linhas.`
-            : mensagem || "Não foi possível processar a devolução.",
-        );
+      setErro(
+        err instanceof Error
+          ? err.message
+          : "NÃƒÆ’Ã‚Â£o foi possÃƒÆ’Ã‚Â­vel enviar a devoluÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o.",
+      );
     } finally {
       setProcessandoUpload(false);
     }
   }
-
   function onSubmitOriginal(formData: FormData) {
     if (!uploadOriginalAction) return;
     setOrigErro(null);
@@ -355,7 +295,7 @@ export function BasePanel({
         const result = await uploadOriginalAction(formData);
         setOrigResumo(result);
       } catch (err) {
-        setOrigErro(err instanceof Error ? err.message : "Não foi possível processar a base original.");
+        setOrigErro(err instanceof Error ? err.message : "NÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o foi possÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­vel processar a base original.");
       }
     });
   }
@@ -382,24 +322,24 @@ export function BasePanel({
     usarFiltroServidor && typeof totalRows === "number"
       ? filtroAtual === "preenchidas"
         ? `${totalRows.toLocaleString("pt-BR")} registros preenchidos.`
-        : `${linhas.length.toLocaleString("pt-BR")} registros nesta página de ${totalRows.toLocaleString("pt-BR")} no total.`
+        : `${linhas.length.toLocaleString("pt-BR")} registros nesta pÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina de ${totalRows.toLocaleString("pt-BR")} no total.`
       : TAB_INFO[activeTab].hint(linhas.length);
 
   return (
     <>
       {/* ---- Input de bases (accordion, 2 dropzones) ---- */}
-      {/* Só existe quando há pelo menos um dos dois uploads liberados. */}
+      {/* SÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ existe quando hÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ pelo menos um dos dois uploads liberados. */}
       {mostrarAccordion ? (
         <div className={`upload-accordion ${accordionOpen ? "open" : ""}`} id="uploadAccordion">
         <button className="upload-toggle" type="button" onClick={() => setAccordionOpen((v) => !v)}>
           <div className="upload-toggle-main">
-            <div className="upload-toggle-icon">↥</div>
+            <div className="upload-toggle-icon">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Ãƒâ€šÃ‚Â¥</div>
             <div>
               <div className="upload-toggle-title">Input de bases</div>
               <div className="upload-toggle-sub">Abra somente quando precisar devolver uma base.</div>
             </div>
           </div>
-          <div className="upload-chevron">⌄</div>
+          <div className="upload-chevron">ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾</div>
         </button>
 
         <div className="upload-content">
@@ -414,7 +354,7 @@ export function BasePanel({
               {permiteBaseOriginal ? (
                 <form action={onSubmitOriginal}>
                   <label className="dropzone compact" htmlFor="fileOriginal">
-                    <div className="drop-icon">⬆</div>
+                    <div className="drop-icon">ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â </div>
                     <strong>{origPending ? "Enviando..." : arquivoOriginalNome || "Selecionar base original"}</strong>
                     <span>{arquivoOriginalNome ? "Arquivo selecionado" : "Mesmas colunas de origem da Base Completa"}</span>
                   </label>
@@ -436,13 +376,13 @@ export function BasePanel({
               ) : (
                 <>
                   <label className="dropzone compact" aria-disabled>
-                    <div className="drop-icon">⬆</div>
+                    <div className="drop-icon">ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â </div>
                     <strong>Selecionar base original</strong>
                     <span>Excel, CSV ou JSON</span>
                   </label>
                   <div className="access-note">
-                    <div className="access-lock">🔒</div>
-                    <div>Publicação exclusiva do Time de Transportes autorizado. A base original chega automaticamente pela integração.</div>
+                    <div className="access-lock">ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢</div>
+                    <div>PublicaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o exclusiva do Time de Transportes autorizado. A base original chega automaticamente pela integraÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o.</div>
                   </div>
                 </>
               )}
@@ -478,10 +418,10 @@ export function BasePanel({
                     </div>
                   ) : null}
                   <label className="dropzone compact" htmlFor="fileUpdated">
-                    <div className="drop-icon">↻</div>
+                    <div className="drop-icon">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Ãƒâ€šÃ‚Â»</div>
                     <strong>
                       {processandoUpload
-                        ? `${arquivoAtualNome || "Base selecionada"} · ${progressoUpload || 0}%`
+                        ? `${arquivoAtualNome || "Base selecionada"} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${progressoUpload || 0}%`
                         : arquivoAtualNome || "Subir base atualizada"}
                     </strong>
                     <span>{arquivoAtualNome ? "Arquivo selecionado" : "Mantenha a mesma estrutura de colunas"}</span>
@@ -502,14 +442,14 @@ export function BasePanel({
                   />
                   <div className="mini-actions">
                     <button className="btn-secondary" type="submit" disabled={processandoUpload}>
-                      {processandoUpload ? "Processando..." : devolucaoRecebidaHoje ? "Reenviar devolução" : "Enviar devolução"}
+                      {processandoUpload ? "Processando..." : devolucaoRecebidaHoje ? "Reenviar devoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o" : "Enviar devoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o"}
                     </button>
                   </div>
                 </form>
               ) : (
                 <div className="access-note">
-                  <div className="access-lock">🔒</div>
-                  <div>Devolução indisponível neste contexto.</div>
+                  <div className="access-lock">ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢</div>
+                  <div>DevoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o indisponÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­vel neste contexto.</div>
                 </div>
               )}
             </div>
@@ -522,12 +462,12 @@ export function BasePanel({
         <div className="compact-alert open" role="status" aria-live="polite">
           <div style={{ padding: "12px 16px", width: "100%" }}>
             <div className="compact-alert-title" style={{ marginBottom: 8 }}>
-              ↻ Processando: {arquivoAtualNome || "arquivo selecionado"}
+              ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Ãƒâ€šÃ‚Â» Processando: {arquivoAtualNome || "arquivo selecionado"}
             </div>
             <div style={{ fontSize: 13, marginBottom: 8 }}>
               {linhasUploadTotal > 0 ? (
                 <>
-                  {linhasUploadProcessadas.toLocaleString("pt-BR")} de {linhasUploadTotal.toLocaleString("pt-BR")} linhas concluídas · faltam {Math.max(0, linhasUploadTotal - linhasUploadProcessadas).toLocaleString("pt-BR")} · {progressoUpload}%
+                  {linhasUploadProcessadas.toLocaleString("pt-BR")} de {linhasUploadTotal.toLocaleString("pt-BR")} linhas concluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­das ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· faltam {Math.max(0, linhasUploadTotal - linhasUploadProcessadas).toLocaleString("pt-BR")} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {progressoUpload}%
                 </>
               ) : (
                 <>Lendo e preparando o arquivo...</>
@@ -550,7 +490,7 @@ export function BasePanel({
       {erro ? (
         <div className="compact-alert open">
           <button type="button" className="compact-alert-toggle" disabled>
-            <span className="compact-alert-title">🚨 Falha ao processar: {erro}</span>
+            <span className="compact-alert-title">ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â¨ Falha ao processar: {erro}</span>
           </button>
         </div>
       ) : null}
@@ -559,7 +499,7 @@ export function BasePanel({
         <div className="compact-alert open ok">
           <button type="button" className="compact-alert-toggle" disabled>
             <span className="compact-alert-title">
-              ✓ Finalizado: {resumo.arquivoNome || arquivoAtualNome} · {resumo.totalLinhas.toLocaleString("pt-BR")} linha(s) lida(s) · {resumo.aplicados.toLocaleString("pt-BR")} atualizada(s) · {resumo.semAlteracao.toLocaleString("pt-BR")} sem alteração · {(resumo.erros + resumo.pedidosNaoEncontrados + resumo.pedidosDeOutraTransportadora).toLocaleString("pt-BR")} com pendência
+              ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ Finalizado: {resumo.arquivoNome || arquivoAtualNome} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {resumo.totalLinhas.toLocaleString("pt-BR")} linha(s) lida(s) ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {resumo.aplicados.toLocaleString("pt-BR")} atualizada(s) ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {resumo.semAlteracao.toLocaleString("pt-BR")} sem alteraÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {(resumo.erros + resumo.pedidosNaoEncontrados + resumo.pedidosDeOutraTransportadora).toLocaleString("pt-BR")} com pendÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âªncia
             </span>
           </button>
         </div>
@@ -568,7 +508,7 @@ export function BasePanel({
       {origErro ? (
         <div className="compact-alert open">
           <button type="button" className="compact-alert-toggle" disabled>
-            <span className="compact-alert-title">🚨 Falha ao processar base original: {origErro}</span>
+            <span className="compact-alert-title">ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â¨ Falha ao processar base original: {origErro}</span>
           </button>
         </div>
       ) : null}
@@ -577,7 +517,7 @@ export function BasePanel({
         <div className={`compact-alert open ${origResumo.erros.length ? "" : "ok"}`}>
           <button type="button" className="compact-alert-toggle" disabled>
             <span className="compact-alert-title">
-              {origResumo.erros.length ? "🚨" : "✓"} Base original: {origResumo.totalLinhas} linha(s), {origResumo.inseridos}{" "}
+              {origResumo.erros.length ? "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â¨" : "ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ"} Base original: {origResumo.totalLinhas} linha(s), {origResumo.inseridos}{" "}
               inserida(s), {origResumo.atualizados} atualizada(s), {origResumo.erros.length} erro(s).
             </span>
           </button>
@@ -586,7 +526,7 @@ export function BasePanel({
               {origResumo.erros.map((e, i) => (
                 <div key={i} className="tamper-item">
                   <strong>
-                    Linha {e.linha} · {e.pedido || "(sem pedido)"}
+                    Linha {e.linha} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {e.pedido || "(sem pedido)"}
                   </strong>
                   <br />
                   {e.motivo}
@@ -597,16 +537,16 @@ export function BasePanel({
         </div>
       ) : null}
 
-      {/* ---- Painel de visualização ---- */}
+      {/* ---- Painel de visualizaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o ---- */}
       <div className="card panel">
         <div className="tabs">
           <button className={`tab ${activeTab === "original" ? "active" : ""}`} type="button" onClick={() => setActiveTab("original")}>
-            {permiteDevolucao ? "Visão original" : "Base"}
+            {permiteDevolucao ? "VisÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o original" : "Base"}
           </button>
           {permiteDevolucao ? (
             <>
               <button className={`tab ${activeTab === "updated" ? "active" : ""}`} type="button" onClick={() => setActiveTab("updated")}>
-                Visão atualizada
+                VisÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o atualizada
               </button>
               <button className={`tab ${activeTab === "compare" ? "active" : ""}`} type="button" onClick={() => setActiveTab("compare")}>
                 Comparativo
@@ -620,14 +560,14 @@ export function BasePanel({
             <span className="backend-ready-title">Base operacional</span>
             <span className="backend-pill">
               <span className="backend-dot" style={{ background: hasBaseUpdate ? "#16a34a" : "#94a3b8" }} />
-              Última atualização: <strong>{lastBaseUpdateLabel}</strong>
+              ÃƒÆ’Ã†â€™Ãƒâ€¦Ã‚Â¡ltima atualizaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o: <strong>{lastBaseUpdateLabel}</strong>
             </span>
             <span className="backend-pill">
               <span
                 className="backend-dot"
                 style={{ background: devolucaoRecebidaHoje ? "#16a34a" : "#94a3b8" }}
               />
-              {devolucaoRecebidaHoje ? "Devolução recebida hoje:" : "Última devolução:"}{" "}
+              {devolucaoRecebidaHoje ? "DevoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o recebida hoje:" : "ÃƒÆ’Ã†â€™Ãƒâ€¦Ã‚Â¡ltima devoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o:"}{" "}
               <strong>{ultimaDevolucaoLabelAtual}</strong>
             </span>
           </div>
@@ -649,7 +589,7 @@ export function BasePanel({
 
         {processandoUpload ? (
           <div className="backend-loading show">
-            Processando {arquivoAtualNome || "devolução"}{progressoUpload ? ` · ${progressoUpload}%` : "..."}
+            Processando {arquivoAtualNome || "devoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o"}{progressoUpload ? ` ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${progressoUpload}%` : "..."}
           </div>
         ) : null}
 
@@ -737,31 +677,31 @@ export function BasePanel({
             >
               {previousHref ? (
                 <a className="btn-secondary" href={previousHref}>
-                  ← Anterior
+                  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Ãƒâ€šÃ‚Â Anterior
                 </a>
               ) : (
                 <span
                   className="btn-secondary"
                   style={{ opacity: 0.45, pointerEvents: "none" }}
                 >
-                  ← Anterior
+                  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Ãƒâ€šÃ‚Â Anterior
                 </span>
               )}
 
               <strong style={{ fontSize: 12 }}>
-                Página {page.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
+                PÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina {page.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
               </strong>
 
               {nextHref ? (
                 <a className="btn-secondary" href={nextHref}>
-                  Próxima →
+                  PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³xima ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢
                 </a>
               ) : (
                 <span
                   className="btn-secondary"
                   style={{ opacity: 0.45, pointerEvents: "none" }}
                 >
-                  Próxima →
+                  PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³xima ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢
                 </span>
               )}
             </div>
@@ -770,27 +710,27 @@ export function BasePanel({
         ) : (
           <div>
             {!resumo ? (
-              <div className="empty">Envie uma devolução para gerar o comparativo antes × depois.</div>
+              <div className="empty">Envie uma devoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o para gerar o comparativo antes ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â depois.</div>
             ) : (
               <>
                 <div className={`compact-alert integrity-compact ${alertOpen ? "open" : ""} ${temViolacao ? "" : "ok"}`} id="integrityAlert">
                   <button type="button" className="compact-alert-toggle" onClick={() => setAlertOpen((v) => !v)}>
                     <span className="compact-alert-title">
-                      {temViolacao ? "🚨 Divergência crítica detectada na devolução" : "✓ Integridade dos campos protegidos preservada"}
+                      {temViolacao ? "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â¨ DivergÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âªncia crÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tica detectada na devoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o" : "ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ Integridade dos campos protegidos preservada"}
                     </span>
                     <span className="compact-alert-action" />
                   </button>
                   {temViolacao ? (
                     <div className="compact-alert-body">
-                      <div>A transportadora alterou informações que deveriam permanecer idênticas à base original. Revise antes de aceitar a devolução.</div>
+                      <div>A transportadora alterou informaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âµes que deveriam permanecer idÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âªnticas ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  base original. Revise antes de aceitar a devoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o.</div>
                       <div className="tamper-list">
                         {violacoesProtegidas.map((v, i) => (
                           <div key={i} className="tamper-item">
                             <strong>
-                              Linha {v.linha} · {v.campo}
+                              Linha {v.linha} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {v.campo}
                             </strong>
                             <br />
-                            Original: "{String(v.antes)}" → Devolvido: "{String(v.depois)}" (não aplicado)
+                            Original: "{String(v.antes)}" ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Devolvido: "{String(v.depois)}" (nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o aplicado)
                           </div>
                         ))}
                       </div>
@@ -800,19 +740,19 @@ export function BasePanel({
 
                 <div className="split">
                   <div className="split-box">
-                    <div className="split-title">Campos operacionais aplicados (antes → depois)</div>
+                    <div className="split-title">Campos operacionais aplicados (antes ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ depois)</div>
                     <div style={{ padding: 10 }}>
                       {alteracoesAplicadas.length === 0 ? (
-                        <div className="empty">Nenhum campo novo aplicado nesta devolução.</div>
+                        <div className="empty">Nenhum campo novo aplicado nesta devoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o.</div>
                       ) : (
                         <div className="tamper-list">
                           {alteracoesAplicadas.map((v, i) => (
                             <div key={i} className="tamper-item" style={{ borderColor: "#b6dfc5", background: "#f7fcf8" }}>
                               <strong>
-                                Linha {v.linha} · {v.campo}
+                                Linha {v.linha} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {v.campo}
                               </strong>
                               <br />
-                              "{String(v.antes) || "(vazio)"}" → "{String(v.depois)}"
+                              "{String(v.antes) || "(vazio)"}" ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ "{String(v.depois)}"
                             </div>
                           ))}
                         </div>
@@ -820,16 +760,16 @@ export function BasePanel({
                     </div>
                   </div>
                   <div className="split-box">
-                    <div className="split-title">Campos já respondidos preservados (tentativa bloqueada)</div>
+                    <div className="split-title">Campos jÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ respondidos preservados (tentativa bloqueada)</div>
                     <div style={{ padding: 10 }}>
                       {tentativasBloqueadas.length === 0 ? (
-                        <div className="empty">Nenhuma tentativa bloqueada nesta devolução.</div>
+                        <div className="empty">Nenhuma tentativa bloqueada nesta devoluÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o.</div>
                       ) : (
                         <div className="tamper-list">
                           {tentativasBloqueadas.map((v, i) => (
                             <div key={i} className="tamper-item">
                               <strong>
-                                Linha {v.linha} · {v.campo}
+                                Linha {v.linha} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {v.campo}
                               </strong>
                               <br />
                               Mantido: "{String(v.antes)}" (tentativa: "{String(v.depois)}")
