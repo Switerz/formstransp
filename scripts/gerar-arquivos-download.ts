@@ -12,6 +12,8 @@ const ADMIN_PART_SIZE = 100_000;
 const ADMIN_MAX_BYTES = 40 * 1024 * 1024;
 const SIGNED_URL_SECONDS = 7 * 24 * 60 * 60;
 
+let driveAccessToken: { valor: string; expiraEm: number } | null = null;
+
 const PEDIDO_SELECT = {
   id: true,
   nomeDestinatario: true,
@@ -60,45 +62,121 @@ function envObrigatoria(nome: string) {
   return valor.replace(/\/$/, "");
 }
 
-function storageObjectUrl(storagePath: string, sufixo = "") {
-  const supabaseUrl = envObrigatoria("SUPABASE_URL");
-  const bucket = envObrigatoria("SUPABASE_EXPORTS_BUCKET");
-  const partes = [bucket, ...storagePath.split("/")].map(encodeURIComponent).join("/");
-  return `${supabaseUrl}/storage/v1/object/${sufixo}${partes}`;
+async function obterDriveAccessToken() {
+  if (driveAccessToken && driveAccessToken.expiraEm > Date.now() + 60_000) return driveAccessToken.valor;
+  const resposta = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: envObrigatoria("GOOGLE_DRIVE_CLIENT_ID"),
+      client_secret: envObrigatoria("GOOGLE_DRIVE_CLIENT_SECRET"),
+      refresh_token: envObrigatoria("GOOGLE_DRIVE_REFRESH_TOKEN"),
+      grant_type: "refresh_token",
+    }),
+  });
+  if (!resposta.ok) throw new Error(`Falha ao autenticar no Google Drive (${resposta.status}): ${await resposta.text()}`);
+  const dados = (await resposta.json()) as { access_token?: string; expires_in?: number };
+  if (!dados.access_token) throw new Error("Google não retornou um access_token.");
+  driveAccessToken = { valor: dados.access_token, expiraEm: Date.now() + (dados.expires_in ?? 3_600) * 1_000 };
+  return driveAccessToken.valor;
 }
 
-async function upload(storagePath: string, conteudo: Buffer, contentType: string) {
-  const supabaseKey = envObrigatoria("SUPABASE_SERVICE_ROLE_KEY");
-  const resposta = await fetch(storageObjectUrl(storagePath), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${supabaseKey}`,
-      apikey: supabaseKey,
-      "Content-Type": contentType,
-      "x-upsert": "true",
-    },
-    body: new Uint8Array(conteudo),
-  });
-  if (!resposta.ok) throw new Error(`Falha no upload (${resposta.status}): ${await resposta.text()}`);
+function escaparDriveQuery(valor: string) {
+  return valor.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
-async function criarLinkAssinado(storagePath: string) {
-  const supabaseUrl = envObrigatoria("SUPABASE_URL");
-  const supabaseKey = envObrigatoria("SUPABASE_SERVICE_ROLE_KEY");
-  const resposta = await fetch(storageObjectUrl(storagePath, "sign/"), {
+async function buscarArquivosDrive(chave: string, accessToken: string) {
+  const query = `trashed = false and appProperties has { key='formsTranspKey' and value='${escaparDriveQuery(chave)}' }`;
+  const url = new URL("https://www.googleapis.com/drive/v3/files");
+  url.searchParams.set("q", query);
+  url.searchParams.set("spaces", "drive");
+  url.searchParams.set("pageSize", "100");
+  url.searchParams.set("fields", "files(id,name)");
+  const resposta = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!resposta.ok) throw new Error(`Falha ao localizar arquivo no Google Drive (${resposta.status}): ${await resposta.text()}`);
+  const dados = (await resposta.json()) as { files?: Array<{ id: string; name: string }> };
+  return dados.files ?? [];
+}
+
+async function tornarArquivoAcessivel(fileId: string, accessToken: string) {
+  const resposta = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions?sendNotificationEmail=false`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "anyone", role: "reader", allowFileDiscovery: false }),
+    },
+  );
+  if (!resposta.ok && resposta.status !== 409) {
+    throw new Error(`Falha ao liberar download no Google Drive (${resposta.status}): ${await resposta.text()}`);
+  }
+}
+
+async function criarArquivoDrive(params: {
+  chave: string; nomeArquivo: string; conteudo: Buffer; contentType: string; accessToken: string;
+}) {
+  const metadata = JSON.stringify({
+    name: params.nomeArquivo,
+    parents: [envObrigatoria("GOOGLE_DRIVE_FOLDER_ID")],
+    appProperties: { formsTranspKey: params.chave },
+  });
+  const inicio = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${supabaseKey}`,
-      apikey: supabaseKey,
-      "Content-Type": "application/json",
+      Authorization: `Bearer ${params.accessToken}`,
+      "Content-Type": "application/json; charset=UTF-8",
+      "X-Upload-Content-Type": params.contentType,
+      "X-Upload-Content-Length": String(params.conteudo.length),
     },
-    body: JSON.stringify({ expiresIn: SIGNED_URL_SECONDS }),
+    body: metadata,
   });
-  if (!resposta.ok) throw new Error(`Falha ao assinar link (${resposta.status}): ${await resposta.text()}`);
-  const dados = (await resposta.json()) as { signedURL?: string; signedUrl?: string };
-  const link = dados.signedURL ?? dados.signedUrl;
-  if (!link) throw new Error("Supabase não retornou o link assinado.");
-  return link.startsWith("http") ? link : `${supabaseUrl}/storage/v1${link.startsWith("/") ? "" : "/"}${link}`;
+  if (!inicio.ok) {
+    throw new Error(`Falha ao iniciar upload no Google Drive (${inicio.status}): ${await inicio.text()}`);
+  }
+  const uploadUrl = inicio.headers.get("location");
+  if (!uploadUrl) throw new Error("Google Drive não retornou a URL do upload retomável.");
+
+  const resposta = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": params.contentType,
+      "Content-Length": String(params.conteudo.length),
+    },
+    body: Uint8Array.from(params.conteudo).buffer,
+  });
+  if (!resposta.ok) throw new Error(`Falha ao enviar arquivo ao Google Drive (${resposta.status}): ${await resposta.text()}`);
+  const dados = (await resposta.json()) as { id?: string };
+  if (!dados.id) throw new Error("Google Drive não retornou o ID do arquivo criado.");
+  await tornarArquivoAcessivel(dados.id, params.accessToken);
+  return dados.id;
+}
+
+async function uploadDrive(params: { chave: string; nomeArquivo: string; conteudo: Buffer; contentType: string }) {
+  const accessToken = await obterDriveAccessToken();
+  const anteriores = await buscarArquivosDrive(params.chave, accessToken);
+  const fileId = await criarArquivoDrive({ ...params, accessToken });
+  return {
+    signedUrl: `https://drive.usercontent.google.com/download?id=${encodeURIComponent(fileId)}&export=download&confirm=t`,
+    arquivosAnteriores: anteriores.map((arquivo) => arquivo.id),
+  };
+}
+
+async function desativarArquivosDrive(fileIds: string[]) {
+  if (!fileIds.length) return;
+  const accessToken = await obterDriveAccessToken();
+  for (const fileId of fileIds) {
+    const resposta = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`,
+      {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ trashed: true }),
+      },
+    );
+    if (!resposta.ok) {
+      console.warn(`Não foi possível desativar o arquivo anterior ${fileId}: ${resposta.status}.`);
+    }
+  }
 }
 
 async function publicar(params: {
@@ -112,8 +190,12 @@ async function publicar(params: {
   totalLinhas: number;
   totalPartes?: number;
 }) {
-  await upload(params.storagePath, params.conteudo, params.contentType);
-  const signedUrl = await criarLinkAssinado(params.storagePath);
+  const publicacaoDrive = await uploadDrive({
+    chave: params.chave,
+    nomeArquivo: params.nomeArquivo,
+    conteudo: params.conteudo,
+    contentType: params.contentType,
+  });
   const expiresAt = new Date(Date.now() + SIGNED_URL_SECONDS * 1_000);
   const dados = {
     chave: params.chave,
@@ -121,7 +203,7 @@ async function publicar(params: {
     transportadoraId: params.transportadoraId,
     nomeArquivo: params.nomeArquivo,
     storagePath: params.storagePath,
-    signedUrl,
+    signedUrl: publicacaoDrive.signedUrl,
     expiresAt,
     totalLinhas: params.totalLinhas,
     totalPartes: params.totalPartes ?? 1,
@@ -133,6 +215,7 @@ async function publicar(params: {
     create: dados,
     update: dados,
   });
+  await desativarArquivosDrive(publicacaoDrive.arquivosAnteriores);
 }
 
 async function buscarTodos(where: Prisma.PedidoWhereInput) {
