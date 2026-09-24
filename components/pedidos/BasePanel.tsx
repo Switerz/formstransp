@@ -141,34 +141,114 @@ export function BasePanel({
         throw new Error("O arquivo precisa estar no formato .xlsx.");
       }
 
-      const uploadFormData = new FormData();
-      uploadFormData.append("arquivo", arquivo);
+      // Arquivos menores continuam pelo servidor, pois esse fluxo já foi
+      // validado em produção. Arquivos grandes vão direto ao Drive para não
+      // ultrapassar o limite de corpo da função da Vercel.
+      const LIMITE_UPLOAD_SERVIDOR = 4 * 1024 * 1024;
 
-      setProgressoUpload(10);
+      if (arquivo.size <= LIMITE_UPLOAD_SERVIDOR) {
+        const uploadFormData = new FormData();
+        uploadFormData.append("arquivo", arquivo);
 
-      const respostaUpload = await fetch(
-        "/portal/minha-base/upload/enviar",
-        {
-          method: "POST",
-          body: uploadFormData,
-        },
-      );
+        setProgressoUpload(10);
 
-      setProgressoUpload(100);
-
-      const dadosUpload = (await respostaUpload.json()) as {
-        ok?: boolean;
-        erro?: string;
-        arquivo?: {
-          id?: string;
-          nome?: string;
-        };
-      };
-
-      if (!respostaUpload.ok || !dadosUpload.ok) {
-        throw new Error(
-          dadosUpload.erro ?? "Nao foi possivel enviar o arquivo.",
+        const respostaUpload = await fetch(
+          "/portal/minha-base/upload/enviar",
+          {
+            method: "POST",
+            body: uploadFormData,
+          },
         );
+
+        const respostaTexto = await respostaUpload.text();
+        let dadosUpload: {
+          ok?: boolean;
+          erro?: string;
+          arquivo?: {
+            id?: string;
+            nome?: string;
+          };
+        } = {};
+
+        try {
+          dadosUpload = respostaTexto ? JSON.parse(respostaTexto) : {};
+        } catch {
+          throw new Error(
+            respostaUpload.ok
+              ? "O servidor retornou uma resposta inválida."
+              : `O servidor recusou o arquivo (${respostaUpload.status}).`,
+          );
+        }
+
+        if (!respostaUpload.ok || !dadosUpload.ok) {
+          throw new Error(
+            dadosUpload.erro ?? "Não foi possível enviar o arquivo.",
+          );
+        }
+
+        setProgressoUpload(100);
+      } else {
+        setProgressoUpload(5);
+
+        const respostaInicio = await fetch(
+          "/portal/minha-base/upload/iniciar",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              nomeArquivo: arquivo.name,
+              tamanhoBytes: arquivo.size,
+            }),
+          },
+        );
+
+        const dadosInicio = (await respostaInicio.json()) as {
+          uploadUrl?: string;
+          contentType?: string;
+          erro?: string;
+        };
+
+        if (!respostaInicio.ok || !dadosInicio.uploadUrl) {
+          throw new Error(
+            dadosInicio.erro ?? "Não foi possível iniciar o envio ao Google Drive.",
+          );
+        }
+
+        const TAMANHO_CHUNK = 8 * 1024 * 1024;
+        let inicio = 0;
+
+        while (inicio < arquivo.size) {
+          const fim = Math.min(inicio + TAMANHO_CHUNK, arquivo.size);
+          const chunk = arquivo.slice(inicio, fim);
+
+          const respostaChunk = await fetch(dadosInicio.uploadUrl, {
+            method: "PUT",
+            headers: {
+              "Content-Type":
+                dadosInicio.contentType ??
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              "Content-Length": String(chunk.size),
+              "Content-Range": `bytes ${inicio}-${fim - 1}/${arquivo.size}`,
+            },
+            body: chunk,
+          });
+
+          if (respostaChunk.status !== 308 && !respostaChunk.ok) {
+            const detalhe = await respostaChunk.text().catch(() => "");
+            throw new Error(
+              detalhe
+                ? `O Google Drive recusou uma parte do arquivo (${respostaChunk.status}).`
+                : `Falha no envio ao Google Drive (${respostaChunk.status}).`,
+            );
+          }
+
+          inicio = fim;
+          setProgressoUpload(
+            Math.min(100, Math.round((inicio / arquivo.size) * 100)),
+          );
+        }
       }
 
       setDevolucaoRecebidaHoje(true);
