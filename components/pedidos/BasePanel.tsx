@@ -216,35 +216,43 @@ export function BasePanel({
           );
         }
 
-        const TAMANHO_CHUNK = 8 * 1024 * 1024;
+        const TAMANHO_CHUNK = 2 * 1024 * 1024;
         let inicio = 0;
 
         while (inicio < arquivo.size) {
           const fim = Math.min(inicio + TAMANHO_CHUNK, arquivo.size);
           const chunk = arquivo.slice(inicio, fim);
 
-          const respostaChunk = await fetch(dadosInicio.uploadUrl, {
-            method: "PUT",
-            headers: {
-              "Content-Type":
-                dadosInicio.contentType ??
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-              "Content-Length": String(chunk.size),
-              "Content-Range": `bytes ${inicio}-${fim - 1}/${arquivo.size}`,
+          const respostaChunk = await fetch(
+            `/portal/minha-base/upload/chunk?uploadUrl=${encodeURIComponent(dadosInicio.uploadUrl)}&inicio=${inicio}&fim=${fim - 1}&total=${arquivo.size}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  dadosInicio.contentType ??
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              },
+              body: chunk,
             },
-            body: chunk,
-          });
+          );
 
-          if (respostaChunk.status !== 308 && !respostaChunk.ok) {
-            const detalhe = await respostaChunk.text().catch(() => "");
+          const dadosChunk = (await respostaChunk.json()) as {
+            ok?: boolean;
+            proximoInicio?: number;
+            erro?: string;
+          };
+
+          if (!respostaChunk.ok || !dadosChunk.ok) {
             throw new Error(
-              detalhe
-                ? `O Google Drive recusou uma parte do arquivo (${respostaChunk.status}).`
-                : `Falha no envio ao Google Drive (${respostaChunk.status}).`,
+              dadosChunk.erro ?? "Falha ao enviar uma parte do arquivo.",
             );
           }
 
-          inicio = fim;
+          inicio =
+            typeof dadosChunk.proximoInicio === "number"
+              ? dadosChunk.proximoInicio
+              : fim;
+
           setProgressoUpload(
             Math.min(100, Math.round((inicio / arquivo.size) * 100)),
           );
