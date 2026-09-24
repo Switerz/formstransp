@@ -104,3 +104,68 @@ export async function criarSessaoUploadDevolucao({
 
   return uploadUrl;
 }
+
+type CriarSessaoUploadBaseParams = {
+  nomeArquivo: string;
+  tamanhoBytes: number;
+  transportadoraId: string;
+  transportadoraNome?: string | null;
+};
+
+export async function criarSessaoUploadBaseTransportadora({
+  nomeArquivo,
+  tamanhoBytes,
+  transportadoraId,
+  transportadoraNome,
+}: CriarSessaoUploadBaseParams): Promise<string> {
+  const accessToken = await obterGoogleDriveAccessToken();
+
+  const chave = `transportadora:${transportadoraId}`;
+
+  const metadata = {
+    name: nomeArquivo,
+    parents: [envObrigatoria("GOOGLE_DRIVE_FOLDER_ID")],
+    appProperties: {
+      formsTranspTipo: "base_transportadora",
+      formsTranspKey: chave,
+      transportadoraId,
+      ...(transportadoraNome
+        ? { transportadoraNome: transportadoraNome.slice(0, 120) }
+        : {}),
+    },
+  };
+
+  const resposta = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,size,md5Checksum",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
+        "X-Upload-Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "X-Upload-Content-Length": String(tamanhoBytes),
+      },
+      body: JSON.stringify(metadata),
+      cache: "no-store",
+    },
+  );
+
+  if (!resposta.ok) {
+    const detalhe = await resposta.text();
+
+    throw new Error(
+      `Falha ao iniciar upload da base no Google Drive (${resposta.status}): ${detalhe}`,
+    );
+  }
+
+  const uploadUrl = resposta.headers.get("location");
+
+  if (!uploadUrl) {
+    throw new Error(
+      "O Google Drive não retornou a URL da sessão de upload da base.",
+    );
+  }
+
+  return uploadUrl;
+}
