@@ -1,44 +1,56 @@
-import ExcelJS from "exceljs";
+import * as XLSX from "xlsx";
 
-/**
- * Lê a primeira planilha de um XLSX como tabela genérica: primeira linha =
- * cabeçalho, demais linhas = dados. Diferente de lib/xlsx-parse.ts (que lê
- * um template de células fixas do relatório diário) - aqui o formato é uma
- * tabela normal, uma linha por pedido, como o layout tabular da base Forms Transp.
- */
-export async function readXlsxTable(buffer: Buffer): Promise<{ headers: string[]; rows: Record<string, unknown>[] }> {
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer as any);
+export async function readXlsxTable(
+  buffer: Buffer
+): Promise<{
+  headers: string[];
+  rows: Record<string, unknown>[];
+}> {
+  const workbook = XLSX.read(buffer, {
+    type: "buffer",
+    cellDates: true,
+    raw: true,
+  });
 
-  const sheet = workbook.worksheets[0];
+  const sheetName = workbook.SheetNames[0];
+  if (!sheetName) return { headers: [], rows: [] };
+
+  const sheet = workbook.Sheets[sheetName];
   if (!sheet) return { headers: [], rows: [] };
 
-  const headerRow = sheet.getRow(1);
-  const headers: string[] = [];
-  headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
-    headers[colNumber - 1] = String(cell.value ?? "").trim();
+  const matriz = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+    header: 1,
+    defval: "",
+    raw: true,
   });
 
+  if (matriz.length === 0) return { headers: [], rows: [] };
+
+  const primeiraLinha = matriz[0] ?? [];
+  const headers = primeiraLinha.map((valor) =>
+    String(valor ?? "").trim()
+  );
+
   const rows: Record<string, unknown>[] = [];
-  sheet.eachRow((row, rowNumber) => {
-    if (rowNumber === 1) return;
+
+  for (let i = 1; i < matriz.length; i++) {
+    const linha = matriz[i] ?? [];
     const obj: Record<string, unknown> = {};
     let hasValue = false;
+
     headers.forEach((header, index) => {
       if (!header) return;
-      const cell = row.getCell(index + 1);
-      let value: unknown = cell.value;
-      if (value && typeof value === "object" && "text" in (value as Record<string, unknown>)) {
-        value = (value as { text: unknown }).text;
+
+      const valor = linha[index] ?? "";
+      obj[header] = valor;
+
+      if (String(valor).trim() !== "") {
+        hasValue = true;
       }
-      if (value && typeof value === "object" && "result" in (value as Record<string, unknown>)) {
-        value = (value as { result: unknown }).result;
-      }
-      obj[header] = value ?? "";
-      if (String(value ?? "").trim() !== "") hasValue = true;
     });
+
     if (hasValue) rows.push(obj);
-  });
+  }
 
   return { headers, rows };
 }
