@@ -91,7 +91,7 @@ TIMEOUT_RELATORIO_SEGUNDOS = 60 * 30
 # ------------------------------------------------------------
 # Desliga sem tocar no resto do script, se precisar rodar sÃ³ a
 # geraÃ§Ã£o local dos XLSX de novo.
-ENVIAR_PARA_BACKEND = True
+ENVIAR_PARA_BACKEND = os.getenv("FORMS_TRANSP_ENVIAR_BACKEND", "0").strip().lower() in {"1", "true", "sim", "yes"}
 
 FORMS_TRANSP_API_URL = os.getenv("FORMS_TRANSP_API_URL")
 PEDIDOS_IMPORT_SECRET = os.getenv("PEDIDOS_IMPORT_SECRET")
