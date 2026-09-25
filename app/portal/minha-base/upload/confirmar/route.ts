@@ -154,6 +154,24 @@ function validarDevolucao(
   if (ausentes.length) {
     throw new Error(`Layout inválido. Colunas ausentes: ${ausentes.join(", ")}`);
   }
+
+  const cabecalhosDuplicados = devolucao.headers.filter(
+    (cabecalho, indice) => cabecalho && devolucao.headers.indexOf(cabecalho) !== indice,
+  );
+  if (cabecalhosDuplicados.length) {
+    throw new Error(`Layout inválido. Colunas duplicadas: ${[...new Set(cabecalhosDuplicados)].join(", ")}`);
+  }
+
+  const extras = devolucao.headers.filter(
+    (cabecalho) => cabecalho && !obrigatorias.includes(cabecalho as (typeof obrigatorias)[number]),
+  );
+  if (extras.length) {
+    throw new Error(`Layout inválido. Colunas não reconhecidas: ${extras.join(", ")}`);
+  }
+
+  if (devolucao.headers.filter(Boolean).length !== obrigatorias.length) {
+    throw new Error("Layout inválido. A planilha deve manter exatamente as 25 colunas oficiais.");
+  }
   if (atual.rows.length !== devolucao.rows.length) {
     throw new Error(
       `A quantidade de pedidos foi alterada (${atual.rows.length} → ${devolucao.rows.length}). Baixe uma base nova e preencha novamente.`,
@@ -343,23 +361,16 @@ export async function POST(request: Request) {
       `https://drive.usercontent.google.com/download?id=${encodeURIComponent(fileId)}&export=download&confirm=t`;
     const expiresAt = new Date(Date.now() + SIGNED_URL_SECONDS * 1000);
 
-    // Ponto atômico do portal: primeiro troca o ponteiro para a nova base.
-    await prisma.exportacaoArquivo.upsert({
-      where: { chave: chaveExportacao },
-      create: {
+    // Concorrência: a troca do ponteiro é otimista e atômica no banco.
+    // Só vence quem ainda estiver trabalhando sobre a mesma versão que foi validada.
+    // Se outra devolução/publicação trocar a base enquanto este arquivo é processado,
+    // updateMany retorna 0 e esta devolução NÃO sobrescreve a versão mais nova.
+    const troca = await prisma.exportacaoArquivo.updateMany({
+      where: {
         chave: chaveExportacao,
-        escopo: "transportadora",
-        transportadoraId,
-        nomeArquivo: novaBase.name || nomeBase,
-        storagePath: `drive:${fileId}`,
-        signedUrl: downloadUrl,
-        expiresAt,
-        totalLinhas: validacao.totalLinhas,
-        totalPartes: 1,
-        status: "ready",
-        geradoEm: new Date(),
+        storagePath: `drive:${fileIdAtual}`,
       },
-      update: {
+      data: {
         nomeArquivo: novaBase.name || nomeBase,
         storagePath: `drive:${fileId}`,
         signedUrl: downloadUrl,
@@ -370,6 +381,37 @@ export async function POST(request: Request) {
         geradoEm: new Date(),
       },
     });
+
+    if (troca.count !== 1) {
+      // O arquivo continua preservado no Drive como devolução para recuperação;
+      // não removemos nenhuma versão e não registramos sucesso/auditoria.
+      await fetch(
+        `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            appProperties: {
+              formsTranspTipo: "devolucao_transportadora",
+              transportadoraId,
+              formsTranspConflito: "versao_desatualizada",
+            },
+          }),
+          cache: "no-store",
+        },
+      );
+
+      return NextResponse.json(
+        {
+          erro: "A base foi atualizada por outro processo enquanto este arquivo era processado. Nada foi sobrescrito. Baixe a versão atual antes de tentar novamente.",
+          codigo: "CONFLITO_DE_VERSAO",
+        },
+        { status: 409 },
+      );
+    }
 
     // Antes de remover a versão anterior, persistimos a auditoria das mudanças.
     // Se o log falhar, a base nova já está apontada no portal, mas a versão anterior
