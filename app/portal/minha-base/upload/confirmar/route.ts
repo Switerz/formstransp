@@ -142,6 +142,13 @@ function validarDevolucao(
   }
 
   let alteracoesOperacionais = 0;
+  const alteracoes: Array<{
+    pedido: string;
+    chave: string;
+    campo: string;
+    valorAnterior: string;
+    valorNovo: string;
+  }> = [];
   const chavesRecebidas = new Set<string>();
 
   for (const linha of devolucao.rows) {
@@ -158,12 +165,62 @@ function validarDevolucao(
       }
     }
     for (const coluna of COLUNAS_OPERACIONAIS) {
-      if (texto(anterior[coluna]) !== texto(linha[coluna])) alteracoesOperacionais += 1;
+      const valorAnterior = texto(anterior[coluna]);
+      const valorNovo = texto(linha[coluna]);
+      if (valorAnterior !== valorNovo) {
+        alteracoesOperacionais += 1;
+        alteracoes.push({
+          pedido: texto(linha["Pedido"]),
+          chave: k,
+          campo: coluna,
+          valorAnterior,
+          valorNovo,
+        });
+      }
     }
   }
 
-  return { totalLinhas: devolucao.rows.length, alteracoesOperacionais };
+  return { totalLinhas: devolucao.rows.length, alteracoesOperacionais, alteracoes };
 }
+
+async function registrarHistoricoDevolucao(params: {
+  transportadoraId: string;
+  userId: string;
+  fileId: string;
+  nomeArquivo: string;
+  totalLinhas: number;
+  alteracoes: Array<{ pedido: string; chave: string; campo: string; valorAnterior: string; valorNovo: string }>;
+}) {
+  // Mantemos os logs pequenos para não depender de uma única linha gigante no banco.
+  // É somente auditoria: as bases pesadas continuam fora do Supabase.
+  const TAMANHO_LOTE = 200;
+  const totalLotes = Math.max(1, Math.ceil(params.alteracoes.length / TAMANHO_LOTE));
+
+  for (let indice = 0; indice < totalLotes; indice += 1) {
+    const inicio = indice * TAMANHO_LOTE;
+    const lote = params.alteracoes.slice(inicio, inicio + TAMANHO_LOTE);
+    await prisma.automationLog.create({
+      data: {
+        transportadoraId: params.transportadoraId,
+        dataReport: new Date(),
+        tipo: "devolucao_drive_auditoria",
+        status: "success",
+        mensagem: `Devolução processada: ${params.alteracoes.length} alteração(ões) operacional(is). Lote ${indice + 1}/${totalLotes}.`,
+        payload: JSON.stringify({
+          userId: params.userId,
+          fileId: params.fileId,
+          nomeArquivo: params.nomeArquivo,
+          totalLinhas: params.totalLinhas,
+          totalAlteracoes: params.alteracoes.length,
+          lote: indice + 1,
+          totalLotes,
+          alteracoes: lote,
+        }),
+      },
+    });
+  }
+}
+
 
 export async function POST(request: Request) {
   try {
@@ -274,7 +331,19 @@ export async function POST(request: Request) {
       },
     });
 
-    // Só depois da nova base estar publicada removemos a anterior.
+    // Antes de remover a versão anterior, persistimos a auditoria das mudanças.
+    // Se o log falhar, a base nova já está apontada no portal, mas a versão anterior
+    // NÃO é removida: assim nenhuma informação fica sem possibilidade de recuperação.
+    await registrarHistoricoDevolucao({
+      transportadoraId,
+      userId: user.id,
+      fileId,
+      nomeArquivo: novaBase.name || nomeBase,
+      totalLinhas: validacao.totalLinhas,
+      alteracoes: validacao.alteracoes,
+    });
+
+    // Só depois de base nova + histórico persistidos removemos a versão anterior.
     if (fileIdAtual !== fileId) await enviarParaLixeira(fileIdAtual, accessToken);
 
     return NextResponse.json({
