@@ -13,6 +13,32 @@ const XLSX_CONTENT_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const SIGNED_URL_SECONDS = 60 * 60 * 24 * 30;
 
+function intervaloHojeSaoPaulo() {
+  const agora = new Date();
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(agora);
+  const valor = (tipo: string) => Number(partes.find((p) => p.type === tipo)?.value);
+  const inicio = new Date(Date.UTC(valor("year"), valor("month") - 1, valor("day"), 3, 0, 0));
+  const fim = new Date(inicio.getTime() + 24 * 60 * 60 * 1000);
+  return { inicio, fim };
+}
+
+async function jaAtualizouHoje(transportadoraId: string) {
+  const { inicio, fim } = intervaloHojeSaoPaulo();
+  return prisma.automationLog.findFirst({
+    where: {
+      transportadoraId,
+      tipo: "devolucao_drive_auditoria",
+      status: "success",
+      dataReport: { gte: inicio, lt: fim },
+    },
+    select: { id: true, dataReport: true },
+    orderBy: { dataReport: "desc" },
+  });
+}
+
 const COLUNAS_PROTEGIDAS = [
   "Nome do Destinatário",
   "Canal de Vendas",
@@ -228,6 +254,20 @@ export async function POST(request: Request) {
     const transportadoraId = user.transportadoraId;
     if (!transportadoraId) {
       return NextResponse.json({ erro: "Transportadora não identificada." }, { status: 403 });
+    }
+
+    // Revalida o limite também na confirmação para evitar que duas abas/sessões
+    // consigam concluir duas devoluções no mesmo dia. Upload com falha não cria
+    // log de sucesso e, portanto, não consome o limite diário.
+    const atualizacaoHoje = await jaAtualizouHoje(transportadoraId);
+    if (atualizacaoHoje) {
+      return NextResponse.json(
+        {
+          erro: "A atualização de hoje já foi recebida com sucesso. Uma nova atualização poderá ser enviada amanhã.",
+          codigo: "LIMITE_DIARIO_ATINGIDO",
+        },
+        { status: 409 },
+      );
     }
 
     const body = (await request.json()) as ConfirmarUploadBody;
