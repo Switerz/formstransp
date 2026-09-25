@@ -81,8 +81,8 @@ if (!SECRET) {
 }
 
 /*
- * Primeiro teste será local.
- * Depois apontaremos para a aplicação publicada.
+ * Primeiro teste serÃ¡ local.
+ * Depois apontaremos para a aplicaÃ§Ã£o publicada.
  */
 const BASE_URL =
   process.env.FORMS_TRANSP_PUBLICAR_URL?.trim() ||
@@ -142,38 +142,72 @@ const TRANSPORTADORAS: ConfigTransportadora[] = [
   },
 ];
 
-/*
- * PROTEÇÃO:
- * true = somente BH Transportes.
- *
- * Não altere para false ainda.
- */
-const SOMENTE_TESTE_BH = true;
+function normalizarSelecao(valor: string) {
+  return valor
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
 
-async function contarLinhasXlsx(
-  caminho: string,
-): Promise<number> {
-  const workbook = new ExcelJS.Workbook();
+function selecionarTransportadoras(): ConfigTransportadora[] {
+  const args = process.argv.slice(2);
 
-  await workbook.xlsx.readFile(caminho);
+  if (args.includes("--todas")) {
+    return TRANSPORTADORAS;
+  }
 
-  const worksheet =
-    workbook.getWorksheet("Pedidos") ??
-    workbook.worksheets[0];
+  const indice = args.findIndex(
+    (arg) => arg === "--transportadora" || arg === "-t",
+  );
 
-  if (!worksheet) {
+  if (indice < 0 || !args[indice + 1]) {
     throw new Error(
-      `Nenhuma aba encontrada em ${caminho}`,
+      'Informe --transportadora "Nome" (ou -t "Nome") para publicar uma base, ou --todas para publicar as 9 bases.',
     );
   }
 
-  /*
-   * rowCount inclui o cabeçalho.
-   */
-  return Math.max(
-    0,
-    worksheet.rowCount - 1,
+  const busca = normalizarSelecao(args[indice + 1]);
+  const encontrada = TRANSPORTADORAS.find((item) =>
+    [item.nome, item.arquivo, item.id].some(
+      (valor) => normalizarSelecao(valor) === busca,
+    ),
   );
+
+  if (!encontrada) {
+    throw new Error(
+      `Transportadora não encontrada: ${args[indice + 1]}. Opções: ${TRANSPORTADORAS.map((t) => t.nome).join(", ")}`,
+    );
+  }
+
+  return [encontrada];
+}
+
+async function contarLinhasXlsx(caminho: string): Promise<number> {
+  const { execFileSync } = await import("node:child_process");
+
+  const codigo = [
+    "from openpyxl import load_workbook",
+    "import sys",
+    "wb = load_workbook(sys.argv[1], read_only=True, data_only=True)",
+    "ws = wb['BASE']",
+    "print(max(ws.max_row - 1, 0))",
+    "wb.close()",
+  ].join("; ");
+
+  const resultado = execFileSync(
+    "python",
+    ["-c", codigo, caminho],
+    { encoding: "utf8" }
+  ).trim();
+
+  const total = Number(resultado);
+
+  if (!Number.isFinite(total)) {
+    throw new Error(`N?o foi poss?vel contar registros de ${caminho}`);
+  }
+
+  return total;
 }
 
 async function iniciarUpload(
@@ -322,7 +356,7 @@ async function confirmarPublicacao(
     !dados.ok
   ) {
     throw new Error(
-      `Falha ao confirmar publicação (${resposta.status}): ${texto}`,
+      `Falha ao confirmar publicaÃ§Ã£o (${resposta.status}): ${texto}`,
     );
   }
 
@@ -436,7 +470,7 @@ async function publicar(
   );
 
   console.log(
-    "3/3 Confirmando publicação...",
+    "3/3 Confirmando publicaÃ§Ã£o...",
   );
 
   const confirmacao =
@@ -471,20 +505,11 @@ async function main() {
     `API: ${BASE_URL}`,
   );
 
-  const selecionadas =
-    SOMENTE_TESTE_BH
-      ? TRANSPORTADORAS.filter(
-          (item) =>
-            item.nome ===
-            "BH Transportes",
-        )
-      : TRANSPORTADORAS;
+  const selecionadas = selecionarTransportadoras();
 
-  if (SOMENTE_TESTE_BH) {
-    console.log(
-      "MODO TESTE ATIVO: somente BH Transportes.",
-    );
-  }
+  console.log(
+    `Publicação selecionada: ${selecionadas.map((item) => item.nome).join(", ")}`,
+  );
 
   for (
     const transportadora
@@ -512,3 +537,5 @@ main().catch((error) => {
 
   process.exitCode = 1;
 });
+
+
