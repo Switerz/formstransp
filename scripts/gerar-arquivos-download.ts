@@ -630,10 +630,58 @@ async function gerarTudo(inicio: Date) {
   }
 }
 
+
+async function gerarTransportadoraEspecifica(inicio: Date, transportadoraId: string) {
+  const transportadora = await prisma.transportadora.findUnique({
+    where: { id: transportadoraId },
+    select: { id: true, nome: true, codigoSlug: true },
+  });
+
+  if (!transportadora) {
+    throw new Error(`Transportadora ${transportadoraId} nao encontrada.`);
+  }
+
+  console.log(`Gerando somente transportadora: ${transportadora.nome}`);
+
+  const todos = await buscarTodos({
+    transportadoraId: transportadora.id,
+    dataCriacaoPedido: { gte: inicio },
+  });
+
+  console.log(`  ${todos.length.toLocaleString("pt-BR")} pedidos encontrados.`);
+
+  await salvarKpiSnapshot(transportadora.id, todos);
+
+  const pedidos = todos.filter(pedidoVisivelTransportadora);
+  const conteudo = await buildPedidosXlsx(pedidos);
+  const identificador = slug(transportadora.codigoSlug || transportadora.nome);
+  const nomeArquivo = `base-${identificador}.xlsx`;
+
+  await publicar({
+    chave: `transportadora:${transportadora.id}`,
+    escopo: "transportadora",
+    transportadoraId: transportadora.id,
+    nomeArquivo,
+    storagePath: `current/transportadoras/${nomeArquivo}`,
+    conteudo,
+    contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    totalLinhas: pedidos.length,
+  });
+
+  console.log(`  ${pedidos.length.toLocaleString("pt-BR")} linhas publicadas no Google Drive.`);
+}
+
 async function main() {
   const inicio = getBaseCompletaWindowStart();
   console.log(`Janela de dados iniciada em ${inicio.toISOString()}.`);
-  if (process.argv.includes("--admin-only")) {
+  const argumentoTransportadora = process.argv.find((arg) =>
+    arg.startsWith("--transportadora=")
+  );
+  const transportadoraId = argumentoTransportadora?.split("=")[1];
+
+  if (transportadoraId) {
+    await gerarTransportadoraEspecifica(inicio, transportadoraId);
+  } else if (process.argv.includes("--admin-only")) {
     await gerarAdmin(inicio);
   } else if (process.argv.includes("--snapshots-only")) {
     await gerarTransportadoras(inicio);

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import {
   criarSessaoUploadBaseTransportadora,
 } from "@/lib/google-drive";
@@ -59,6 +58,11 @@ export async function POST(request: NextRequest) {
       ? dados.nomeArquivo.trim()
       : "";
 
+  const transportadoraNome =
+    typeof dados.transportadoraNome === "string"
+      ? dados.transportadoraNome.trim()
+      : "";
+
   const tamanhoBytes =
     typeof dados.tamanhoBytes === "number"
       ? dados.tamanhoBytes
@@ -88,29 +92,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const transportadora =
-    await prisma.transportadora.findUnique({
-      where: {
-        id: transportadoraId,
-      },
-      select: {
-        id: true,
-        nome: true,
-      },
-    });
-
-  if (!transportadora) {
-    return NextResponse.json(
-      { error: "transportadora não encontrada" },
-      { status: 404 },
-    );
-  }
-
   try {
     const uploadUrl =
       await criarSessaoUploadBaseTransportadora({
-        transportadoraId: transportadora.id,
-        transportadoraNome: transportadora.nome,
+        transportadoraId,
+        transportadoraNome: transportadoraNome || undefined,
         nomeArquivo,
         tamanhoBytes,
       });
@@ -120,8 +106,8 @@ export async function POST(request: NextRequest) {
       uploadUrl,
       contentType: XLSX_CONTENT_TYPE,
       transportadora: {
-        id: transportadora.id,
-        nome: transportadora.nome,
+        id: transportadoraId,
+        nome: transportadoraNome || null,
       },
     });
   } catch (error) {
