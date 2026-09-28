@@ -118,6 +118,9 @@ export function BasePanel({
   const [origResumo, setOrigResumo] = useState<BaseOriginalResumo | null>(null);
   const [origErro, setOrigErro] = useState<string | null>(null);
   const [origPending, startOrigTransition] = useTransition();
+  const [origProgresso, setOrigProgresso] = useState(0);
+  const [origLinhasTotal, setOrigLinhasTotal] = useState(0);
+  const [origLinhasProcessadas, setOrigLinhasProcessadas] = useState(0);
   const [arquivoOriginalNome, setArquivoOriginalNome] = useState("");
 
   async function onSubmit(formData: FormData) {
@@ -145,6 +148,8 @@ export function BasePanel({
       // validado em produção. Arquivos grandes vão direto ao Drive para não
       // ultrapassar o limite de corpo da função da Vercel.
       const LIMITE_UPLOAD_SERVIDOR = 4 * 1024 * 1024;
+
+      let fileId: string | undefined;
 
       if (arquivo.size <= LIMITE_UPLOAD_SERVIDOR) {
         const uploadFormData = new FormData();
@@ -186,7 +191,8 @@ export function BasePanel({
           );
         }
 
-        setProgressoUpload(100);
+        fileId = dadosUpload.arquivo?.id;
+        setProgressoUpload(40);
       } else {
         setProgressoUpload(5);
 
@@ -240,6 +246,7 @@ export function BasePanel({
             ok?: boolean;
             proximoInicio?: number;
             erro?: string;
+            arquivo?: { id?: string };
           };
 
           if (!respostaChunk.ok || !dadosChunk.ok) {
@@ -253,11 +260,71 @@ export function BasePanel({
               ? dadosChunk.proximoInicio
               : fim;
 
+          // O último chunk (upload realmente completo) é o único que traz
+          // o arquivo/fileId do Drive - os anteriores só confirmam "continue".
+          if (dadosChunk.arquivo?.id) fileId = dadosChunk.arquivo.id;
+
           setProgressoUpload(
-            Math.min(100, Math.round((inicio / arquivo.size) * 100)),
+            Math.min(90, Math.round((inicio / arquivo.size) * 90)),
           );
         }
       }
+
+      if (!fileId) {
+        throw new Error(
+          "O arquivo foi enviado, mas o Google Drive não confirmou o ID final. Tente novamente.",
+        );
+      }
+
+      // Passo que faltava: sem chamar /confirmar, o arquivo fica órfão no
+      // Drive e a devolução NUNCA é validada nem promovida a base atual -
+      // nada muda de verdade, mesmo que o upload em si tenha funcionado.
+      setProgressoUpload(95);
+      const respostaConfirmar = await fetch(
+        "/portal/minha-base/upload/confirmar",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileId }),
+        },
+      );
+
+      const dadosConfirmar = (await respostaConfirmar.json()) as {
+        ok?: boolean;
+        erro?: string;
+        alteracoesOperacionais?: number;
+        totalLinhas?: number;
+        mensagem?: string;
+        arquivo?: { nome?: string };
+      };
+
+      if (!respostaConfirmar.ok || !dadosConfirmar.ok) {
+        throw new Error(
+          dadosConfirmar.erro ?? "Não foi possível confirmar a devolução recebida.",
+        );
+      }
+
+      setProgressoUpload(100);
+
+      const totalLinhasConfirmado = dadosConfirmar.totalLinhas ?? 0;
+      const alteracoes = dadosConfirmar.alteracoesOperacionais ?? 0;
+      setResumo({
+        totalLinhas: totalLinhasConfirmado,
+        aplicados: alteracoes,
+        // Esta validação é por arquivo inteiro (aceita ou rejeita tudo, sem
+        // decisão linha a linha) - não há como saber, por linha, "sem
+        // alteração" vs "aplicado" além da contagem agregada que o servidor
+        // já devolve. Diferença é reportada aqui como "sem alteração".
+        semAlteracao: Math.max(0, totalLinhasConfirmado - alteracoes),
+        erros: 0,
+        pedidosNaoEncontrados: 0,
+        pedidosDeOutraTransportadora: 0,
+        // Sem detalhe linha a linha nesta validação por arquivo - a aba
+        // "Comparativo" fica vazia para devoluções por este caminho (honesto
+        // sobre o que esta validação consegue oferecer, não inventado).
+        detalhes: [],
+        arquivoNome: dadosConfirmar.arquivo?.nome,
+      });
 
       setDevolucaoRecebidaHoje(true);
 
@@ -284,10 +351,138 @@ export function BasePanel({
   function onSubmitOriginal(formData: FormData) {
     if (!uploadOriginalAction) return;
     setOrigErro(null);
+    setOrigResumo(null);
+    setOrigProgresso(0);
+    setOrigLinhasTotal(0);
+    setOrigLinhasProcessadas(0);
+
+    const arquivo = formData.get("arquivo");
+    // Mesmo limite usado pela devolução: arquivos pequenos continuam pelo
+    // caminho já validado em produção (Server Action direta); arquivos
+    // grandes (a Base Completa pode passar de centenas de milhares de
+    // linhas) vão para o Drive em blocos e são processados em lotes por
+    // cursor, sem precisar que o admin divida o Excel manualmente.
+    const LIMITE_UPLOAD_SERVIDOR = 4 * 1024 * 1024;
+
+    if (!(arquivo instanceof File) || arquivo.size === 0) {
+      setOrigErro("Selecione um arquivo .xlsx preenchido antes de enviar.");
+      return;
+    }
+
+    if (arquivo.size <= LIMITE_UPLOAD_SERVIDOR) {
+      startOrigTransition(async () => {
+        try {
+          const result = await uploadOriginalAction(formData);
+          setOrigResumo(result);
+        } catch (err) {
+          setOrigErro(err instanceof Error ? err.message : "Não foi possível processar a base original.");
+        }
+      });
+      return;
+    }
+
     startOrigTransition(async () => {
       try {
-        const result = await uploadOriginalAction(formData);
-        setOrigResumo(result);
+        if (!arquivo.name.toLowerCase().endsWith(".xlsx")) {
+          throw new Error("O arquivo precisa estar no formato .xlsx.");
+        }
+
+        setOrigProgresso(5);
+        const respostaInicio = await fetch("/base-completa/upload-original/iniciar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nomeArquivo: arquivo.name, tamanhoBytes: arquivo.size }),
+        });
+        const dadosInicio = (await respostaInicio.json()) as {
+          uploadUrl?: string;
+          contentType?: string;
+          erro?: string;
+        };
+        if (!respostaInicio.ok || !dadosInicio.uploadUrl) {
+          throw new Error(dadosInicio.erro ?? "Não foi possível iniciar o envio ao Google Drive.");
+        }
+
+        const TAMANHO_CHUNK = 2 * 1024 * 1024;
+        let inicio = 0;
+        let fileId: string | undefined;
+
+        while (inicio < arquivo.size) {
+          const fim = Math.min(inicio + TAMANHO_CHUNK, arquivo.size);
+          const chunk = arquivo.slice(inicio, fim);
+
+          const respostaChunk = await fetch(
+            `/base-completa/upload-original/chunk?uploadUrl=${encodeURIComponent(dadosInicio.uploadUrl)}&inicio=${inicio}&fim=${fim - 1}&total=${arquivo.size}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  dadosInicio.contentType ?? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              },
+              body: chunk,
+            },
+          );
+          const dadosChunk = (await respostaChunk.json()) as {
+            ok?: boolean;
+            proximoInicio?: number;
+            erro?: string;
+            arquivo?: { id?: string };
+          };
+          if (!respostaChunk.ok || !dadosChunk.ok) {
+            throw new Error(dadosChunk.erro ?? "Falha ao enviar uma parte do arquivo.");
+          }
+          inicio = typeof dadosChunk.proximoInicio === "number" ? dadosChunk.proximoInicio : fim;
+          if (dadosChunk.arquivo?.id) fileId = dadosChunk.arquivo.id;
+          setOrigProgresso(Math.min(30, Math.round((inicio / arquivo.size) * 30)));
+        }
+
+        if (!fileId) {
+          throw new Error("O arquivo foi enviado, mas o Google Drive não confirmou o ID final. Tente novamente.");
+        }
+
+        // Processamento em lotes por cursor: cada chamada processa uma
+        // fatia do arquivo (o servidor decide o tamanho da fatia) e diz se
+        // já terminou. Sem limite de linhas artificial - o próprio admin
+        // não precisa dividir o arquivo, o sistema cuida disso sozinho.
+        let cursor = 0;
+        let concluido = false;
+        let totalLinhas = 0;
+        let inseridos = 0;
+        let atualizados = 0;
+        let erros: BaseOriginalResumo["erros"] = [];
+
+        while (!concluido) {
+          const respostaLote = await fetch("/base-completa/upload-original/processar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fileId, cursor }),
+          });
+          const dadosLote = (await respostaLote.json()) as {
+            ok?: boolean;
+            erro?: string;
+            concluido?: boolean;
+            totalLinhas?: number;
+            proximoCursor?: number;
+            inseridos?: number;
+            atualizados?: number;
+            erros?: BaseOriginalResumo["erros"];
+          };
+          if (!respostaLote.ok || !dadosLote.ok) {
+            throw new Error(dadosLote.erro ?? "Falha ao processar um lote da base original.");
+          }
+
+          totalLinhas = dadosLote.totalLinhas ?? totalLinhas;
+          inseridos += dadosLote.inseridos ?? 0;
+          atualizados += dadosLote.atualizados ?? 0;
+          erros = [...erros, ...(dadosLote.erros ?? [])];
+          cursor = dadosLote.proximoCursor ?? totalLinhas;
+          concluido = Boolean(dadosLote.concluido);
+
+          setOrigLinhasTotal(totalLinhas);
+          setOrigLinhasProcessadas(Math.min(cursor, totalLinhas));
+          setOrigProgresso(totalLinhas > 0 ? Math.min(100, 30 + Math.round((cursor / totalLinhas) * 70)) : 30);
+        }
+
+        setOrigResumo({ totalLinhas, inseridos, atualizados, erros });
       } catch (err) {
         setOrigErro(err instanceof Error ? err.message : "Não foi possível processar a base original.");
       }
@@ -349,7 +544,11 @@ export function BasePanel({
                 <form action={onSubmitOriginal}>
                   <label className="dropzone compact" htmlFor="fileOriginal">
                     <div className="drop-icon">↑</div>
-                    <strong>{origPending ? "Enviando..." : arquivoOriginalNome || "Selecionar base original"}</strong>
+                    <strong>
+                      {origPending
+                        ? `${arquivoOriginalNome || "Base original"} · ${origProgresso || 0}%`
+                        : arquivoOriginalNome || "Selecionar base original"}
+                    </strong>
                     <span>{arquivoOriginalNome ? "Arquivo selecionado" : "Mesmas colunas de origem da Base Completa"}</span>
                   </label>
                   <input
@@ -359,7 +558,12 @@ export function BasePanel({
                     accept=".xlsx"
                     required
                     disabled={origPending}
-                    onChange={(event) => setArquivoOriginalNome(event.target.files?.[0]?.name ?? "")}
+                    onChange={(event) => {
+                      setArquivoOriginalNome(event.target.files?.[0]?.name ?? "");
+                      setOrigProgresso(0);
+                      setOrigErro(null);
+                      setOrigResumo(null);
+                    }}
                   />
                   <div className="mini-actions">
                     <button className="btn-secondary" type="submit" disabled={origPending}>
@@ -471,6 +675,35 @@ export function BasePanel({
               <div
                 style={{
                   width: `${progressoUpload}%`,
+                  height: "100%",
+                  background: "#2563eb",
+                  transition: "width 250ms ease",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {origPending ? (
+        <div className="compact-alert open" role="status" aria-live="polite">
+          <div style={{ padding: "12px 16px", width: "100%" }}>
+            <div className="compact-alert-title" style={{ marginBottom: 8 }}>
+              ↑ Processando base original: {arquivoOriginalNome || "arquivo selecionado"}
+            </div>
+            <div style={{ fontSize: 13, marginBottom: 8 }}>
+              {origLinhasTotal > 0 ? (
+                <>
+                  {origLinhasProcessadas.toLocaleString("pt-BR")} de {origLinhasTotal.toLocaleString("pt-BR")} linhas concluídas · faltam {Math.max(0, origLinhasTotal - origLinhasProcessadas).toLocaleString("pt-BR")} · {origProgresso}%
+                </>
+              ) : (
+                <>Lendo e preparando o arquivo...</>
+              )}
+            </div>
+            <div style={{ height: 8, borderRadius: 999, overflow: "hidden", background: "#dbe5f1" }}>
+              <div
+                style={{
+                  width: `${origProgresso}%`,
                   height: "100%",
                   background: "#2563eb",
                   transition: "width 250ms ease",

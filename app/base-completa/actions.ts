@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -6,21 +6,21 @@ import { requireInternalAdmin } from "@/lib/auth";
 import { assertSameOrigin } from "@/lib/request-security";
 import { startOfLocalDay } from "@/lib/dates";
 import { readXlsxTable } from "@/lib/xlsx-table-reader";
-import { resolveTransportadora, type TransportadoraLookupEntry } from "@/lib/pedidos-parsing";
+import { type TransportadoraLookupEntry } from "@/lib/pedidos-parsing";
 import {
   normalizarColunasLinha,
   processarLinhaDevolucao,
   type PedidoAtualDevolucao,
   type ResultadoLinha,
 } from "@/lib/pedidos-devolucao-processar";
-import { PROTECTED_COLUMNS } from "@/lib/pedidos-devolucao-validation";
+import { prepararLinhasBaseOriginal, gravarLoteBaseOriginal } from "@/lib/base-original-processar";
 import type { DevolucaoResumo } from "@/app/portal/minha-base/actions";
 
 // ---------------------------------------------------------------------------
-// A) BASE ORIGINAL - só existe aqui (acesso interno). Não existe em nenhum
-// outro lugar do projeto: a base de origem sempre foi 100% automática via
-// Intelipost (POST /api/jobs/import-pedidos -> lib/pedidos.ts, não tocado).
-// Esta action é um caminho MANUAL adicional, exclusivo de internal_admin,
+// A) BASE ORIGINAL - sÃ³ existe aqui (acesso interno). NÃ£o existe em nenhum
+// outro lugar do projeto: a base de origem sempre foi 100% automÃ¡tica via
+// Intelipost (POST /api/jobs/import-pedidos -> lib/pedidos.ts, nÃ£o tocado).
+// Esta action Ã© um caminho MANUAL adicional, exclusivo de internal_admin,
 // para os mesmos 14 campos de origem - nunca mexe em campo operacional.
 // ---------------------------------------------------------------------------
 
@@ -31,67 +31,16 @@ export interface BaseOriginalResumo {
   erros: Array<{ linha: number; pedido: string; motivo: string }>;
 }
 
-const CANONICAL_TO_ORIGEM_FIELD: Record<string, string> = {
-  "Nome do Destinatário": "nomeDestinatario",
-  "Canal de Vendas": "canalVendas",
-  "Cidade do Destinatário": "cidadeDestinatario",
-  UF: "uf",
-  "CEP do destinatário": "cepDestinatario",
-  "Pedido de Venda": "pedidoDeVenda",
-  "Código de rastreio": "codigoRastreio",
-  "Nota Fiscal": "notaFiscal",
-  "Método de envio": "metodoEnvio",
-  "Valor da Nota": "valorNota",
-  "Peso fisico": "pesoFisico",
-  "Chave da Nota": "chaveNota",
-  "Data Criação": "dataCriacaoPedido",
-  "Data Entrega Origem": "dataEntregaOrigem",
-  "Previsão Entrega Cliente": "previsaoEntregaClienteOrigem",
-  "Data Despacho": "dataDespacho",
-  "Previsão Entrega Transportadora": "previsaoEntregaTransportadoraOrigem",
-};
-
-function textoOuNull(value: unknown): string | null {
-  const texto = String(value ?? "").trim();
-  return texto === "" ? null : texto;
-}
-
-function decimalOuNull(value: unknown): number | null {
-  if (value === null || value === undefined || String(value).trim() === "") return null;
-  const numero = Number(String(value).replace(",", "."));
-  return Number.isNaN(numero) ? null : numero;
-}
-
-function dataOuNull(value: unknown): Date | null {
-  if (value === null || value === undefined || String(value).trim() === "") return null;
-  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
-  const texto = String(value).trim();
-  const br = /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(texto);
-  if (br) {
-    const [, d, m, y, hh = "0", mm = "0", ss = "0"] = br;
-    const parsed = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss));
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(texto);
-  if (iso) {
-    const [, y, m, d, hh = "0", mm = "0", ss = "0"] = iso;
-    const parsed = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss));
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-  const parsed = new Date(texto);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
 /**
  * Upload manual da Base Original - exclusivo de internal_admin
  * (requireInternalAdmin, verificado no servidor - nunca no frontend).
- * Mesma semântica de upsert do job automático da Intelipost (atualiza
+ * Mesma semÃ¢ntica de upsert do job automÃ¡tico da Intelipost (atualiza
  * SOMENTE os 14 campos de origem; nunca toca em campo operacional
- * preenchido pela transportadora; chave única é "Pedido"), mas por
+ * preenchido pela transportadora; chave Ãºnica Ã© "Pedido"), mas por
  * arquivo em vez de payload JSON da API. lib/pedidos.ts e a rota
- * /api/jobs/import-pedidos não foram alterados nem chamados por aqui -
- * fluxo deliberadamente separado para não arriscar o caminho automático
- * já homologado.
+ * /api/jobs/import-pedidos nÃ£o foram alterados nem chamados por aqui -
+ * fluxo deliberadamente separado para nÃ£o arriscar o caminho automÃ¡tico
+ * jÃ¡ homologado.
  */
 export async function uploadBaseOriginalInterna(formData: FormData): Promise<BaseOriginalResumo> {
   await assertSameOrigin();
@@ -115,112 +64,24 @@ export async function uploadBaseOriginalInterna(formData: FormData): Promise<Bas
     aliases: t.aliases.map((a: { alias: string }) => a.alias),
   }));
 
-  const resumo: BaseOriginalResumo = { totalLinhas: rows.length, inseridos: 0, atualizados: 0, erros: [] };
-  const preparados: Array<{ linha: number; pedido: string; data: Prisma.PedidoCreateManyInput }> = [];
-  const pedidosVistos = new Set<string>();
+  const { preparados, erros: errosParsing } = prepararLinhasBaseOriginal(rows, transportadoras);
+  const { inseridos, atualizados, erros: errosGravacao } = await gravarLoteBaseOriginal(preparados);
 
-  for (let index = 0; index < rows.length; index += 1) {
-    const linha = index + 2; // linha 1 = cabeçalho
-    const normalizado = normalizarColunasLinha(rows[index]);
-    const pedidoChave = String(normalizado["Pedido"] ?? "").trim();
-
-    if (!pedidoChave) {
-      resumo.erros.push({ linha, pedido: "", motivo: "Coluna Pedido ausente ou vazia." });
-      continue;
-    }
-    if (pedidosVistos.has(pedidoChave)) {
-      resumo.erros.push({ linha, pedido: pedidoChave, motivo: "Pedido duplicado no mesmo arquivo." });
-      continue;
-    }
-    pedidosVistos.add(pedidoChave);
-
-    const nomeTransportadora = String(normalizado["Transportadora"] ?? "").trim();
-    const transportadora = nomeTransportadora ? resolveTransportadora(nomeTransportadora, transportadoras) : null;
-    if (!transportadora) {
-      resumo.erros.push({
-        linha,
-        pedido: pedidoChave,
-        motivo: `Transportadora "${nomeTransportadora}" não encontrada no cadastro (nome/código/alias).`,
-      });
-      continue;
-    }
-
-    const origemFields: Record<string, unknown> = { transportadoraId: transportadora.id, origemAtualizadoEm: new Date() };
-    for (const coluna of PROTECTED_COLUMNS) {
-      const campoPrisma = CANONICAL_TO_ORIGEM_FIELD[coluna];
-      if (!campoPrisma || !(coluna in normalizado)) continue;
-      const valor = normalizado[coluna];
-      if (coluna === "Valor da Nota" || coluna === "Peso fisico") origemFields[campoPrisma] = decimalOuNull(valor);
-      else if (["Data Criação", "Data Entrega Origem", "Previsão Entrega Cliente", "Data Despacho", "Previsão Entrega Transportadora"].includes(coluna)) {
-        const data = dataOuNull(valor);
-        if (coluna !== "Data Criação" || data !== null) origemFields[campoPrisma] = data;
-      } else origemFields[campoPrisma] = textoOuNull(valor);
-    }
-
-    const dataCriacaoPedido = origemFields.dataCriacaoPedido;
-    if (!(dataCriacaoPedido instanceof Date) || Number.isNaN(dataCriacaoPedido.getTime())) {
-      // Para existentes, a data poderá ser preservada; para novos, validamos
-      // depois de descobrir em lote quais pedidos já existem.
-      delete origemFields.dataCriacaoPedido;
-    }
-
-    preparados.push({
-      linha,
-      pedido: pedidoChave,
-      data: { pedido: pedidoChave, ...origemFields } as Prisma.PedidoCreateManyInput,
-    });
-  }
-
-  // Processamento em lotes: o usuário escolhe um único XLSX e o servidor
-  // divide internamente. Evita uma consulta + gravação sequencial por linha.
-  const TAMANHO_LOTE = 500;
-  for (let offset = 0; offset < preparados.length; offset += TAMANHO_LOTE) {
-    const lote = preparados.slice(offset, offset + TAMANHO_LOTE);
-    const existentes = await prisma.pedido.findMany({
-      where: { pedido: { in: lote.map((item) => item.pedido) } },
-      select: { pedido: true },
-    });
-    const existentesSet = new Set(existentes.map((item) => item.pedido));
-
-    const novos = lote.filter((item) => !existentesSet.has(item.pedido));
-    const novosValidos = novos.filter((item) => {
-      if (item.data.dataCriacaoPedido instanceof Date) return true;
-      resumo.erros.push({
-        linha: item.linha,
-        pedido: item.pedido,
-        motivo: 'Pedido novo exige a coluna "Data Criação" válida da Intelipost; a data do upload não é usada como substituta.',
-      });
-      return false;
-    });
-
-    if (novosValidos.length > 0) {
-      const created = await prisma.pedido.createMany({
-        data: novosValidos.map((item) => item.data),
-        skipDuplicates: true,
-      });
-      resumo.inseridos += created.count;
-    }
-
-    const updates = lote.filter((item) => existentesSet.has(item.pedido));
-    if (updates.length > 0) {
-      await prisma.$transaction(
-        updates.map((item) => {
-          const { pedido: _pedido, ...data } = item.data;
-          return prisma.pedido.update({ where: { pedido: item.pedido }, data });
-        }),
-      );
-      resumo.atualizados += updates.length;
-    }
-  }
+  const resumo: BaseOriginalResumo = {
+    totalLinhas: rows.length,
+    inseridos,
+    atualizados,
+    erros: [...errosParsing, ...errosGravacao],
+  };
 
   await prisma.automationLog.create({
     data: {
       transportadoraId: null,
       dataReport: startOfLocalDay(new Date()),
-      // tipo próprio (não "pedidos_import"): esta é uma carga MANUAL pelo
-      // admin, não o job automático da Intelipost - mantidas
-      // distinguíveis de propósito, inclusive para o indicador "Base
-      // atualizada há X horas" (que só considera tipo="pedidos_import").
+      // tipo prÃ³prio (nÃ£o "pedidos_import"): esta Ã© uma carga MANUAL pelo
+      // admin, nÃ£o o job automÃ¡tico da Intelipost - mantidas
+      // distinguÃ­veis de propÃ³sito, inclusive para o indicador "Base
+      // atualizada hÃ¡ X horas" (que sÃ³ considera tipo="pedidos_import").
       tipo: "pedidos_base_original_manual",
       status: resumo.erros.length > 0 ? "error" : "success",
       mensagem: `Base original (upload manual interno): ${resumo.totalLinhas} linha(s), ${resumo.inseridos} inserida(s), ${resumo.atualizados} atualizada(s), ${resumo.erros.length} erro(s).`,
@@ -232,13 +93,13 @@ export async function uploadBaseOriginalInterna(formData: FormData): Promise<Bas
 }
 
 // ---------------------------------------------------------------------------
-// B) DEVOLUÇÃO EM NOME DE UMA TRANSPORTADORA ESCOLHIDA (acesso interno) -
-// reaproveita o MESMO núcleo puro de app/portal/minha-base/actions.ts
-// (processarLinhaDevolucao/normalizarColunasLinha), só troca COMO a
-// transportadora é determinada: em vez de user.transportadoraId (sessão),
-// vem de um campo do formulário, validado contra o cadastro real e
+// B) DEVOLUÃ‡ÃƒO EM NOME DE UMA TRANSPORTADORA ESCOLHIDA (acesso interno) -
+// reaproveita o MESMO nÃºcleo puro de app/portal/minha-base/actions.ts
+// (processarLinhaDevolucao/normalizarColunasLinha), sÃ³ troca COMO a
+// transportadora Ã© determinada: em vez de user.transportadoraId (sessÃ£o),
+// vem de um campo do formulÃ¡rio, validado contra o cadastro real e
 // protegido por requireInternalAdmin. app/portal/minha-base/actions.ts
-// NÃO foi alterado - a transportadora continua isolada por
+// NÃƒO foi alterado - a transportadora continua isolada por
 // requireCarrierUser exatamente como antes.
 // ---------------------------------------------------------------------------
 
@@ -248,11 +109,11 @@ export async function uploadDevolucaoInterna(formData: FormData): Promise<Devolu
 
   const transportadoraId = String(formData.get("transportadoraId") ?? "").trim();
   if (!transportadoraId) {
-    throw new Error("Selecione a transportadora à qual esta devolução pertence.");
+    throw new Error("Selecione a transportadora Ã  qual esta devoluÃ§Ã£o pertence.");
   }
   const transportadoraAlvo = await prisma.transportadora.findUnique({ where: { id: transportadoraId } });
   if (!transportadoraAlvo) {
-    throw new Error("Transportadora selecionada não encontrada.");
+    throw new Error("Transportadora selecionada nÃ£o encontrada.");
   }
 
   const file = formData.get("arquivo");
@@ -323,9 +184,9 @@ export async function uploadDevolucaoInterna(formData: FormData): Promise<Devolu
     }
 
     // Mesma checagem de pertencimento da action da transportadora - aqui a
-    // transportadora "alvo" é a escolhida pelo admin no formulário, não a
-    // da sessão, mas a regra de rejeitar pedido de outra transportadora é
-    // idêntica.
+    // transportadora "alvo" Ã© a escolhida pelo admin no formulÃ¡rio, nÃ£o a
+    // da sessÃ£o, mas a regra de rejeitar pedido de outra transportadora Ã©
+    // idÃªntica.
     if (pedidoDb.transportadoraId !== transportadoraId) {
       resumo.pedidosDeOutraTransportadora += 1;
       resumo.detalhes.push(linhaVazia(linha, pedidoChave, "pedido_de_outra_transportadora"));
@@ -337,25 +198,25 @@ export async function uploadDevolucaoInterna(formData: FormData): Promise<Devolu
       pedido: pedidoDb.pedido,
       transportadoraId: pedidoDb.transportadoraId,
       protegidosAtuais: {
-        "Nome do Destinatário": pedidoDb.nomeDestinatario,
+        "Nome do DestinatÃ¡rio": pedidoDb.nomeDestinatario,
         "Canal de Vendas": pedidoDb.canalVendas,
-        "Cidade do Destinatário": pedidoDb.cidadeDestinatario,
+        "Cidade do DestinatÃ¡rio": pedidoDb.cidadeDestinatario,
         UF: pedidoDb.uf,
-        "CEP do destinatário": pedidoDb.cepDestinatario,
+        "CEP do destinatÃ¡rio": pedidoDb.cepDestinatario,
         "Pedido de Venda": pedidoDb.pedidoDeVenda,
         Pedido: pedidoDb.pedido,
-        "Código de rastreio": pedidoDb.codigoRastreio,
+        "CÃ³digo de rastreio": pedidoDb.codigoRastreio,
         "Nota Fiscal": pedidoDb.notaFiscal,
-        "Método de envio": pedidoDb.metodoEnvio,
+        "MÃ©todo de envio": pedidoDb.metodoEnvio,
         Transportadora: pedidoDb.transportadora.nome,
         "Valor da Nota": pedidoDb.valorNota,
         "Peso fisico": pedidoDb.pesoFisico,
         "Chave da Nota": pedidoDb.chaveNota,
-        "Data Criação": pedidoDb.dataCriacaoPedido,
+        "Data CriaÃ§Ã£o": pedidoDb.dataCriacaoPedido,
         "Data Entrega Origem": pedidoDb.dataEntregaOrigem,
-        "Previsão Entrega Cliente": pedidoDb.previsaoEntregaClienteOrigem,
+        "PrevisÃ£o Entrega Cliente": pedidoDb.previsaoEntregaClienteOrigem,
         "Data Despacho": pedidoDb.dataDespacho,
-        "Previsão Entrega Transportadora": pedidoDb.previsaoEntregaTransportadoraOrigem,
+        "PrevisÃ£o Entrega Transportadora": pedidoDb.previsaoEntregaTransportadoraOrigem,
       },
       dataColetaProcessamento: pedidoDb.dataColetaProcessamento,
       dataPrevisao: pedidoDb.dataPrevisao,
@@ -428,7 +289,7 @@ export async function uploadDevolucaoInterna(formData: FormData): Promise<Devolu
       dataReport: startOfLocalDay(new Date()),
       tipo: "pedidos_devolucao",
       status: resumo.erros > 0 || resumo.pedidosNaoEncontrados > 0 || resumo.pedidosDeOutraTransportadora > 0 ? "error" : "success",
-      mensagem: `Devolução de ${transportadoraAlvo.nome} (enviada por admin interno ${user.username ?? user.id}): ${resumo.totalLinhas} linha(s), ${resumo.aplicados} aplicada(s), ${resumo.semAlteracao} sem alteração, ${resumo.erros} erro(s), ${resumo.pedidosNaoEncontrados} não encontrado(s), ${resumo.pedidosDeOutraTransportadora} de outra transportadora.`,
+      mensagem: `DevoluÃ§Ã£o de ${transportadoraAlvo.nome} (enviada por admin interno ${user.username ?? user.id}): ${resumo.totalLinhas} linha(s), ${resumo.aplicados} aplicada(s), ${resumo.semAlteracao} sem alteraÃ§Ã£o, ${resumo.erros} erro(s), ${resumo.pedidosNaoEncontrados} nÃ£o encontrado(s), ${resumo.pedidosDeOutraTransportadora} de outra transportadora.`,
       payload: JSON.stringify(resumo),
     },
   });
@@ -448,3 +309,4 @@ function linhaVazia(linha: number, pedido: string, status: ResultadoLinha["statu
     updateData: {},
   };
 }
+

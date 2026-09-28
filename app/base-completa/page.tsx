@@ -1,141 +1,226 @@
-import { medirEtapa } from "@/lib/diagnostico-tempo";
-import { requireInternalUser, isInternalAdmin } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { KpiCarousel } from "@/components/pedidos/KpiCarousel";
+﻿import { medirEtapa } from "@/lib/diagnostico-tempo";
+import {
+  requireInternalUser,
+  isInternalAdmin,
+} from "@/lib/auth";
+import { listRemoteTransportadoras } from "@/lib/godeploy-db";
+import { carregarBasesDrive } from "@/lib/bases-drive";
 import { BasePanel } from "@/components/pedidos/BasePanel";
+import {
+  KpiCarousel,
+  type KpiCard,
+} from "@/components/pedidos/KpiCarousel";
 import { HelpPanel } from "@/components/pedidos/HelpPanel";
 import { PeriodoFilter } from "@/components/pedidos/PeriodoFilter";
-import { pedidoParaLinhaTabela, type PedidoParaTabela } from "@/lib/pedidos-table-row";
-import { obterResumoPreenchimentoInterno } from "@/lib/pedidos-preenchimento-interno";
-import { montarDadosKpiCarousel } from "@/lib/pedidos-kpi-carousel";
-import { uploadBaseOriginalInterna, uploadDevolucaoInterna } from "@/app/base-completa/actions";
-import { getBaseCompletaWindowWhere } from "@/lib/base-completa-window";
-import { obterExportacaoPronta, EXPORTACAO_ADMIN_CHAVE } from "@/lib/exportacoes-download";
-import { DownloadAdminZip } from "@/app/base-completa/DownloadAdminZip";
-import { DownloadAdminCsv } from "@/app/base-completa/DownloadAdminCsv";
+import {
+  uploadBaseOriginalInterna,
+  uploadDevolucaoInterna,
+} from "@/app/base-completa/actions";
 import "@/components/pedidos/minha-base.css";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
+
+function card(
+  icon: string,
+  label: string,
+  value: string,
+  hint: string,
+): KpiCard {
+  return { icon, label, value, hint };
+}
 
 export default async function BaseCompletaPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  // Único ponto de divergência de segurança: perfil interno em vez de
-  // transportadora, e nenhum transportadoraId vindo da sessão para
-  // restringir o escopo - o resto da página é literalmente a mesma
-  // estrutura de /portal/minha-base/page.tsx.
-  const user = await medirEtapa("base:autenticacao", () => requireInternalUser("/base-completa"));
+  const user = await medirEtapa(
+    "base:autenticacao",
+    () => requireInternalUser("/base-completa"),
+  );
+
   const raw = await searchParams;
-
-  // Input de bases (upload de Base Original e devolução em nome de uma
-  // transportadora escolhida) só é OFERECIDO na interface para
-  // internal_admin - internal_viewer continua com acesso de leitura,
-  // igual já era antes desta mudança. A garantia de verdade está no
-  // servidor: as duas Server Actions chamam requireInternalAdmin() por
-  // conta própria (app/base-completa/actions.ts), então mesmo que
-  // alguém forjasse a chamada por fora desta página, ela seria recusada.
   const podeGerenciarBases = isInternalAdmin(user.role);
-  const [exportacaoAdmin, exportacaoCsv] = podeGerenciarBases
-    ? await Promise.all([
-        medirEtapa("base:exportacao-zip", () => obterExportacaoPronta(EXPORTACAO_ADMIN_CHAVE)),
-        medirEtapa("base:exportacao-csv", () => obterExportacaoPronta(`${EXPORTACAO_ADMIN_CHAVE}:csv`)),
-      ])
-    : [null, null];
-  const csvDaMesmaGeracao = Boolean(exportacaoAdmin && exportacaoCsv &&
-    exportacaoCsv.storagePath.startsWith(exportacaoAdmin.storagePath.slice(0, exportacaoAdmin.storagePath.lastIndexOf("/") + 1)));
 
-  // Filtro OPCIONAL de transportadora - só existe aqui (Minha Base não
-  // precisa, a transportadora já vem da sessão). Sem seleção = todas.
-  const transportadoraIdFiltro = raw.transportadoraId?.trim() || null;
-  const janelaBaseCompleta = getBaseCompletaWindowWhere();
+  const transportadoras = await medirEtapa(
+    "base:transportadoras",
+    () => listRemoteTransportadoras(),
+  );
 
-  // Mesma estratégia de consulta/paginação de Minha Base: sem "Carregar
-  // mais", take:1000 fixo (o filtro de transportadora + a busca da
-  // PedidosTable permitem estreitar quando necessário) - nunca carrega
-  // centenas de milhares de linhas no navegador. Única diferença de
-  // dados: SEM dataEntregaOrigem:null (finalizados aparecem) e SEM
-  // transportadoraId obrigatório (só filtra se o ADM escolher uma).
-  const where = {
-    ...janelaBaseCompleta,
-    ...(transportadoraIdFiltro ? { transportadoraId: transportadoraIdFiltro } : {}),
-  };
+  const transportadoraIdFiltro =
+    raw.transportadoraId?.trim() || null;
 
-  const paginaRaw = Number(raw.pagina ?? "1");
-  const pagina = Number.isFinite(paginaRaw) && paginaRaw > 0 ? Math.floor(paginaRaw) : 1;
-  const filtroPreenchimento = raw.preenchimento === "preenchidas" ? "preenchidas" : "todas";
-  const porPagina = 1000;
+  const filtroPreenchimento =
+    raw.preenchimento === "preenchidas"
+      ? "preenchidas"
+      : "todas";
 
-  const whereAlgumPreenchido = {
-    OR: [
-      { dataColetaProcessamento: { not: null } },
-      { dataPrevisao: { not: null } },
-      { prazoEntregaDiasUteis: { not: null } },
-      { dataEntrega: { not: null } },
-      { statusAtual: { not: null } },
-      { ocorrencia: { not: null } },
-      { motivoDevolucao: { not: null } },
-      { slaStatus: { not: null } },
-      { justificativaAtraso: { not: null } },
-      { novaDataPrevisao: { not: null } },
-      { dataResolucaoDevolucao: { not: null } },
-    ],
-  };
+  const transportadorasFiltro = transportadoras.map(
+    (transportadora) => ({
+      id: transportadora.id,
+      nome: transportadora.nome,
+    }),
+  );
 
-  // Carrega dados independentes juntos. O resumo conta todos os pedidos do
-  // recorte em uma única consulta SQL, sem cache de tempo e sem amostragem.
-  const [transportadoras, dadosKpi, resumo, datasDisponiveisDb, pedidosDb] = await Promise.all([
-    medirEtapa("base:transportadoras", () => prisma.transportadora.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } })),
-    medirEtapa("base:kpis", () => montarDadosKpiCarousel(transportadoraIdFiltro, raw, janelaBaseCompleta)),
-    medirEtapa("base:resumo", () => obterResumoPreenchimentoInterno(where)),
-    medirEtapa("base:datas-disponiveis", () => prisma.pedido.findMany({
-      where: { AND: [where, { previsaoEntregaTransportadoraOrigem: { not: null } }] },
-      select: { previsaoEntregaTransportadoraOrigem: true },
-      distinct: ["previsaoEntregaTransportadoraOrigem"],
-      orderBy: { previsaoEntregaTransportadoraOrigem: "asc" },
-    })),
-    medirEtapa("base:pagina-pedidos", () => prisma.pedido.findMany({
-      where: filtroPreenchimento === "preenchidas" ? { AND: [where, whereAlgumPreenchido] } : where,
-      include: { transportadora: { select: { nome: true } } },
-      orderBy: { dataCriacaoPedido: "desc" },
-      skip: (pagina - 1) * porPagina,
-      take: porPagina,
-    })),
-  ]);
-  const { total: totalBase, preenchidos: totalPreenchidos, respondidos: totalRespondidos } = resumo;
-  const preenchimento = {
-    pending: totalBase - totalPreenchidos,
-    partial: totalPreenchidos - totalRespondidos,
-    done: totalRespondidos,
-  };
-  const totalPaginas = Math.max(1, Math.ceil((filtroPreenchimento === "preenchidas" ? totalPreenchidos : totalBase) / porPagina));
-  const datasDisponiveis = Array.from(new Set(
-    datasDisponiveisDb
-      .map((pedido) => pedido.previsaoEntregaTransportadoraOrigem)
-      .filter((data): data is Date => data instanceof Date)
-      .map((data) => `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`),
-  )).sort();
+  const base = await medirEtapa(
+    "base:drive-xlsx",
+    () =>
+      carregarBasesDrive({
+        transportadoraId: transportadoraIdFiltro,
+        somentePreenchidas:
+          filtroPreenchimento === "preenchidas",
+        limiteLinhas: 500,
+      }),
+  );
 
-  const linhas = (pedidosDb as unknown as PedidoParaTabela[]).map(pedidoParaLinhaTabela);
-
-  const montarHref = (novaPagina: number, novoFiltro: "todas" | "preenchidas") => {
+  const montarHref = (
+    novoFiltro: "todas" | "preenchidas",
+  ) => {
     const params = new URLSearchParams();
 
     if (raw.de) params.set("de", raw.de);
     if (raw.ate) params.set("ate", raw.ate);
-    if (transportadoraIdFiltro) params.set("transportadoraId", transportadoraIdFiltro);
 
-    if (novoFiltro === "preenchidas") params.set("preenchimento", "preenchidas");
-    params.set("pagina", String(novaPagina));
+    if (transportadoraIdFiltro) {
+      params.set(
+        "transportadoraId",
+        transportadoraIdFiltro,
+      );
+    }
+
+    if (novoFiltro === "preenchidas") {
+      params.set("preenchimento", "preenchidas");
+    }
 
     return `/base-completa?${params.toString()}`;
   };
 
   const downloadHref = transportadoraIdFiltro
-    ? `/base-completa/download?transportadoraId=${transportadoraIdFiltro}`
+    ? `/base-completa/download?transportadoraId=${encodeURIComponent(
+        transportadoraIdFiltro,
+      )}`
     : undefined;
+
+  const respondidos = base.partial + base.done;
+
+  const percentualRespondido =
+    base.total > 0
+      ? (respondidos / base.total) * 100
+      : 0;
+
+  const totalSla =
+    base.slaNoPrazo + base.slaAtrasado;
+
+  const percentualSla =
+    totalSla > 0
+      ? (base.slaNoPrazo / totalSla) * 100
+      : 0;
+
+  const semDado = "Sem dado disponível no XLSX atual";
+
+  const kpis = {
+    slaAjusteTransporte: card(
+      "⏱️",
+      "SLA ajuste transporte",
+      totalSla > 0
+        ? `${percentualSla.toFixed(1)}%`
+        : "—",
+      totalSla > 0
+        ? `${base.slaNoPrazo.toLocaleString("pt-BR")} no prazo`
+        : semDado,
+    ),
+    slaTransporte: card(
+      "🚚",
+      "SLA transporte",
+      totalSla > 0
+        ? `${percentualSla.toFixed(1)}%`
+        : "—",
+      totalSla > 0
+        ? `${base.slaAtrasado.toLocaleString("pt-BR")} atrasados`
+        : semDado,
+    ),
+    slaCliente: card(
+      "👤",
+      "SLA cliente",
+      "—",
+      semDado,
+    ),
+    taxaInsucesso: card(
+      "⚠️",
+      "Taxa de insucesso",
+      "—",
+      semDado,
+    ),
+    taxaDevolucao: card(
+      "↩️",
+      "Taxa de devolução",
+      "—",
+      semDado,
+    ),
+    pedidosAbertos: card(
+      "📦",
+      "Pedidos pendentes",
+      base.pending.toLocaleString("pt-BR"),
+      "Sem preenchimento nos 11 campos operacionais",
+    ),
+    tratativaCx: card(
+      "📝",
+      "Em tratativa",
+      base.partial.toLocaleString("pt-BR"),
+      "Preenchimento parcial",
+    ),
+    riscoAtraso: card(
+      "🚨",
+      "Risco de atraso",
+      "—",
+      semDado,
+    ),
+    processado: card(
+      "✅",
+      "Processado",
+      `${percentualRespondido.toFixed(1)}%`,
+      `${respondidos.toLocaleString("pt-BR")} com alguma resposta`,
+    ),
+    perdas: card(
+      "📉",
+      "Perdas",
+      "—",
+      semDado,
+    ),
+    totalPedidos: card(
+      "📊",
+      "Total de pedidos",
+      base.total.toLocaleString("pt-BR"),
+      `${base.arquivos} base(s) atual(is) do Drive`,
+    ),
+    abertoTotal: card(
+      "📂",
+      "Respondidos",
+      base.done.toLocaleString("pt-BR"),
+      "11 de 11 campos operacionais preenchidos",
+    ),
+    integridade: card(
+      "🧩",
+      "Integridade",
+      base.total > 0 ? "OK" : "—",
+      base.total > 0
+        ? "Bases atuais lidas diretamente do Drive"
+        : "Nenhuma linha encontrada",
+    ),
+    status: card(
+      "☁️",
+      "Status da base",
+      base.arquivos > 0 ? "Disponível" : "Sem base",
+      `${base.arquivos} arquivo(s) carregado(s)`,
+    ),
+  };
+
+  const atualizacaoLabel = base.ultimaAtualizacao
+    ? `Atualizada em ${new Date(
+        base.ultimaAtualizacao,
+      ).toLocaleString("pt-BR")}`
+    : "Base disponível no Google Drive";
 
   return (
     <div className="mb-html">
@@ -144,63 +229,80 @@ export default async function BaseCompletaPage({
           <div>
             <h1>Base Completa</h1>
             <p>
-              Visão interna dos pedidos dos últimos 45 dias pela Data Criação, de todas as transportadoras, incluindo finalizados. Use o filtro de
-              transportadora para restringir a uma específica.
+              Visão interna das bases das transportadoras.
+              Os arquivos atuais são mantidos no Google Drive.
             </p>
           </div>
         </div>
 
         <PeriodoFilter
           action="/base-completa"
-          de={dadosKpi.periodo.de}
-          ate={dadosKpi.periodo.ate}
-          transportadoras={transportadoras}
-          transportadoraId={transportadoraIdFiltro ?? undefined}
-                    datasDisponiveis={datasDisponiveis}
-          />
+          de={raw.de ?? ""}
+          ate={raw.ate ?? ""}
+          transportadoras={transportadorasFiltro}
+          transportadoraId={
+            transportadoraIdFiltro ?? undefined
+          }
+          datasDisponiveis={[]}
+        />
+
+        <KpiCarousel {...kpis} />
 
         <section className="grid">
-          <KpiCarousel {...dadosKpi.props} />
-
           <BasePanel
-            linhas={linhas}
-            lastBaseUpdateLabel={dadosKpi.ultimaCargaLabel}
-            hasBaseUpdate={dadosKpi.hasBaseUpdate}
-            fillPending={preenchimento.pending}
-            fillPartial={preenchimento.partial}
-            fillDone={preenchimento.done}
+            linhas={base.linhas}
+            totalRows={base.total}
+            lastBaseUpdateLabel={atualizacaoLabel}
+            hasBaseUpdate={base.total > 0}
+            initialResumo={null}
+            lastDevolucaoLabel="Consulte a base atualizada"
+            hasDevolucaoHoje={false}
+            fillPending={base.pending}
+            fillPartial={base.partial}
+            fillDone={base.done}
             serverFillFilter={filtroPreenchimento}
-            totalRows={filtroPreenchimento === "preenchidas" ? totalPreenchidos : totalBase}
-            page={pagina}
-            totalPages={totalPaginas}
-            previousHref={pagina > 1 ? montarHref(pagina - 1, filtroPreenchimento) : undefined}
-            nextHref={pagina < totalPaginas ? montarHref(pagina + 1, filtroPreenchimento) : undefined}
-            allHref={montarHref(1, "todas")}
-            filledHref={montarHref(1, "preenchidas")}
-              toolbarDateFilter={
-                <PeriodoFilter
-                  action="/base-completa"
-                  de={dadosKpi.periodo.de}
-                  ate={dadosKpi.periodo.ate}
-                  transportadoras={transportadoras}
-                  transportadoraId={transportadoraIdFiltro ?? undefined}
-                  datasDisponiveis={datasDisponiveis}
-                  hiddenFields={{
-                    preenchimento:
-                      filtroPreenchimento === "preenchidas"
-                        ? "preenchidas"
-                        : "",
-                  }}
-                  compact
-                />
-              }
-              adminDownloadControl={!transportadoraIdFiltro && podeGerenciarBases && exportacaoAdmin?.nomeArquivo.endsWith(".xlsx") ? <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-start" }}><DownloadAdminZip />{csvDaMesmaGeracao && <DownloadAdminCsv />}</div> : undefined}
-              downloadHref={downloadHref}
-            downloadLabel="Baixar Base Completa"
-            backendNote="Visão interna - últimos 45 dias pela Data Criação, todas as transportadoras, incluindo pedidos finalizados."
-            uploadAction={podeGerenciarBases ? uploadDevolucaoInterna : undefined}
-            uploadOriginalAction={podeGerenciarBases ? uploadBaseOriginalInterna : undefined}
-            transportadorasParaSelecao={podeGerenciarBases ? transportadoras : undefined}
+            allHref={montarHref("todas")}
+            filledHref={montarHref("preenchidas")}
+            toolbarDateFilter={
+              <PeriodoFilter
+                key="filtro-combinado-base-completa"
+                action="/base-completa"
+                de={raw.de ?? ""}
+                ate={raw.ate ?? ""}
+                transportadoras={transportadorasFiltro}
+                transportadoraId={
+                  transportadoraIdFiltro ?? undefined
+                }
+                datasDisponiveis={[]}
+                hiddenFields={{
+                  preenchimento:
+                    filtroPreenchimento === "preenchidas"
+                      ? "preenchidas"
+                      : "",
+                }}
+                compact
+              />
+            }
+            downloadHref={downloadHref}
+            downloadLabel="Baixar base da transportadora"
+            backendNote={`Visualização direta das bases XLSX do Google Drive. Exibindo até 500 registros na tabela; indicadores calculados sobre ${base.total.toLocaleString(
+              "pt-BR",
+            )} registros.`}
+            uploadAction={
+              podeGerenciarBases
+                ? uploadDevolucaoInterna
+                : undefined
+            }
+            uploadOriginalAction={
+              podeGerenciarBases
+                ? uploadBaseOriginalInterna
+                : undefined
+            }
+            transportadorasParaSelecao={
+              podeGerenciarBases
+                ? transportadorasFiltro
+                : undefined
+            }
           />
         </section>
       </main>
@@ -209,3 +311,5 @@ export default async function BaseCompletaPage({
     </div>
   );
 }
+
+

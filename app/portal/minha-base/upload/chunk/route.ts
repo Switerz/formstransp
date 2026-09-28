@@ -63,7 +63,34 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ ok: true, proximoInicio: total });
+    // Upload completo (não é mais 308 "continue"): a resposta do Drive já
+    // traz o recurso do arquivo final - inclui o fileId para o cliente poder
+    // chamar /upload/confirmar em seguida. Sem isso, o arquivo fica órfão no
+    // Drive e a devolução nunca é validada/promovida de verdade.
+    const arquivoFinal = (await respostaDrive.json()) as {
+      id?: string;
+      name?: string;
+      size?: string;
+      md5Checksum?: string;
+    };
+
+    if (!arquivoFinal.id) {
+      return NextResponse.json(
+        { erro: "Google Drive recebeu o arquivo, mas não retornou o ID." },
+        { status: 502 },
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      proximoInicio: total,
+      arquivo: {
+        id: arquivoFinal.id,
+        nome: arquivoFinal.name ?? null,
+        tamanhoBytes: arquivoFinal.size ?? String(total),
+        md5: arquivoFinal.md5Checksum ?? null,
+      },
+    });
   } catch (error) {
     console.error("[upload-devolucao-chunk] Falha:", error);
     return NextResponse.json(

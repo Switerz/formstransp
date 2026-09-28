@@ -1,4 +1,4 @@
-import { medirEtapa } from "@/lib/diagnostico-tempo";
+﻿import { medirEtapa } from "@/lib/diagnostico-tempo";
 import Link from "next/link";
 import {
   CalendarDays,
@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { isInternalAdmin, requireInternalUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { listRemoteTransportadoras } from "@/lib/godeploy-db";
 import { startOfLocalDay } from "@/lib/dates";
 import { BRAZILIAN_UFS } from "@/lib/ufs";
 
@@ -80,9 +80,9 @@ function riskClass(score: number) {
 }
 
 function riskLabel(score: number) {
-  if (score >= 60) return "Crítico";
-  if (score >= 30) return "Atenção";
-  return "Saudável";
+  if (score >= 60) return "CrÃ­tico";
+  if (score >= 30) return "AtenÃ§Ã£o";
+  return "SaudÃ¡vel";
 }
 
 function localHour(date: Date) {
@@ -117,15 +117,15 @@ export default async function Home({
   const rangeStart = addDays(today, -(HISTORY_DAYS - 1));
   const days = Array.from({ length: HISTORY_DAYS }, (_, index) => addDays(rangeStart, index));
 
-  const transportadoras = await medirEtapa("admin:relatorios", () => prisma.transportadora.findMany({
-    include: {
-      submissions: {
-        where: { dataReport: { gte: rangeStart, lt: tomorrow } },
-        orderBy: { dataReport: "desc" },
-        include: { previousDayMetrics: true, ufMetrics: true },
-      },
-    },
-    orderBy: { nome: "asc" },
+  const transportadorasRemotas = await medirEtapa(
+    "admin:relatorios",
+    () => listRemoteTransportadoras(),
+  );
+
+  const transportadoras = transportadorasRemotas.map((transportadora) => ({
+    ...transportadora,
+    origem: "real",
+    submissions: [],
   }));
 
   const filteredTransportadoras = transportadoras.filter((item) => {
@@ -134,172 +134,93 @@ export default async function Home({
     return matchesOrigem && matchesTransportadora;
   });
   const activeTransportadoras = filteredTransportadoras.filter((item) => item.ativo);
-  const relatoriosHoje = activeTransportadoras.filter((transportadora) =>
-    transportadora.submissions.some((submission) => submission.dataReport >= today && submission.dataReport < tomorrow),
-  ).length;
+  const relatoriosHoje = 0;
   const ativas = activeTransportadoras.length;
   const pendentes = Math.max(0, ativas - relatoriosHoje);
 
-  const carrierRows = activeTransportadoras.map((transportadora) => {
-    const submissionsByDate = new Map(transportadora.submissions.map((submission) => [dateKey(submission.dataReport), submission]));
-    const sentDays = days.filter((day) => submissionsByDate.has(dateKey(day))).length;
-    const periodMetrics = transportadora.submissions
-      .map((submission) => submission.previousDayMetrics)
-      .filter((metrics): metrics is NonNullable<typeof metrics> => Boolean(metrics));
-    const averageSla = weightedSla(periodMetrics);
-    const recentSla = weightedSla(periodMetrics.slice(0, 3));
-    const baselineSla = weightedSla(periodMetrics.slice(3));
-    const slaDelta = recentSla !== null && baselineSla !== null ? recentSla - baselineSla : null;
-    const qualityIssueRate = issueRate(periodMetrics);
-    const last = transportadora.submissions[0];
-    const todaySubmission = submissionsByDate.get(dateKey(today));
-    let consecutiveMisses = 0;
-    for (const day of [...days].reverse()) {
-      if (submissionsByDate.has(dateKey(day))) break;
-      consecutiveMisses += 1;
-    }
+  const carrierRows = activeTransportadoras.map((transportadora) => ({
+    transportadora,
+    submissionsByDate: new Map<string, {
+      dataReport: Date;
+      status: string;
+      submittedAt: Date | null;
+      observacoes: string | null;
+    }>(),
+    sentDays: 0,
+    adherence: 0,
+    averageSla: null as number | null,
+    recentSla: null as number | null,
+    baselineSla: null as number | null,
+    slaDelta: null as number | null,
+    qualityIssueRate: null as number | null,
+    last: null as null | {
+      dataReport: Date;
+      status: string;
+      submittedAt: Date | null;
+      observacoes: string | null;
+    },
+    todaySubmission: null as null | {
+      dataReport: Date;
+      status: string;
+      submittedAt: Date | null;
+      observacoes: string | null;
+    },
+    consecutiveMisses: 0,
+  }));
 
-    return {
-      transportadora,
-      submissionsByDate,
-      sentDays,
-      adherence: days.length > 0 ? (sentDays / days.length) * 100 : 0,
-      averageSla,
-      recentSla,
-      baselineSla,
-      slaDelta,
-      qualityIssueRate,
-      last,
-      todaySubmission,
-      consecutiveMisses,
-    };
-  });
+  const melhoresSla: typeof carrierRows = [];
+  const pendentesHoje = carrierRows;
+  const hasOperationalHistory = false;
 
-  const melhoresSla = [...carrierRows]
-    .filter((row) => row.averageSla !== null)
-    .sort((a, b) => (b.averageSla ?? 0) - (a.averageSla ?? 0))
-    .slice(0, 3);
-  const pendentesHoje = carrierRows.filter((row) => !row.todaySubmission);
-  const hasOperationalHistory = carrierRows.some((row) => row.sentDays > 0);
-  const riskRows = carrierRows
-    .map((row) => {
-      const factors: string[] = [];
-      let score = 0;
-      const hasHistory = row.sentDays > 0;
+  const riskRows = carrierRows.map((row) => ({
+    ...row,
+    riskScore: 0,
+    riskFactors: ["histórico em migração"],
+    hasHistory: false,
+  }));
 
-      if (!row.todaySubmission) {
-        score += 35;
-        factors.push("pendente hoje");
-      }
-      if (!hasHistory) {
-        factors.push("sem histórico no período");
-      } else if (row.adherence < 70) {
-        score += 25;
-        factors.push("baixa cobertura");
-      } else if (row.adherence < 90) {
-        score += 12;
-        factors.push("cobertura parcial");
-      }
-      if (row.averageSla === null) {
-        if (hasHistory) score += 10;
-        factors.push("sem SLA no período");
-      } else if (row.averageSla < WARNING_SLA_THRESHOLD) {
-        score += 25;
-        factors.push("SLA crítico");
-      } else if (row.averageSla < GOOD_SLA_THRESHOLD) {
-        score += 12;
-        factors.push("SLA abaixo da meta");
-      }
-      if (row.slaDelta !== null && row.slaDelta <= -3) {
-        score += 15;
-        factors.push("queda recente");
-      } else if (row.slaDelta !== null && row.slaDelta <= -1.5) {
-        score += 8;
-        factors.push("queda moderada");
-      }
-      if (row.qualityIssueRate !== null && row.qualityIssueRate >= 7) {
-        score += 15;
-        factors.push("insucesso/devolução alto");
-      } else if (row.qualityIssueRate !== null && row.qualityIssueRate >= 5) {
-        score += 8;
-        factors.push("insucesso/devolução em atenção");
-      }
+  const riskRowsToShow = pendentesOnly
+    ? riskRows.filter((row) => !row.todaySubmission)
+    : riskRows;
 
-      return {
-        ...row,
-        riskScore: Math.min(100, score),
-        riskFactors: factors.length ? factors : ["sem alerta relevante"],
-        hasHistory,
-      };
-    })
-    .sort((a, b) => {
-      if (b.riskScore !== a.riskScore) return b.riskScore - a.riskScore;
-      if (b.consecutiveMisses !== a.consecutiveMisses) return b.consecutiveMisses - a.consecutiveMisses;
-      return a.transportadora.nome.localeCompare(b.transportadora.nome);
-    });
-  const riskRowsToShow = pendentesOnly ? riskRows.filter((row) => !row.todaySubmission) : riskRows;
   const riskSummary = {
-    critical: riskRows.filter((row) => row.hasHistory && riskClass(row.riskScore) === "critical").length,
-    warning: riskRows.filter((row) => row.hasHistory && riskClass(row.riskScore) === "warning").length,
-    ok: riskRows.filter((row) => row.hasHistory && riskClass(row.riskScore) === "ok").length,
-    semDado: riskRows.filter((row) => !row.hasHistory).length,
+    critical: 0,
+    warning: 0,
+    ok: 0,
+    semDado: riskRows.length,
   };
-  const dailyTrend = days.map((day) => {
-    const sentSubmissions = activeTransportadoras
-      .map((transportadora) => transportadora.submissions.find((submission) => dateKey(submission.dataReport) === dateKey(day)))
-      .filter((submission): submission is NonNullable<typeof submission> => Boolean(submission));
-    const metrics = sentSubmissions
-      .map((submission) => submission.previousDayMetrics)
-      .filter((metric): metric is NonNullable<typeof metric> => Boolean(metric));
-    const sent = sentSubmissions.length;
-    const pending = Math.max(0, activeTransportadoras.length - sent);
 
-    return {
-      day,
-      sent,
-      pending,
-      sentRate: activeTransportadoras.length ? (sent / activeTransportadoras.length) * 100 : 0,
-      sla: weightedSla(metrics),
-    };
-  });
-  const deteriorationRows = carrierRows
-    .filter((row) => row.slaDelta !== null && row.slaDelta < 0)
-    .sort((a, b) => (a.slaDelta ?? 0) - (b.slaDelta ?? 0))
-    .slice(0, 5);
-  const heatmapRows = carrierRows.map((row) => {
-    const ufValues = BRAZILIAN_UFS.map((uf) => {
-      const ufMetrics = row.transportadora.submissions.flatMap((submission) =>
-        submission.ufMetrics.filter((metric) => metric.uf === uf),
-      );
-      const dentroDoPrazo = ufMetrics.reduce((sum, metric) => sum + metric.dentroDoPrazo, 0);
-      const foraDoPrazo = ufMetrics.reduce((sum, metric) => sum + metric.foraDoPrazo, 0);
-      return {
-        uf,
-        sla: slaPercent(dentroDoPrazo, foraDoPrazo),
-        total: dentroDoPrazo + foraDoPrazo,
-      };
-    });
+  const dailyTrend = days.map((day) => ({
+    day,
+    sent: 0,
+    pending: activeTransportadoras.length,
+    sentRate: 0,
+    sla: null as number | null,
+  }));
 
-    return { ...row, ufValues };
-  });
-  const allSubmissions = activeTransportadoras.flatMap((transportadora) => transportadora.submissions);
-  const submittedReports = allSubmissions.filter((submission) => submission.status !== "draft");
-  const lateSubmissions = submittedReports.filter((submission) => submission.submittedAt && localHour(submission.submittedAt) >= 11);
-  const draftReports = allSubmissions.filter((submission) => submission.status === "draft");
-  const reportsWithNotes = allSubmissions.filter((submission) => Boolean(submission.observacoes?.trim()));
+  const deteriorationRows: typeof carrierRows = [];
+
+  const heatmapRows = carrierRows.map((row) => ({
+    ...row,
+    ufValues: BRAZILIAN_UFS.map((uf) => ({
+      uf,
+      sla: null as number | null,
+      total: 0,
+    })),
+  }));
+
   const qualityStats = {
-    lateSubmissions: lateSubmissions.length,
-    draftReports: draftReports.length,
-    reportsWithNotes: reportsWithNotes.length,
+    lateSubmissions: 0,
+    draftReports: 0,
+    reportsWithNotes: 0,
     pendingToday: pendentesHoje.length,
   };
-
   return (
     <main className="shell admin-dashboard">
       <div className="page-title">
         <div>
           <h1>Admin operacional</h1>
-          <p className="muted">Acompanhe os preenchimentos diários e acesse os relatórios das transportadoras.</p>
+          <p className="muted">Acompanhe os preenchimentos diÃ¡rios e acesse os relatÃ³rios das transportadoras.</p>
         </div>
         <div className="actions">
           {canManage ? (
@@ -343,11 +264,11 @@ export default async function Home({
           <div className="metric-value">{ativas}</div>
         </div>
         <div className="card metric-card green">
-          <div className="metric-label">Relatórios enviados hoje</div>
+          <div className="metric-label">RelatÃ³rios enviados hoje</div>
           <div className="metric-value">{relatoriosHoje}</div>
         </div>
         <div className="card metric-card orange">
-          <div className="metric-label">Relatórios pendentes hoje</div>
+          <div className="metric-label">RelatÃ³rios pendentes hoje</div>
           <div className="metric-value">{pendentes}</div>
         </div>
       </section>
@@ -355,8 +276,8 @@ export default async function Home({
       <section className="card control-panel" style={{ marginTop: 18 }}>
         <div className="panel-heading">
           <div>
-            <h2 className="section-title">Melhor SLA no período</h2>
-            <p className="muted">Média ponderada dos relatórios enviados nos últimos {HISTORY_DAYS} dias.</p>
+            <h2 className="section-title">Melhor SLA no perÃ­odo</h2>
+            <p className="muted">MÃ©dia ponderada dos relatÃ³rios enviados nos Ãºltimos {HISTORY_DAYS} dias.</p>
           </div>
         </div>
 
@@ -375,7 +296,7 @@ export default async function Home({
           ) : (
             <div className="status-ok neutral">
               <CheckCircle2 size={20} />
-              <span>Aguardando os primeiros envios para comparar SLA no período.</span>
+              <span>Aguardando os primeiros envios para comparar SLA no perÃ­odo.</span>
             </div>
           )}
         </div>
@@ -386,13 +307,13 @@ export default async function Home({
           <div>
             <h2 className="section-title">Risco operacional</h2>
             <p className="muted">
-              Priorização por transportadora combinando pendência de envio, cobertura, SLA, queda recente e incidências.
+              PriorizaÃ§Ã£o por transportadora combinando pendÃªncia de envio, cobertura, SLA, queda recente e incidÃªncias.
             </p>
           </div>
           <div className="risk-summary" aria-label="Resumo de risco operacional">
-            <span className="health-pill critical">{riskSummary.critical} crítico</span>
-            <span className="health-pill warning">{riskSummary.warning} atenção</span>
-            <span className="health-pill ok">{riskSummary.ok} saudável</span>
+            <span className="health-pill critical">{riskSummary.critical} crÃ­tico</span>
+            <span className="health-pill warning">{riskSummary.warning} atenÃ§Ã£o</span>
+            <span className="health-pill ok">{riskSummary.ok} saudÃ¡vel</span>
             {riskSummary.semDado ? <span className="health-pill neutral">{riskSummary.semDado} sem dado</span> : null}
           </div>
         </div>
@@ -403,7 +324,7 @@ export default async function Home({
             href={`/?origem=${origemFilter}${transportadoraFilter ? `&transportadoraId=${transportadoraFilter}` : ""}${pendentesOnly ? "" : "&pendentes=1"}`}
             style={{ marginTop: 12 }}
           >
-            {pendentesOnly ? "Ver todas" : `Ver só pendentes (${pendentesHoje.length})`}
+            {pendentesOnly ? "Ver todas" : `Ver sÃ³ pendentes (${pendentesHoje.length})`}
           </Link>
         ) : null}
 
@@ -412,7 +333,7 @@ export default async function Home({
             title={pendentesOnly ? "Nenhuma transportadora pendente" : "Sem transportadoras para calcular risco"}
             description={
               pendentesOnly
-                ? "Todos os relatórios esperados para hoje foram recebidos."
+                ? "Todos os relatÃ³rios esperados para hoje foram recebidos."
                 : "Ajuste os filtros ou cadastre transportadoras ativas para ver a matriz de risco operacional."
             }
             action={{ href: "/", label: "Ver base real" }}
@@ -426,10 +347,10 @@ export default async function Home({
                   <th>Risco</th>
                   <th>Fatores</th>
                   <th>Cobertura</th>
-                  <th>SLA médio</th>
+                  <th>SLA mÃ©dio</th>
                   <th>Queda recente</th>
-                  <th>Insucesso + devolução</th>
-                  <th>Ações</th>
+                  <th>Insucesso + devoluÃ§Ã£o</th>
+                  <th>AÃ§Ãµes</th>
                 </tr>
               </thead>
               <tbody>
@@ -467,14 +388,14 @@ export default async function Home({
                     <td>
                       <div className="actions">
                         <Link className="btn secondary compact" href={`/transportadoras/${row.transportadora.id}`}>
-                          <ClipboardList size={16} /> Diagnóstico
+                          <ClipboardList size={16} /> DiagnÃ³stico
                         </Link>
                         <Link className="btn secondary compact" href={`/historico/${row.transportadora.id}`}>
-                          <History size={16} /> Histórico
+                          <History size={16} /> HistÃ³rico
                         </Link>
                         {row.last ? (
                           <Link className="btn secondary compact" href={`/reports/${row.transportadora.id}/${dateKey(row.last.dataReport)}`}>
-                            <FileBarChart size={16} /> Relatório
+                            <FileBarChart size={16} /> RelatÃ³rio
                           </Link>
                         ) : null}
                       </div>
@@ -489,16 +410,16 @@ export default async function Home({
 
       <details className="analysis-disclosure" open={hasOperationalHistory}>
         <summary>
-          <span>Análises detalhadas</span>
-          <strong>{hasOperationalHistory ? "Tendência, UF, qualidade e calendário" : "Abrir dados de acompanhamento"}</strong>
+          <span>AnÃ¡lises detalhadas</span>
+          <strong>{hasOperationalHistory ? "TendÃªncia, UF, qualidade e calendÃ¡rio" : "Abrir dados de acompanhamento"}</strong>
         </summary>
 
       <section className="analytics-grid">
         <div className="card trend-panel">
           <div className="panel-heading">
             <div>
-              <h2 className="section-title">Tendência diária cross-transportadora</h2>
-              <p className="muted">Evolução de recebimento e SLA médio ponderado por dia no recorte atual.</p>
+              <h2 className="section-title">TendÃªncia diÃ¡ria cross-transportadora</h2>
+              <p className="muted">EvoluÃ§Ã£o de recebimento e SLA mÃ©dio ponderado por dia no recorte atual.</p>
             </div>
           </div>
           <div className="trend-list">
@@ -524,8 +445,8 @@ export default async function Home({
         <div className="card deterioration-panel">
           <div className="panel-heading">
             <div>
-              <h2 className="section-title">Ranking de deterioração</h2>
-              <p className="muted">Transportadoras com maior queda do SLA recente frente ao restante do período.</p>
+              <h2 className="section-title">Ranking de deterioraÃ§Ã£o</h2>
+              <p className="muted">Transportadoras com maior queda do SLA recente frente ao restante do perÃ­odo.</p>
             </div>
           </div>
           {deteriorationRows.length ? (
@@ -536,7 +457,7 @@ export default async function Home({
                   <div>
                     <strong>{row.transportadora.nome}</strong>
                     <span>
-                      Recente {row.recentSla?.toFixed(1)}% · Base {row.baselineSla?.toFixed(1)}%
+                      Recente {row.recentSla?.toFixed(1)}% Â· Base {row.baselineSla?.toFixed(1)}%
                     </span>
                   </div>
                   <span className="health-pill critical">{row.slaDelta?.toFixed(1)} p.p.</span>
@@ -557,7 +478,7 @@ export default async function Home({
           <div className="panel-heading">
             <div>
               <h2 className="section-title">Heatmap UF x transportadora</h2>
-              <p className="muted">SLA médio por UF para separar problema de rota/região de problema geral da transportadora.</p>
+              <p className="muted">SLA mÃ©dio por UF para separar problema de rota/regiÃ£o de problema geral da transportadora.</p>
             </div>
           </div>
           <div className="table-wrap" style={{ marginTop: 14 }}>
@@ -600,24 +521,24 @@ export default async function Home({
           </div>
           <div className="quality-grid">
             <div>
-              <span>Envios após 11h</span>
+              <span>Envios apÃ³s 11h</span>
               <strong>{qualityStats.lateSubmissions}</strong>
             </div>
             <div>
-              <span>Rascunhos no período</span>
+              <span>Rascunhos no perÃ­odo</span>
               <strong>{qualityStats.draftReports}</strong>
             </div>
             <div>
-              <span>Relatórios com observação</span>
+              <span>RelatÃ³rios com observaÃ§Ã£o</span>
               <strong>{qualityStats.reportsWithNotes}</strong>
             </div>
             <div>
-              <span>Pendências hoje</span>
+              <span>PendÃªncias hoje</span>
               <strong>{qualityStats.pendingToday}</strong>
             </div>
           </div>
           <p className="metric-note">
-            Inconsistências bloqueadas no formulário ainda não são persistidas; quando houver log dedicado, entram aqui como métrica de qualidade.
+            InconsistÃªncias bloqueadas no formulÃ¡rio ainda nÃ£o sÃ£o persistidas; quando houver log dedicado, entram aqui como mÃ©trica de qualidade.
           </p>
         </div>
       </section>
@@ -625,8 +546,8 @@ export default async function Home({
       <section className="card calendar-panel">
         <div className="panel-heading">
           <div>
-            <h2 className="section-title">Calendário de recebimento</h2>
-            <p className="muted">Visão entre transportadoras dos relatórios enviados e ausentes nos últimos {HISTORY_DAYS} dias.</p>
+            <h2 className="section-title">CalendÃ¡rio de recebimento</h2>
+            <p className="muted">VisÃ£o entre transportadoras dos relatÃ³rios enviados e ausentes nos Ãºltimos {HISTORY_DAYS} dias.</p>
           </div>
           <CalendarDays size={22} aria-hidden="true" />
         </div>
@@ -661,7 +582,7 @@ export default async function Home({
                     </td>
                     {days.map((day) => {
                       const submission = row.submissionsByDate.get(dateKey(day));
-                      const statusLabel = submission ? "Recebido" : "Não enviado";
+                      const statusLabel = submission ? "Recebido" : "NÃ£o enviado";
                       return (
                         <td key={dateKey(day)} className="calendar-cell">
                           <span className={`calendar-dot ${submission ? "ok" : "missing"}`} title={statusLabel}>
@@ -686,3 +607,7 @@ export default async function Home({
     </main>
   );
 }
+
+
+
+
