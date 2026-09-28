@@ -1,23 +1,23 @@
-# ============================================================
+﻿# ============================================================
 # FORMS TRANSP - SUBIR BASE D-1
-# NÃO consulta a Intelipost. Usa arquivo local já coletado.
+# NÃƒO consulta a Intelipost. Usa arquivo local jÃ¡ coletado.
 # ============================================================
 # ============================================================
 # FORMS TRANSP
-# Coleta via RELATÓRIO COMPLETO da Intelipost
+# Coleta via RELATÃ“RIO COMPLETO da Intelipost
 #
 # Objetivo:
 # - evitar milhares de chamadas paginadas no GraphQL de pedidos;
-# - solicitar o relatório XLSX nativo da Intelipost;
+# - solicitar o relatÃ³rio XLSX nativo da Intelipost;
 # - baixar o arquivo quando ficar pronto;
 # - mapear somente as colunas do layout oficial do Forms Transp;
-# - manter as duas abas DE/PARA da "Base Padrão.xlsx";
+# - manter as duas abas DE/PARA da "Base PadrÃ£o.xlsx";
 # - deixar os campos operacionais em branco;
 # - proteger no Excel os campos de origem e as abas DE/PARA.
 #
 # MODO DE TESTE:
 # - 1 dia (D-1)
-# - máximo 50 registros no arquivo final
+# - mÃ¡ximo 50 registros no arquivo final
 #
 # Quando validarmos:
 #   MODO_TESTE = False
@@ -25,11 +25,11 @@
 # ============================================================
 
 from __future__ import annotations
+import re
 
 import gc
 import io
 import os
-import re
 import time
 import unicodedata
 from copy import copy
@@ -44,7 +44,7 @@ from openpyxl.styles import Protection
 
 
 # ============================================================
-# CONFIGURAÇÕES
+# CONFIGURAÃ‡Ã•ES
 # ============================================================
 
 load_dotenv(Path(__file__).resolve().parents[3] / ".env")
@@ -97,19 +97,19 @@ PASTA = Path(__file__).resolve().parent
 ARQUIVO_MODELO = Path(
     os.getenv(
         "FORMS_TRANSP_TEMPLATE",
-        str(PASTA / "Base Padrão.xlsx"),
+        str(PASTA / "Base PadrÃ£o.xlsx"),
     )
 )
 
 ARQUIVO_OPERACIONAL = PASTA / "pedidos_forms_transp.xlsx"
 ARQUIVO_COMPLETO = PASTA / "pedidos_forms_transp_todos.xlsx"
 
-# Durante a validação, mantém a carga pequena.
+# Durante a validaÃ§Ã£o, mantÃ©m a carga pequena.
 MODO_TESTE = False
 DIAS_BASE_TESTE = 1
 MAX_REGISTROS_TESTE = 500
 
-# Quando MODO_TESTE = False, esta será a janela.
+# Quando MODO_TESTE = False, esta serÃ¡ a janela.
 DIAS_BASE_COMPLETA = 45
 
 # Performance para carga grande
@@ -118,15 +118,15 @@ TAMANHO_LOTE_BACKEND = int(os.getenv("TAMANHO_LOTE_BACKEND", "500"))
 TIMEOUT_BACKEND_SEGUNDOS = int(os.getenv("TIMEOUT_BACKEND_SEGUNDOS", "300"))
 MAX_TENTATIVAS_BACKEND = int(os.getenv("MAX_TENTATIVAS_BACKEND", "8"))
 
-# Polling do relatório assíncrono.
+# Polling do relatÃ³rio assÃ­ncrono.
 INTERVALO_POLL_SEGUNDOS = 10
 TIMEOUT_RELATORIO_SEGUNDOS = 60 * 30
 
 # ------------------------------------------------------------
-# Envio para o backend Forms Transp (Fase 2 - upsert já homologado)
+# Envio para o backend Forms Transp (Fase 2 - upsert jÃ¡ homologado)
 # ------------------------------------------------------------
-# Desliga sem tocar no resto do script, se precisar rodar só a
-# geração local dos XLSX de novo.
+# Desliga sem tocar no resto do script, se precisar rodar sÃ³ a
+# geraÃ§Ã£o local dos XLSX de novo.
 ENVIAR_PARA_BACKEND = os.getenv("FORMS_TRANSP_ENVIAR_BACKEND", "0").strip().lower() in {"1", "true", "sim", "yes"}
 
 FORMS_TRANSP_API_URL = os.getenv("FORMS_TRANSP_API_URL")
@@ -134,18 +134,18 @@ PEDIDOS_IMPORT_SECRET = os.getenv("PEDIDOS_IMPORT_SECRET")
 
 if ENVIAR_PARA_BACKEND and not FORMS_TRANSP_API_URL:
     raise RuntimeError(
-        "ENVIAR_PARA_BACKEND=True mas FORMS_TRANSP_API_URL não está "
+        "ENVIAR_PARA_BACKEND=True mas FORMS_TRANSP_API_URL nÃ£o estÃ¡ "
         "definido no .env. Ex.: FORMS_TRANSP_API_URL=https://formstransp.vercel.app/api/jobs/import-pedidos"
     )
 
 if ENVIAR_PARA_BACKEND and not PEDIDOS_IMPORT_SECRET:
     raise RuntimeError(
-        "ENVIAR_PARA_BACKEND=True mas PEDIDOS_IMPORT_SECRET não está "
+        "ENVIAR_PARA_BACKEND=True mas PEDIDOS_IMPORT_SECRET nÃ£o estÃ¡ "
         "definido no .env (precisa ser o mesmo valor configurado no backend)."
     )
 
-# Senha de proteção do XLSX.
-# É apenas uma barreira preventiva; segurança real deve ficar no backend.
+# Senha de proteÃ§Ã£o do XLSX.
+# Ã‰ apenas uma barreira preventiva; seguranÃ§a real deve ficar no backend.
 SENHA_PROTECAO_XLSX = os.getenv(
     "FORMS_TRANSP_XLSX_PASSWORD",
     "forms-transp"
@@ -157,52 +157,52 @@ SENHA_PROTECAO_XLSX = os.getenv(
 # ============================================================
 
 COLUNAS_BASE = [
-    "Nome do Destinatário",
+    "Nome do DestinatÃ¡rio",
     "Canal de Vendas",
-    "Cidade do Destinatário",
+    "Cidade do DestinatÃ¡rio",
     "UF",
-    "CEP do destinatário",
+    "CEP do destinatÃ¡rio",
     "Pedido de Venda",
     "Pedido",
-    "Código de rastreio",
+    "CÃ³digo de rastreio",
     "Nota Fiscal",
-    "Método de envio",
+    "MÃ©todo de envio",
     "Transportadora",
     "Valor da Nota",
     "Peso fisico",
     "Chave da Nota",
     "DATA COLETA/PROCESSAMENTO",
-    "DATA DE PREVISÃO",
-    "PRAZO DE ENTREGA (DIAS ÚTEIS)",
+    "DATA DE PREVISÃƒO",
+    "PRAZO DE ENTREGA (DIAS ÃšTEIS)",
     "DATA DE ENTREGA",
     "STATUS ATUAL",
-    "OCORRÊNCIA",
-    "MOTIVO DEVOLUÇÃO",
+    "OCORRÃŠNCIA",
+    "MOTIVO DEVOLUÃ‡ÃƒO",
     "SLA (NO PRAZO/ATRASADO)",
     "JUSTIFICATIVA DE ATRASO",
-    "NOVA DATA DE PREVISÃO (SE ATRASADO)",
-    "DATA EM QUE O PEDIDO FOI RESOLVIDO PARA DEVOLUÇÃO",
+    "NOVA DATA DE PREVISÃƒO (SE ATRASADO)",
+    "DATA EM QUE O PEDIDO FOI RESOLVIDO PARA DEVOLUÃ‡ÃƒO",
 ]
 
-# Da primeira coluna até Chave da Nota = origem / bloqueado.
+# Da primeira coluna atÃ© Chave da Nota = origem / bloqueado.
 QTDE_COLUNAS_ORIGEM = 14
 
-# O restante é operacional e deve iniciar vazio.
+# O restante Ã© operacional e deve iniciar vazio.
 COLUNAS_OPERACIONAIS = COLUNAS_BASE[QTDE_COLUNAS_ORIGEM:]
 
 
 # ============================================================
-# MAPEAMENTO DO RELATÓRIO INTELIPOST
+# MAPEAMENTO DO RELATÃ“RIO INTELIPOST
 #
-# Colocamos aliases porque o nome exato pode variar entre versões
+# Colocamos aliases porque o nome exato pode variar entre versÃµes
 # do export. O script procura o primeiro nome existente.
 # ============================================================
 
 ALIASES = {
-    "Nome do Destinatário": [
-        "Nome do Destinatário",
-        "Destinatário",
-        "Nome Destinatário",
+    "Nome do DestinatÃ¡rio": [
+        "Nome do DestinatÃ¡rio",
+        "DestinatÃ¡rio",
+        "Nome DestinatÃ¡rio",
         "Nome do Cliente",
         "Cliente",
     ],
@@ -212,8 +212,8 @@ ALIASES = {
         "Sales Channel",
         "Canal",
     ],
-    "Cidade do Destinatário": [
-        "Cidade do Destinatário",
+    "Cidade do DestinatÃ¡rio": [
+        "Cidade do DestinatÃ¡rio",
         "Cidade Destino",
         "Cidade de Destino",
         "Cidade Cliente",
@@ -224,9 +224,9 @@ ALIASES = {
         "UF de Destino",
         "Estado Destino",
     ],
-    "CEP do destinatário": [
-        "CEP do destinatário",
-        "CEP Destinatário",
+    "CEP do destinatÃ¡rio": [
+        "CEP do destinatÃ¡rio",
+        "CEP DestinatÃ¡rio",
         "CEP Destino",
         "CEP de Destino",
         "CEP",
@@ -240,29 +240,29 @@ ALIASES = {
     ],
     "Pedido": [
         "Pedido",
-        "Número do Pedido",
+        "NÃºmero do Pedido",
         "Numero do Pedido",
         "Order Number",
     ],
-    "Código de rastreio": [
-        "Código de rastreio",
-        "Código de Rastreio",
+    "CÃ³digo de rastreio": [
+        "CÃ³digo de rastreio",
+        "CÃ³digo de Rastreio",
         "Codigo de Rastreio",
         "Tracking Code",
         "Rastreio",
     ],
     "Nota Fiscal": [
         "Nota Fiscal",
-        "Número Nota Fiscal",
+        "NÃºmero Nota Fiscal",
         "Numero Nota Fiscal",
         "NF",
         "Invoice Number",
     ],
-    "Método de envio": [
-        "Método de envio",
-        "Método de Envio",
+    "MÃ©todo de envio": [
+        "MÃ©todo de envio",
+        "MÃ©todo de Envio",
         "Metodo de Envio",
-        "Método Entrega",
+        "MÃ©todo Entrega",
         "Delivery Method",
     ],
     "Transportadora": [
@@ -280,8 +280,8 @@ ALIASES = {
     ],
     "Peso fisico": [
         "Peso fisico",
-        "Peso físico",
-        "Peso Físico",
+        "Peso fÃ­sico",
+        "Peso FÃ­sico",
         "Peso",
         "Peso Real",
         "Weight",
@@ -298,7 +298,7 @@ ALIASES = {
 }
 
 # Campos auxiliares SOMENTE para decidir se um pedido deve
-# sair da visão operacional da transportadora.
+# sair da visÃ£o operacional da transportadora.
 ALIASES_DATA_ENTREGA = [
     "Data de Entrega",
     "Data Entrega",
@@ -307,12 +307,12 @@ ALIASES_DATA_ENTREGA = [
 ]
 
 # Campo auxiliar exigido pelo payload do backend (data_criacao), mas que
-# não faz parte das 14 colunas de origem do layout Forms Transp em si -
+# nÃ£o faz parte das 14 colunas de origem do layout Forms Transp em si -
 # por isso fica fora de ALIASES/COLUNAS_BASE, do mesmo jeito que
-# ALIASES_DATA_ENTREGA já era tratado.
+# ALIASES_DATA_ENTREGA jÃ¡ era tratado.
 ALIASES_DATA_CRIACAO = [
-    "Data Criação",
-    "Data de Criação",
+    "Data CriaÃ§Ã£o",
+    "Data de CriaÃ§Ã£o",
     "Data Criacao",
     "Data de Criacao",
     "Data do Pedido",
@@ -442,7 +442,7 @@ def login(usuario: str, senha: str, nome_conta: str) -> str:
 
     if not token:
         raise RuntimeError(
-            "A Intelipost não retornou access_token."
+            "A Intelipost nÃ£o retornou access_token."
         )
 
     log(f"[{nome_conta}] Login realizado com sucesso.")
@@ -454,7 +454,7 @@ def login(usuario: str, senha: str, nome_conta: str) -> str:
 # ============================================================
 
 def janela_execucao() -> tuple[date, date]:
-    # Usa D-1 porque esse endpoint de relatório já era usado assim
+    # Usa D-1 porque esse endpoint de relatÃ³rio jÃ¡ era usado assim
     # no processo existente.
     fim = date.today() - timedelta(days=1)
 
@@ -477,7 +477,7 @@ def nome_relatorio(inicio: date, fim: date) -> str:
 
 
 # ============================================================
-# RELATÓRIO INTELIPOST
+# RELATÃ“RIO INTELIPOST
 # ============================================================
 
 def solicitar_relatorio(
@@ -497,8 +497,8 @@ def solicitar_relatorio(
             "start_date": inicio.isoformat(),
             "end_date": fim.isoformat(),
 
-            # Estes valores são os usados pelo código de produção
-            # que já baixa a tabela completa da Intelipost.
+            # Estes valores sÃ£o os usados pelo cÃ³digo de produÃ§Ã£o
+            # que jÃ¡ baixa a tabela completa da Intelipost.
             "rows_per_page": 20,
             "requested_page": 1,
             "shipment_table_state": None,
@@ -517,7 +517,7 @@ def solicitar_relatorio(
     }
 
     log(
-        f"Solicitando relatório Intelipost "
+        f"Solicitando relatÃ³rio Intelipost "
         f"de {inicio:%d/%m/%Y} a {fim:%d/%m/%Y}..."
     )
 
@@ -530,12 +530,12 @@ def solicitar_relatorio(
 
     if resposta.status_code == 401:
         raise RuntimeError(
-            "Token expirado/inválido ao solicitar relatório."
+            "Token expirado/invÃ¡lido ao solicitar relatÃ³rio."
         )
 
     resposta.raise_for_status()
 
-    log("Relatório solicitado. Aguardando processamento...")
+    log("RelatÃ³rio solicitado. Aguardando processamento...")
 
 
 def listar_downloads(token: str) -> list[dict]:
@@ -589,20 +589,20 @@ def aguardar_relatorio(
             and arquivo.get("url")
         ):
             log(
-                f"Relatório pronto após "
+                f"RelatÃ³rio pronto apÃ³s "
                 f"{tentativas} consulta(s) de status."
             )
             return arquivo["url"]
 
         log(
-            f"Relatório ainda processando "
+            f"RelatÃ³rio ainda processando "
             f"(consulta {tentativas})."
         )
 
         time.sleep(INTERVALO_POLL_SEGUNDOS)
 
     raise TimeoutError(
-        f"O relatório {esperado} não ficou pronto "
+        f"O relatÃ³rio {esperado} nÃ£o ficou pronto "
         f"dentro do tempo limite."
     )
 
@@ -618,7 +618,7 @@ def baixar_relatorio(url: str) -> bytes:
     resposta.raise_for_status()
 
     log(
-        f"Download concluído: "
+        f"Download concluÃ­do: "
         f"{len(resposta.content):,} bytes."
     )
 
@@ -626,7 +626,7 @@ def baixar_relatorio(url: str) -> bytes:
 
 
 # ============================================================
-# LEITURA / NORMALIZAÇÃO
+# LEITURA / NORMALIZAÃ‡ÃƒO
 # ============================================================
 
 def normalizar_texto(valor) -> str:
@@ -647,23 +647,23 @@ def normalizar_texto(valor) -> str:
 
 
 def normalizar_chave_nota(valor) -> str:
-    """Preserva NF-e como texto e impede publicação de chave já corrompida."""
+    """Preserva NF-e como texto e impede publicaÃ§Ã£o de chave jÃ¡ corrompida."""
     texto = normalizar_texto(valor)
     if not texto or texto.lower() in {"nan", "none"}:
         return ""
     texto = texto.strip().replace(" ", "")
-    # Uma chave NF-e válida possui 44 dígitos. Não tentamos reconstruir
-    # notação científica: nesse ponto os dígitos podem já ter sido perdidos.
+    # Uma chave NF-e vÃ¡lida possui 44 dÃ­gitos. NÃ£o tentamos reconstruir
+    # notaÃ§Ã£o cientÃ­fica: nesse ponto os dÃ­gitos podem jÃ¡ ter sido perdidos.
     if "e+" in texto.lower() or "e-" in texto.lower():
         raise ValueError(
-            f"Chave da Nota chegou em notação científica e perdeu precisão: {texto}. "
-            "A publicação foi interrompida para não gravar uma chave incorreta."
+            f"Chave da Nota chegou em notaÃ§Ã£o cientÃ­fica e perdeu precisÃ£o: {texto}. "
+            "A publicaÃ§Ã£o foi interrompida para nÃ£o gravar uma chave incorreta."
         )
     # Remove o .0 criado por leitores de planilha apenas quando for inteiro.
     if re.fullmatch(r"\d+\.0", texto):
         texto = texto[:-2]
     if texto and (not texto.isdigit() or len(texto) != 44):
-        raise ValueError(f"Chave da Nota inválida (esperados 44 dígitos): {texto}")
+        raise ValueError(f"Chave da Nota invÃ¡lida (esperados 44 dÃ­gitos): {texto}")
     return texto
 
 
@@ -671,9 +671,9 @@ def normalizar_transportadora_saida(valor) -> str:
     texto = normalizar_texto(valor)
     chave = (unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode("ascii").lower())
     if "dialog" in chave:
-        return "Diálogo"
+        return "DiÃ¡logo"
     if "log serv" in chave:
-        return "Log Serviços"
+        return "Log ServiÃ§os"
     return texto
 
 def normalizar_nome_coluna(valor) -> str:
@@ -715,7 +715,7 @@ def encontrar_coluna(
 
 
 def ler_relatorio(conteudo: bytes) -> pd.DataFrame:
-    log("Lendo relatório Intelipost...")
+    log("Lendo relatÃ³rio Intelipost...")
 
     df = pd.read_excel(
         io.BytesIO(conteudo),
@@ -728,13 +728,13 @@ def ler_relatorio(conteudo: bytes) -> pd.DataFrame:
     df = df.dropna(how="all").copy()
 
     log(
-        f"Relatório recebido: "
+        f"RelatÃ³rio recebido: "
         f"{len(df):,} linha(s) | "
         f"{len(df.columns)} coluna(s)."
     )
 
     log("")
-    log("COLUNAS DISPONÍVEIS NO EXPORT:")
+    log("COLUNAS DISPONÃVEIS NO EXPORT:")
     for coluna in df.columns:
         log(f" - {coluna}")
 
@@ -783,13 +783,13 @@ def validar_mapeamento(
 
     if faltantes:
         log(
-            "ERRO: colunas de origem obrigatórias não foram identificadas:"
+            "ERRO: colunas de origem obrigatÃ³rias nÃ£o foram identificadas:"
         )
         for coluna in faltantes:
             log(f" - {coluna}")
 
-        # Não gerar/publicar base parcial silenciosamente.
-        # Chave da Nota também é obrigatória: não publicamos NF-e incompleta.
+        # NÃ£o gerar/publicar base parcial silenciosamente.
+        # Chave da Nota tambÃ©m Ã© obrigatÃ³ria: nÃ£o publicamos NF-e incompleta.
         faltantes_criticos = list(faltantes)
         if faltantes_criticos:
             raise RuntimeError(
@@ -891,18 +891,18 @@ def montar_base_forms(
         else:
             resultado[destino] = ""
 
-    # Campos operacionais: SEMPRE começam em branco.
+    # Campos operacionais: SEMPRE comeÃ§am em branco.
     for coluna in COLUNAS_OPERACIONAIS:
         resultado[coluna] = ""
 
-    # Mantém a ordem exata.
+    # MantÃ©m a ordem exata.
     resultado = resultado[COLUNAS_BASE]
 
     return resultado
 
 
 # ============================================================
-# CLASSIFICAÇÃO ABERTO / FINALIZADO
+# CLASSIFICAÃ‡ÃƒO ABERTO / FINALIZADO
 # ============================================================
 
 def normalizar_status(valor) -> str:
@@ -960,7 +960,7 @@ def mascara_finalizados(
     )
 
     log("")
-    log("CLASSIFICAÇÃO DE FINALIZADOS:")
+    log("CLASSIFICAÃ‡ÃƒO DE FINALIZADOS:")
 
     if col_data_entrega:
         log(
@@ -968,7 +968,7 @@ def mascara_finalizados(
         )
     else:
         log(
-            " - Data entrega: não identificada"
+            " - Data entrega: nÃ£o identificada"
         )
 
     if col_status:
@@ -977,10 +977,10 @@ def mascara_finalizados(
         )
     else:
         log(
-            " - Status: não identificado"
+            " - Status: nÃ£o identificado"
         )
 
-    # Começa com tudo NÃO finalizado.
+    # ComeÃ§a com tudo NÃƒO finalizado.
     finalizado = pd.Series(
         False,
         index=df_relatorio.index,
@@ -1010,9 +1010,9 @@ def mascara_finalizados(
 
     if not col_data_entrega and not col_status:
         log(
-            "ATENÇÃO: sem colunas para identificar "
-            "finalização. A base operacional ficará "
-            "igual à base completa até validarmos."
+            "ATENÃ‡ÃƒO: sem colunas para identificar "
+            "finalizaÃ§Ã£o. A base operacional ficarÃ¡ "
+            "igual Ã  base completa atÃ© validarmos."
         )
 
     log(
@@ -1024,24 +1024,24 @@ def mascara_finalizados(
 
 
 # ============================================================
-# PAYLOAD PARA O BACKEND (Fase 2 - upsert já homologado)
+# PAYLOAD PARA O BACKEND (Fase 2 - upsert jÃ¡ homologado)
 #
-# Constrói o payload EXATAMENTE no formato de
+# ConstrÃ³i o payload EXATAMENTE no formato de
 # docs/pedidos-import-payload.md e envia para
-# POST /api/jobs/import-pedidos. Não decide nada sobre upsert,
-# transportadora não encontrada, campo já respondido etc. -
-# isso é 100% responsabilidade do backend, já homologado.
+# POST /api/jobs/import-pedidos. NÃ£o decide nada sobre upsert,
+# transportadora nÃ£o encontrada, campo jÃ¡ respondido etc. -
+# isso Ã© 100% responsabilidade do backend, jÃ¡ homologado.
 # ============================================================
 
 # Campos que o payload EXIGE (ver docs/pedidos-import-payload.md).
-# Se qualquer um estiver vazio numa linha, a linha é pulada aqui
-# mesmo (não enviamos linha incompleta com valor inventado).
+# Se qualquer um estiver vazio numa linha, a linha Ã© pulada aqui
+# mesmo (nÃ£o enviamos linha incompleta com valor inventado).
 CAMPOS_OBRIGATORIOS_PAYLOAD = [
-    "Nome do Destinatário",
+    "Nome do DestinatÃ¡rio",
     "Canal de Vendas",
-    "Cidade do Destinatário",
+    "Cidade do DestinatÃ¡rio",
     "UF",
-    "CEP do destinatário",
+    "CEP do destinatÃ¡rio",
     "Pedido de Venda",
     "Pedido",
     "Transportadora",
@@ -1087,14 +1087,14 @@ def montar_payload_pedidos(
 ) -> tuple[list[dict], list[str]]:
     """
     Monta a lista de pedidos no formato do payload homologado, a
-    partir do relatório cru da Intelipost (não da base já montada
-    para o XLSX, para poder acessar a coluna "Data Criação" e o
-    valor real de "Data Entrega", que não fazem parte de
+    partir do relatÃ³rio cru da Intelipost (nÃ£o da base jÃ¡ montada
+    para o XLSX, para poder acessar a coluna "Data CriaÃ§Ã£o" e o
+    valor real de "Data Entrega", que nÃ£o fazem parte de
     COLUNAS_BASE).
 
-    Retorna (pedidos, linhas_ignoradas) - linhas_ignoradas é uma
+    Retorna (pedidos, linhas_ignoradas) - linhas_ignoradas Ã© uma
     lista de mensagens (para log), uma por linha pulada por falta
-    de algum campo obrigatório.
+    de algum campo obrigatÃ³rio.
     """
     col_data_criacao = encontrar_coluna(
         df_relatorio,
@@ -1103,11 +1103,11 @@ def montar_payload_pedidos(
 
     if not col_data_criacao:
         raise RuntimeError(
-            "Não encontrei a coluna 'Data Criação' (ou equivalente) "
-            "no relatório da Intelipost. Como esse campo é "
-            "obrigatório no payload (data_criacao) e não pode ser "
+            "NÃ£o encontrei a coluna 'Data CriaÃ§Ã£o' (ou equivalente) "
+            "no relatÃ³rio da Intelipost. Como esse campo Ã© "
+            "obrigatÃ³rio no payload (data_criacao) e nÃ£o pode ser "
             "inventado, o envio ao backend foi interrompido.\n"
-            "Colunas disponíveis no export: "
+            "Colunas disponÃ­veis no export: "
             + ", ".join(str(c) for c in df_relatorio.columns)
         )
 
@@ -1156,11 +1156,11 @@ def montar_payload_pedidos(
         ALIASES_ULTIMA_OCORRENCIA_MICRO,
     )
 
-    log(f"[payload] Data Criação <- {col_data_criacao}")
+    log(f"[payload] Data CriaÃ§Ã£o <- {col_data_criacao}")
     log(
         f"[payload] Data Entrega <- {col_data_entrega}"
         if col_data_entrega
-        else "[payload] Data Entrega: não identificada (data_entrega sempre nulo)"
+        else "[payload] Data Entrega: nÃ£o identificada (data_entrega sempre nulo)"
     )
 
     log(
@@ -1227,11 +1227,11 @@ def montar_payload_pedidos(
 
         data_criacao = valor_data_iso_ou_none(linha[col_data_criacao])
         if not data_criacao:
-            faltando.append("Data Criação")
+            faltando.append("Data CriaÃ§Ã£o")
 
         if faltando:
             linhas_ignoradas.append(
-                f"Linha {indice}: campo(s) obrigatório(s) ausente(s): "
+                f"Linha {indice}: campo(s) obrigatÃ³rio(s) ausente(s): "
                 + ", ".join(faltando)
             )
             continue
@@ -1239,15 +1239,15 @@ def montar_payload_pedidos(
         pedidos.append(
             {
                 "pedido": valor_texto_ou_none(valores_origem["Pedido"]),
-                "nome_destinatario": valor_texto_ou_none(valores_origem["Nome do Destinatário"]),
+                "nome_destinatario": valor_texto_ou_none(valores_origem["Nome do DestinatÃ¡rio"]),
                 "canal_vendas": valor_texto_ou_none(valores_origem["Canal de Vendas"]),
-                "cidade_destinatario": valor_texto_ou_none(valores_origem["Cidade do Destinatário"]),
+                "cidade_destinatario": valor_texto_ou_none(valores_origem["Cidade do DestinatÃ¡rio"]),
                 "uf": valor_texto_ou_none(valores_origem["UF"]),
-                "cep_destinatario": valor_texto_ou_none(valores_origem["CEP do destinatário"]),
+                "cep_destinatario": valor_texto_ou_none(valores_origem["CEP do destinatÃ¡rio"]),
                 "pedido_de_venda": valor_texto_ou_none(valores_origem["Pedido de Venda"]),
-                "codigo_rastreio": valor_texto_ou_none(valores_origem["Código de rastreio"]),
+                "codigo_rastreio": valor_texto_ou_none(valores_origem["CÃ³digo de rastreio"]),
                 "nota_fiscal": valor_texto_ou_none(valores_origem["Nota Fiscal"]),
-                "metodo_envio": valor_texto_ou_none(valores_origem["Método de envio"]),
+                "metodo_envio": valor_texto_ou_none(valores_origem["MÃ©todo de envio"]),
                 "transportadora": valor_texto_ou_none(valores_origem["Transportadora"]),
                 "valor_nota": valor_numero_ou_none(valores_origem["Valor da Nota"]),
                 "peso_fisico": valor_numero_ou_none(valores_origem["Peso fisico"]),
@@ -1686,3 +1686,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

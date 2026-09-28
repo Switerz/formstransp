@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import re
 import unicodedata
@@ -46,6 +47,20 @@ MAPEAMENTO_TRANSPORTADORAS = {
 }
 
 
+def corrigir_mojibake(valor):
+    """Desfaz texto UTF-8 lido como Windows-1252 (ate 2 camadas)."""
+    if not isinstance(valor, str):
+        return valor
+    for _ in range(2):
+        if "\u00c3" not in valor and "\u00c2" not in valor:
+            break
+        try:
+            valor = valor.encode("cp1252").decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            break
+    return valor
+
+
 def normalizar_texto(valor):
     texto = str(valor).strip().lower()
 
@@ -62,6 +77,7 @@ def normalizar_texto(valor):
 
 
 def nome_transportadora_portal(valor):
+    valor = corrigir_mojibake(valor)
     normalizado = normalizar_texto(valor)
 
     # Tratamento expl?cito para nomes que chegaram com encoding corrompido
@@ -116,7 +132,7 @@ def localizar_arquivos():
 
     if not PASTA_ORIGEM.exists():
         raise FileNotFoundError(
-            f"Pasta nÃ£o encontrada: {PASTA_ORIGEM}"
+            f"Pasta não encontrada: {PASTA_ORIGEM}"
         )
 
     # GoCase: arquivos diretamente na pasta principal
@@ -131,7 +147,7 @@ def localizar_arquivos():
             pasta_conta = pasta_gobeauty / conta
 
             if not pasta_conta.exists():
-                print(f"[AVISO] Pasta nÃ£o encontrada: {pasta_conta}")
+                print(f"[AVISO] Pasta não encontrada: {pasta_conta}")
                 continue
 
             for arquivo in pasta_conta.glob("base_*.xlsx"):
@@ -284,6 +300,8 @@ def salvar_base_geral_atomica(df):
         print(f"[OK] backup anterior: {backup.name}")
 
     fd, tmp_nome = tempfile.mkstemp(prefix="BASE_GERAL_", suffix=".xlsx", dir=PASTA_SAIDA)
+    # mkstemp mantém o descritor aberto. No Windows isso bloqueia unlink/replace.
+    os.close(fd)
     Path(tmp_nome).unlink(missing_ok=True)
     temporario = Path(tmp_nome)
     try:
@@ -330,7 +348,7 @@ def main():
             continue
 
         if "Transportadora" not in df.columns:
-            print("  -> coluna Transportadora nÃ£o encontrada, ignorado")
+            print("  -> coluna Transportadora não encontrada, ignorado")
             continue
 
         # Pode haver mais de uma grafia no mesmo arquivo.

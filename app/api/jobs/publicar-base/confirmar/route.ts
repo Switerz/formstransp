@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { obterGoogleDriveAccessToken } from "@/lib/google-drive";
 
 export const runtime = "nodejs";
@@ -199,24 +198,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const transportadora =
-    await prisma.transportadora.findUnique({
-      where: {
-        id: transportadoraId,
-      },
-      select: {
-        id: true,
-        nome: true,
-      },
-    });
-
-  if (!transportadora) {
-    return NextResponse.json(
-      { error: "transportadora não encontrada" },
-      { status: 404 },
-    );
-  }
-
   const accessToken =
     await obterGoogleDriveAccessToken();
 
@@ -256,13 +237,13 @@ export async function POST(request: NextRequest) {
   }
 
   const chave =
-    `transportadora:${transportadora.id}`;
+    `transportadora:${transportadoraId}`;
 
   if (
     arquivo.appProperties?.formsTranspTipo !==
       "base_transportadora" ||
     arquivo.appProperties?.transportadoraId !==
-      transportadora.id ||
+      transportadoraId ||
     arquivo.appProperties?.formsTranspKey !== chave
   ) {
     return NextResponse.json(
@@ -304,39 +285,10 @@ export async function POST(request: NextRequest) {
   );
 
   /*
-   * Ponto de troca:
-   * primeiro o banco passa a apontar para o arquivo NOVO.
+   * No fluxo emergencial o Google Drive é a fonte do arquivo atual.
+   * O arquivo novo já foi validado pela formsTranspKey.
+   * Só depois disso removemos as versões anteriores.
    */
-  await prisma.exportacaoArquivo.upsert({
-    where: {
-      chave,
-    },
-    create: {
-      chave,
-      escopo: "transportadora",
-      transportadoraId: transportadora.id,
-      nomeArquivo: arquivo.name,
-      storagePath: `drive:${arquivo.id}`,
-      signedUrl: downloadUrl,
-      expiresAt,
-      totalLinhas,
-      totalPartes: 1,
-      status: "ready",
-      geradoEm: new Date(),
-    },
-    update: {
-      escopo: "transportadora",
-      transportadoraId: transportadora.id,
-      nomeArquivo: arquivo.name,
-      storagePath: `drive:${arquivo.id}`,
-      signedUrl: downloadUrl,
-      expiresAt,
-      totalLinhas,
-      totalPartes: 1,
-      status: "ready",
-      geradoEm: new Date(),
-    },
-  });
 
   /*
    * Só depois do upsert bem-sucedido retiramos versões antigas.
@@ -351,8 +303,7 @@ export async function POST(request: NextRequest) {
     ok: true,
     status: "ready",
     transportadora: {
-      id: transportadora.id,
-      nome: transportadora.nome,
+      id: transportadoraId,
     },
     arquivo: {
       id: arquivo.id,
