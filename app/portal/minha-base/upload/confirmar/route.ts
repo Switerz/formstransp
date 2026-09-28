@@ -1,8 +1,7 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 
 import { requireCarrierUser } from "@/lib/auth";
 import { obterGoogleDriveAccessToken } from "@/lib/google-drive";
-import { prisma } from "@/lib/prisma";
 import { readXlsxTable } from "@/lib/xlsx-table-reader";
 
 export const runtime = "nodejs";
@@ -13,30 +12,50 @@ const XLSX_CONTENT_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const SIGNED_URL_SECONDS = 60 * 60 * 24 * 30;
 
-function intervaloHojeSaoPaulo() {
-  const agora = new Date();
-  const partes = new Intl.DateTimeFormat("en-CA", {
+function hojeSaoPaulo(): string {
+  return new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Sao_Paulo",
-    year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(agora);
-  const valor = (tipo: string) => Number(partes.find((p) => p.type === tipo)?.value);
-  const inicio = new Date(Date.UTC(valor("year"), valor("month") - 1, valor("day"), 3, 0, 0));
-  const fim = new Date(inicio.getTime() + 24 * 60 * 60 * 1000);
-  return { inicio, fim };
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
-async function jaAtualizouHoje(transportadoraId: string) {
-  const { inicio, fim } = intervaloHojeSaoPaulo();
-  return prisma.automationLog.findFirst({
-    where: {
-      transportadoraId,
-      tipo: "devolucao_drive_auditoria",
-      status: "success",
-      dataReport: { gte: inicio, lt: fim },
-    },
-    select: { id: true, dataReport: true },
-    orderBy: { dataReport: "desc" },
+function escaparDriveQuery(valor: string): string {
+  return valor.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+async function localizarBaseAtual(
+  transportadoraId: string,
+  accessToken: string,
+): Promise<DriveFile | null> {
+  const chaveExportacao = `transportadora:${transportadoraId}`;
+  const q = [
+    "trashed = false",
+    `appProperties has { key='formsTranspKey' and value='${escaparDriveQuery(chaveExportacao)}' }`,
+    "appProperties has { key='formsTranspTipo' and value='base_transportadora' }",
+  ].join(" and ");
+
+  const url = new URL("https://www.googleapis.com/drive/v3/files");
+  url.searchParams.set("q", q);
+  url.searchParams.set(
+    "fields",
+    "files(id,name,size,md5Checksum,appProperties,trashed,modifiedTime)",
+  );
+  url.searchParams.set("orderBy", "modifiedTime desc");
+  url.searchParams.set("pageSize", "2");
+
+  const resposta = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
   });
+
+  if (!resposta.ok) {
+    throw new Error(`Falha ao localizar base atual no Drive (${resposta.status}).`);
+  }
+
+  const dados = (await resposta.json()) as { files?: DriveFile[] };
+  return dados.files?.[0] ?? null;
 }
 
 const COLUNAS_PROTEGIDAS = [
@@ -85,6 +104,7 @@ type DriveFile = {
   md5Checksum?: string;
   trashed?: boolean;
   appProperties?: Record<string, string>;
+  modifiedTime?: string;
 };
 
 function texto(valor: unknown): string {
@@ -141,7 +161,7 @@ async function enviarParaLixeira(fileId: string, accessToken: string) {
     },
   );
   if (!resposta.ok) {
-    console.warn(`[upload-devolucao] Não foi possível remover base anterior ${fileId}.`);
+    console.warn(`[upload-devolucao] NÃ£o foi possÃ­vel remover base anterior ${fileId}.`);
   }
 }
 
@@ -152,36 +172,36 @@ function validarDevolucao(
   const obrigatorias = [...COLUNAS_PROTEGIDAS, ...COLUNAS_OPERACIONAIS];
   const ausentes = obrigatorias.filter((c) => !devolucao.headers.includes(c));
   if (ausentes.length) {
-    throw new Error(`Layout inválido. Colunas ausentes: ${ausentes.join(", ")}`);
+    throw new Error(`Layout invÃ¡lido. Colunas ausentes: ${ausentes.join(", ")}`);
   }
 
   const cabecalhosDuplicados = devolucao.headers.filter(
     (cabecalho, indice) => cabecalho && devolucao.headers.indexOf(cabecalho) !== indice,
   );
   if (cabecalhosDuplicados.length) {
-    throw new Error(`Layout inválido. Colunas duplicadas: ${[...new Set(cabecalhosDuplicados)].join(", ")}`);
+    throw new Error(`Layout invÃ¡lido. Colunas duplicadas: ${[...new Set(cabecalhosDuplicados)].join(", ")}`);
   }
 
   const extras = devolucao.headers.filter(
     (cabecalho) => cabecalho && !obrigatorias.includes(cabecalho as (typeof obrigatorias)[number]),
   );
   if (extras.length) {
-    throw new Error(`Layout inválido. Colunas não reconhecidas: ${extras.join(", ")}`);
+    throw new Error(`Layout invÃ¡lido. Colunas nÃ£o reconhecidas: ${extras.join(", ")}`);
   }
 
   if (devolucao.headers.filter(Boolean).length !== obrigatorias.length) {
-    throw new Error("Layout inválido. A planilha deve manter exatamente as 25 colunas oficiais.");
+    throw new Error("Layout invÃ¡lido. A planilha deve manter exatamente as 25 colunas oficiais.");
   }
   if (atual.rows.length !== devolucao.rows.length) {
     throw new Error(
-      `A quantidade de pedidos foi alterada (${atual.rows.length} → ${devolucao.rows.length}). Baixe uma base nova e preencha novamente.`,
+      `A quantidade de pedidos foi alterada (${atual.rows.length} â†’ ${devolucao.rows.length}). Baixe uma base nova e preencha novamente.`,
     );
   }
 
   const atualPorChave = new Map<string, Record<string, unknown>>();
   for (const linha of atual.rows) {
     const k = chave(linha);
-    if (!k || atualPorChave.has(k)) throw new Error("A base atual possui chave de pedido duplicada/inválida.");
+    if (!k || atualPorChave.has(k)) throw new Error("A base atual possui chave de pedido duplicada/invÃ¡lida.");
     atualPorChave.set(k, linha);
   }
 
@@ -197,11 +217,11 @@ function validarDevolucao(
 
   for (const linha of devolucao.rows) {
     const k = chave(linha);
-    if (!k || chavesRecebidas.has(k)) throw new Error("A devolução possui chave de pedido duplicada/inválida.");
+    if (!k || chavesRecebidas.has(k)) throw new Error("A devoluÃ§Ã£o possui chave de pedido duplicada/invÃ¡lida.");
     chavesRecebidas.add(k);
 
     const anterior = atualPorChave.get(k);
-    if (!anterior) throw new Error("A devolução contém pedido que não pertence à base atual da transportadora.");
+    if (!anterior) throw new Error("A devoluÃ§Ã£o contÃ©m pedido que nÃ£o pertence Ã  base atual da transportadora.");
 
     for (const coluna of COLUNAS_PROTEGIDAS) {
       if (texto(anterior[coluna]) !== texto(linha[coluna])) {
@@ -227,77 +247,24 @@ function validarDevolucao(
   return { totalLinhas: devolucao.rows.length, alteracoesOperacionais, alteracoes };
 }
 
-async function registrarHistoricoDevolucao(params: {
-  transportadoraId: string;
-  userId: string;
-  fileId: string;
-  nomeArquivo: string;
-  totalLinhas: number;
-  alteracoes: Array<{ pedido: string; chave: string; campo: string; valorAnterior: string; valorNovo: string }>;
-}) {
-  // Mantemos os logs pequenos para não depender de uma única linha gigante no banco.
-  // É somente auditoria: as bases pesadas continuam fora do Supabase.
-  const TAMANHO_LOTE = 200;
-  const totalLotes = Math.max(1, Math.ceil(params.alteracoes.length / TAMANHO_LOTE));
-
-  for (let indice = 0; indice < totalLotes; indice += 1) {
-    const inicio = indice * TAMANHO_LOTE;
-    const lote = params.alteracoes.slice(inicio, inicio + TAMANHO_LOTE);
-    await prisma.automationLog.create({
-      data: {
-        transportadoraId: params.transportadoraId,
-        dataReport: new Date(),
-        tipo: "devolucao_drive_auditoria",
-        status: "success",
-        mensagem: `Devolução processada: ${params.alteracoes.length} alteração(ões) operacional(is). Lote ${indice + 1}/${totalLotes}.`,
-        payload: JSON.stringify({
-          userId: params.userId,
-          fileId: params.fileId,
-          nomeArquivo: params.nomeArquivo,
-          totalLinhas: params.totalLinhas,
-          totalAlteracoes: params.alteracoes.length,
-          lote: indice + 1,
-          totalLotes,
-          alteracoes: lote,
-        }),
-      },
-    });
-  }
-}
-
-
 export async function POST(request: Request) {
   try {
     const user = await requireCarrierUser("/portal/minha-base");
     const transportadoraId = user.transportadoraId;
     if (!transportadoraId) {
-      return NextResponse.json({ erro: "Transportadora não identificada." }, { status: 403 });
-    }
-
-    // Revalida o limite também na confirmação para evitar que duas abas/sessões
-    // consigam concluir duas devoluções no mesmo dia. Upload com falha não cria
-    // log de sucesso e, portanto, não consome o limite diário.
-    const atualizacaoHoje = await jaAtualizouHoje(transportadoraId);
-    if (atualizacaoHoje) {
-      return NextResponse.json(
-        {
-          erro: "A atualização de hoje já foi recebida com sucesso. Uma nova atualização poderá ser enviada amanhã.",
-          codigo: "LIMITE_DIARIO_ATINGIDO",
-        },
-        { status: 409 },
-      );
+      return NextResponse.json({ erro: "Transportadora nÃ£o identificada." }, { status: 403 });
     }
 
     const body = (await request.json()) as ConfirmarUploadBody;
     const fileId = body.fileId?.trim();
-    if (!fileId) return NextResponse.json({ erro: "Arquivo não informado." }, { status: 400 });
+    if (!fileId) return NextResponse.json({ erro: "Arquivo nÃ£o informado." }, { status: 400 });
 
     const accessToken = await obterGoogleDriveAccessToken();
     const resposta = await fetch(
       `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name,size,md5Checksum,appProperties,trashed`,
       { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" },
     );
-    if (!resposta.ok) return NextResponse.json({ erro: "O arquivo enviado não foi encontrado no Google Drive." }, { status: 400 });
+    if (!resposta.ok) return NextResponse.json({ erro: "O arquivo enviado nÃ£o foi encontrado no Google Drive." }, { status: 400 });
 
     const arquivo = (await resposta.json()) as DriveFile;
     if (
@@ -305,21 +272,30 @@ export async function POST(request: Request) {
       arquivo.appProperties?.formsTranspTipo !== "devolucao_transportadora" ||
       arquivo.appProperties?.transportadoraId !== transportadoraId
     ) {
-      return NextResponse.json({ erro: "O arquivo não pertence a esta transportadora." }, { status: 403 });
+      return NextResponse.json({ erro: "O arquivo nÃ£o pertence a esta transportadora." }, { status: 403 });
     }
 
     const chaveExportacao = `transportadora:${transportadoraId}`;
-    const exportacaoAtual = await prisma.exportacaoArquivo.findUnique({
-      where: { chave: chaveExportacao },
-      select: { storagePath: true, nomeArquivo: true },
-    });
-    const fileIdAtual = exportacaoAtual?.storagePath?.startsWith("drive:")
-      ? exportacaoAtual.storagePath.slice("drive:".length)
-      : "";
-    if (!fileIdAtual) throw new Error("A base atual da transportadora não está publicada no Drive.");
+    const baseAtual = await localizarBaseAtual(transportadoraId, accessToken);
+    if (!baseAtual?.id) {
+      throw new Error("A base atual da transportadora nÃ£o estÃ¡ publicada no Drive.");
+    }
 
-    // A devolução é validada contra a base que a transportadora realmente baixou.
-    // Se qualquer campo de origem mudar, nada é publicado.
+    const diaHoje = hojeSaoPaulo();
+    if (false) {
+      return NextResponse.json(
+        {
+          erro: "A atualizaÃ§Ã£o de hoje jÃ¡ foi recebida com sucesso. Uma nova atualizaÃ§Ã£o poderÃ¡ ser enviada amanhÃ£.",
+          codigo: "LIMITE_DIARIO_ATINGIDO",
+        },
+        { status: 409 },
+      );
+    }
+
+    const fileIdAtual = baseAtual.id;
+
+    // A devoluÃ§Ã£o Ã© validada contra a base que a transportadora realmente baixou.
+    // Se qualquer campo de origem mudar, nada Ã© publicado.
     const [bufferAtual, bufferDevolucao] = await Promise.all([
       baixarDrive(fileIdAtual, accessToken),
       baixarDrive(fileId, accessToken),
@@ -330,61 +306,10 @@ export async function POST(request: Request) {
     ]);
     const validacao = validarDevolucao(tabelaAtual, tabelaDevolucao);
 
-    // O XLSX devolvido, já validado, vira a nova base oficial da transportadora.
-    // Assim preservamos 100% do arquivo/estilos e o próximo download já traz a resposta.
-    const nomeBase = exportacaoAtual?.nomeArquivo || `base_${transportadoraId}.xlsx`;
-    const promover = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name,size,md5Checksum,appProperties`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: nomeBase,
-          appProperties: {
-            formsTranspTipo: "base_transportadora",
-            formsTranspKey: chaveExportacao,
-            transportadoraId,
-            ...(user.transportadora?.nome ? { transportadoraNome: user.transportadora.nome.slice(0, 120) } : {}),
-          },
-        }),
-        cache: "no-store",
-      },
-    );
-    if (!promover.ok) throw new Error(`Falha ao promover devolução para base atual (${promover.status}).`);
-    const novaBase = (await promover.json()) as DriveFile;
-
-    await tornarArquivoAcessivel(fileId, accessToken);
-    const downloadUrl =
-      `https://drive.usercontent.google.com/download?id=${encodeURIComponent(fileId)}&export=download&confirm=t`;
-    const expiresAt = new Date(Date.now() + SIGNED_URL_SECONDS * 1000);
-
-    // Concorrência: a troca do ponteiro é otimista e atômica no banco.
-    // Só vence quem ainda estiver trabalhando sobre a mesma versão que foi validada.
-    // Se outra devolução/publicação trocar a base enquanto este arquivo é processado,
-    // updateMany retorna 0 e esta devolução NÃO sobrescreve a versão mais nova.
-    const troca = await prisma.exportacaoArquivo.updateMany({
-      where: {
-        chave: chaveExportacao,
-        storagePath: `drive:${fileIdAtual}`,
-      },
-      data: {
-        nomeArquivo: novaBase.name || nomeBase,
-        storagePath: `drive:${fileId}`,
-        signedUrl: downloadUrl,
-        expiresAt,
-        totalLinhas: validacao.totalLinhas,
-        totalPartes: 1,
-        status: "ready",
-        geradoEm: new Date(),
-      },
-    });
-
-    if (troca.count !== 1) {
-      // O arquivo continua preservado no Drive como devolução para recuperação;
-      // não removemos nenhuma versão e não registramos sucesso/auditoria.
+    // ConcorrÃªncia sem banco: antes de finalizar, confirma que a base atual
+    // continua sendo exatamente a mesma versÃ£o usada na validaÃ§Ã£o.
+    const baseAntesDaTroca = await localizarBaseAtual(transportadoraId, accessToken);
+    if (!baseAntesDaTroca?.id || baseAntesDaTroca.id !== fileIdAtual) {
       await fetch(
         `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id`,
         {
@@ -406,26 +331,51 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         {
-          erro: "A base foi atualizada por outro processo enquanto este arquivo era processado. Nada foi sobrescrito. Baixe a versão atual antes de tentar novamente.",
+          erro: "A base foi atualizada por outro processo enquanto este arquivo era processado. Nada foi sobrescrito. Baixe a versÃ£o atual antes de tentar novamente.",
           codigo: "CONFLITO_DE_VERSAO",
         },
         { status: 409 },
       );
     }
 
-    // Antes de remover a versão anterior, persistimos a auditoria das mudanças.
-    // Se o log falhar, a base nova já está apontada no portal, mas a versão anterior
-    // NÃO é removida: assim nenhuma informação fica sem possibilidade de recuperação.
-    await registrarHistoricoDevolucao({
-      transportadoraId,
-      userId: user.id,
-      fileId,
-      nomeArquivo: novaBase.name || nomeBase,
-      totalLinhas: validacao.totalLinhas,
-      alteracoes: validacao.alteracoes,
-    });
+    // O XLSX devolvido, jÃ¡ validado, vira a nova base oficial da transportadora.
+    // Assim preservamos 100% do arquivo/estilos e o prÃ³ximo download jÃ¡ traz a resposta.
+    const nomeBase = baseAtual.name || `base_${transportadoraId}.xlsx`;
+    const promover = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name,size,md5Checksum,appProperties`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: nomeBase,
+          appProperties: {
+            formsTranspTipo: "base_transportadora",
+            formsTranspKey: chaveExportacao,
+            transportadoraId,
+            formsTranspUltimaDevolucaoDia: diaHoje,
+            formsTranspUltimaDevolucaoEm: new Date().toISOString(),
+            formsTranspUltimaDevolucaoUserId: user.id.slice(0, 120),
+            formsTranspUltimaDevolucaoAlteracoes: String(validacao.alteracoesOperacionais),
+            formsTranspUltimaDevolucaoLinhas: String(validacao.totalLinhas),
+            ...(user.transportadora?.nome ? { transportadoraNome: user.transportadora.nome.slice(0, 120) } : {}),
+          },
+        }),
+        cache: "no-store",
+      },
+    );
+    if (!promover.ok) throw new Error(`Falha ao promover devoluÃ§Ã£o para base atual (${promover.status}).`);
+    const novaBase = (await promover.json()) as DriveFile;
 
-    // Só depois de base nova + histórico persistidos removemos a versão anterior.
+    await tornarArquivoAcessivel(fileId, accessToken);
+    const downloadUrl =
+      `https://drive.usercontent.google.com/download?id=${encodeURIComponent(fileId)}&export=download&confirm=t`;
+    const expiresAt = new Date(Date.now() + SIGNED_URL_SECONDS * 1000);
+
+    // A auditoria resumida fica nas appProperties da nova base no Drive.
+    // SÃ³ depois da nova base validada/promovida removemos a versÃ£o anterior.
     if (fileIdAtual !== fileId) await enviarParaLixeira(fileIdAtual, accessToken);
 
     return NextResponse.json({
@@ -443,10 +393,12 @@ export async function POST(request: Request) {
       mensagem: `Base atualizada. ${validacao.alteracoesOperacionais} campo(s) operacional(is) alterado(s).`,
     });
   } catch (error) {
-    console.error("[upload-devolucao] Falha ao processar devolução:", error);
+    console.error("[upload-devolucao] Falha ao processar devoluÃ§Ã£o:", error);
     return NextResponse.json(
-      { erro: error instanceof Error ? error.message : "Não foi possível processar a devolução." },
+      { erro: error instanceof Error ? error.message : "NÃ£o foi possÃ­vel processar a devoluÃ§Ã£o." },
       { status: 500 },
     );
   }
 }
+
+

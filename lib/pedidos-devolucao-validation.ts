@@ -4,9 +4,11 @@ import { getStatusPadrao } from "@/lib/pedidos-status-de-para";
  * Constantes e validação da devolução da transportadora ("Minha Base").
  *
  * PROTECTED_COLUMNS / ACCEPTED_* / DATE_ONLY_COLUMNS são portados do HTML
- * oficial. FILL_COLUMNS foi AJUSTADO conforme decisão explícita: o layout
- * O layout original tinha 25 colunas. A base enriquecida acrescenta 4 campos
- * de origem protegidos, totalizando 18 colunas de origem + 11 operacionais = 29.
+ * oficial. FILL_COLUMNS foi AJUSTADO conforme decisão explícita.
+ * O layout original tinha 25 colunas. A base enriquecida acrescenta 5 campos
+ * de origem protegidos (Data Criação, Data Entrega Origem, Previsão Entrega
+ * Cliente, Data Despacho, Previsão Entrega Transportadora), totalizando 19
+ * colunas de origem + 11 operacionais = 30.
  */
 
 // ---------------------------------------------------------------------------

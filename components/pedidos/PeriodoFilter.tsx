@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { type CSSProperties, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -26,12 +26,21 @@ interface PeriodoFilterProps {
 }
 
 function formatarBr(iso: string): string {
+  if (!iso) return "Todo o período";
+
   const [ano, mes, dia] = iso.split("-");
+  if (!ano || !mes || !dia) return "Todo o período";
+
   return `${dia}/${mes}/${ano}`;
 }
 
-function isoParaDataLocal(iso: string): Date {
+function isoParaDataLocal(iso: string): Date | undefined {
+  if (!iso) return undefined;
+
   const [ano, mes, dia] = iso.split("-").map(Number);
+
+  if (!ano || !mes || !dia) return undefined;
+
   return new Date(ano, mes - 1, dia);
 }
 
@@ -147,7 +156,7 @@ export function PeriodoFilter({
             fontWeight: 700,
           }}
         >
-          Atualizando informações…
+          Atualizando informaÃ§Ãµesâ€¦
         </div>
       ) : null}
       <button
@@ -175,10 +184,10 @@ export function PeriodoFilter({
           {compact && fillFilter ? (
             <>
               {fillFilter === "preenchidas" ? "Somente preenchidas" : "Todas"}
-              {" • "}
+              {" â€¢ "}
             </>
           ) : null}
-          {formatarBr(deSelecionado)} até {formatarBr(ateSelecionado)}
+          {!deSelecionado && !ateSelecionado ? "Todo o período" : `${formatarBr(deSelecionado)} até ${formatarBr(ateSelecionado)}`}
           <ChevronDown
             size={14}
             className={`periodo-filter-chevron ${aberto ? "open" : ""}`}
@@ -226,7 +235,7 @@ export function PeriodoFilter({
 
           {compact && fillFilter && allHref && filledHref ? (
             <div className="field" style={{ marginBottom: 14 }}>
-              <label>Visualização</label>
+              <label>VisualizaÃ§Ã£o</label>
 
               <select
                 value={fillFilter}
@@ -300,7 +309,7 @@ export function PeriodoFilter({
                   marginBottom: 7,
                 }}
               >
-                Período
+                PerÃ­odo
               </label>
 
               <div
@@ -342,7 +351,7 @@ export function PeriodoFilter({
                     paddingRight: 8,
                   }}
                 >
-                  Até: {formatarBr(ateSelecionado)}
+                  AtÃ©: {formatarBr(ateSelecionado)}
                 </button>
               </div>
 
@@ -395,7 +404,7 @@ export function PeriodoFilter({
                   marginTop: 6,
                 }}
               >
-                Dias apagados não possuem dados de Promessa Transporte.
+                Dias apagados nÃ£o possuem dados de Promessa Transporte.
               </div>
             </div>
           ) : (
@@ -416,7 +425,7 @@ export function PeriodoFilter({
               </div>
 
               <div className="field">
-                <label>Até</label>
+                <label>AtÃ©</label>
                 <input
                   type="date"
                   value={ateSelecionado}
@@ -434,7 +443,7 @@ export function PeriodoFilter({
             }}
           >
             <button className="btn" type="submit" disabled={atualizando}>
-              {atualizando ? "Atualizando..." : "Aplicar período"}
+              {atualizando ? "Atualizando..." : "Aplicar perÃ­odo"}
             </button>
           </div>
         </form>
@@ -442,3 +451,5 @@ export function PeriodoFilter({
     </div>
   );
 }
+
+

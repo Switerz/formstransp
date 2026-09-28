@@ -105,6 +105,65 @@ export async function criarSessaoUploadDevolucao({
   return uploadUrl;
 }
 
+type CriarSessaoUploadBaseOriginalParams = {
+  nomeArquivo: string;
+  tamanhoBytes: number;
+};
+
+/**
+ * Sessão de upload para a Base Original enviada pelo admin (internal_admin)
+ * em /base-completa - arquivo pode ter dezenas/centenas de milhares de
+ * linhas, então usa o mesmo mecanismo de upload resumível para não
+ * esbarrar no limite de corpo de uma Server Action normal.
+ */
+export async function criarSessaoUploadBaseOriginalAdmin({
+  nomeArquivo,
+  tamanhoBytes,
+}: CriarSessaoUploadBaseOriginalParams): Promise<string> {
+  const accessToken = await obterGoogleDriveAccessToken();
+
+  const metadata = {
+    name: nomeArquivo,
+    parents: [envObrigatoria("GOOGLE_DRIVE_FOLDER_ID")],
+    appProperties: {
+      formsTranspTipo: "base_original_admin_upload",
+    },
+  };
+
+  const resposta = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,size,md5Checksum",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
+        "X-Upload-Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "X-Upload-Content-Length": String(tamanhoBytes),
+      },
+      body: JSON.stringify(metadata),
+      cache: "no-store",
+    },
+  );
+
+  if (!resposta.ok) {
+    const detalhe = await resposta.text();
+    throw new Error(
+      `Falha ao iniciar upload da base original no Google Drive (${resposta.status}): ${detalhe}`,
+    );
+  }
+
+  const uploadUrl = resposta.headers.get("location");
+
+  if (!uploadUrl) {
+    throw new Error(
+      "O Google Drive não retornou a URL da sessão de upload da base original.",
+    );
+  }
+
+  return uploadUrl;
+}
+
 type CriarSessaoUploadBaseParams = {
   nomeArquivo: string;
   tamanhoBytes: number;
