@@ -1,31 +1,65 @@
-﻿export const dynamic = "force-dynamic";
+import { redirect } from "next/navigation";
+import { login } from "@/app/auth-actions";
+import { getCurrentUser, isInternalRole } from "@/lib/auth";
+import { LoginSubmitButton } from "@/components/LoginSubmitButton";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; login?: string; next?: string }>;
+}) {
+  const [params, currentUser] = await Promise.all([searchParams, getCurrentUser()]);
+  if (currentUser?.passwordMustChange) redirect("/alterar-senha");
+  if (currentUser) redirect(isInternalRole(currentUser.role) ? "/" : "/portal");
+
+  const hasError = params.error === "invalid";
+  const isRateLimited = params.error === "rate_limited";
+  const next = params.next?.startsWith("/") && !params.next.startsWith("//") ? params.next : "/";
+
   return (
     <main className="auth-shell">
       <section className="auth-panel">
         <div className="auth-copy">
           <div className="auth-mark">FormsTransp</div>
           <h1>Acesso operacional</h1>
-          <p>Portal Forms Transp</p>
+          <p>
+            Entre com as credenciais fornecidas para enviar relatórios da transportadora ou acompanhar a operação.
+          </p>
         </div>
 
-        <div className="auth-form">
+        <form action={login} className="auth-form">
+          <input type="hidden" name="next" value={next} />
           <div>
             <h2>Entrar</h2>
-            <p className="muted">Carregamento do portal validado.</p>
+            <p className="muted">Use seu usuário ou e-mail cadastrado.</p>
           </div>
 
-          <div className="field">
-            <label>Usuário ou e-mail</label>
-            <input disabled />
-          </div>
+          {hasError || isRateLimited ? (
+            <div className="alert" role="alert">
+              <strong>Não foi possível entrar.</strong>{" "}
+              {isRateLimited
+                ? "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente."
+                : "Confira usuário e senha e tente novamente."}
+            </div>
+          ) : null}
 
           <div className="field">
-            <label>Senha</label>
-            <input type="password" disabled />
+            <label htmlFor="identifier">UsuÃ¡rio ou e-mail</label>
+            <input
+              id="identifier"
+              name="identifier"
+              autoComplete="username"
+              defaultValue={params.login ?? ""}
+              autoFocus
+              required
+            />
           </div>
-        </div>
+          <div className="field">
+            <label htmlFor="password">Senha</label>
+            <input id="password" name="password" type="password" autoComplete="current-password" required />
+          </div>
+          <LoginSubmitButton />
+        </form>
       </section>
     </main>
   );
