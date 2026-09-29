@@ -23,7 +23,7 @@ export default async function LoginPage({
           <div className="auth-mark">FormsTransp</div>
           <h1>Acesso operacional</h1>
           <p>
-            Entre com as credenciais fornecidas para enviar relatÃ³rios da transportadora ou acompanhar a operaÃ§Ã£o.
+            Entre com as credenciais fornecidas para enviar relatórios da transportadora ou acompanhar a operação.
           </p>
         </div>
 
@@ -31,20 +31,20 @@ export default async function LoginPage({
           <input type="hidden" name="next" value={next} />
           <div>
             <h2>Entrar</h2>
-            <p className="muted">Use seu usuÃ¡rio ou e-mail cadastrado.</p>
+            <p className="muted">Use seu usuário ou e-mail cadastrado.</p>
           </div>
 
           {hasError || isRateLimited ? (
             <div className="alert" role="alert">
-              <strong>NÃ£o foi possÃ­vel entrar.</strong>{" "}
+              <strong>Não foi possível entrar.</strong>{" "}
               {isRateLimited
                 ? "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente."
-                : "Confira usuÃ¡rio e senha e tente novamente."}
+                : "Confira usuário e senha e tente novamente."}
             </div>
           ) : null}
 
           <div className="field">
-            <label htmlFor="identifier">UsuÃƒÂ¡rio ou e-mail</label>
+            <label htmlFor="identifier">Usuário ou e-mail</label>
             <input
               id="identifier"
               name="identifier"
