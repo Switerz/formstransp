@@ -1,5 +1,12 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
+import { LogOut } from "lucide-react";
+import { logout } from "@/app/auth-actions";
+import {
+  getCurrentUser,
+  isInternalAdmin,
+  isInternalRole,
+} from "@/lib/auth";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -9,23 +16,120 @@ export const metadata: Metadata = {
   description: "Controle operacional para transportadoras",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const currentUser = await getCurrentUser();
+
+  const isInternal = currentUser
+    ? isInternalRole(currentUser.role)
+    : false;
+
+  const canManage = currentUser
+    ? isInternalAdmin(currentUser.role)
+    : false;
+
+  const mustChangePassword = Boolean(
+    currentUser?.passwordMustChange,
+  );
+
   return (
     <html lang="pt-BR">
       <body>
         <header className="topbar">
           <div className="topbar-inner">
-            <Link className="brand-lockup" href="/">
-              <span className="brand-mark" aria-hidden="true">FT</span>
+            <Link
+              className="brand-lockup"
+              href={
+                isInternal
+                  ? "/"
+                  : currentUser
+                    ? "/portal"
+                    : "/login"
+              }
+            >
+              <span className="brand-mark" aria-hidden="true">
+                FT
+              </span>
+
               <span>
                 <strong>Forms Transp</strong>
                 <small>Controle operacional</small>
               </span>
             </Link>
+
+            <nav className="nav">
+              {currentUser ? (
+                <>
+                  {mustChangePassword ? (
+                    <div className="nav-section">
+                      <span className="nav-section-label">
+                        Acesso
+                      </span>
+                      <Link href="/alterar-senha">
+                        Alterar senha
+                      </Link>
+                    </div>
+                  ) : isInternal ? (
+                    <div className="nav-section">
+                      <span className="nav-section-label">
+                        Operação
+                      </span>
+
+                      <Link href="/">Admin</Link>
+                      <Link href="/base-completa">
+                        Base Completa
+                      </Link>
+
+                      {canManage ? (
+                        <Link href="/transportadoras/nova">
+                          Nova transportadora
+                        </Link>
+                      ) : null}
+
+                      {canManage ? (
+                        <Link href="/usuarios">
+                          Usuários
+                        </Link>
+                      ) : null}
+
+                      {canManage ? (
+                        <Link href="/automacoes/logs">
+                          Logs
+                        </Link>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="nav-section">
+                      <span className="nav-section-label">
+                        Portal
+                      </span>
+
+                      <Link href="/portal/minha-base">
+                        Minha Base
+                      </Link>
+                    </div>
+                  )}
+
+                  <div className="nav-session">
+                    <span className="nav-user">
+                      {currentUser.nome}
+                    </span>
+
+                    <form action={logout}>
+                      <button
+                        className="nav-button"
+                        type="submit"
+                      >
+                        <LogOut size={16} /> Sair
+                      </button>
+                    </form>
+                  </div>
+                </>
+              ) : null}
+            </nav>
           </div>
         </header>
 
