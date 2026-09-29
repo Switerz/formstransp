@@ -1,6 +1,4 @@
-import { redirect } from "next/navigation";
-import { login } from "@/app/auth-actions";
-import { getCurrentUser, isInternalRole } from "@/lib/auth";
+﻿import { login } from "@/app/auth-actions";
 import { LoginSubmitButton } from "@/components/LoginSubmitButton";
 
 export default async function LoginPage({
@@ -8,13 +6,15 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string; login?: string; next?: string }>;
 }) {
-  const [params, currentUser] = await Promise.all([searchParams, getCurrentUser()]);
-  if (currentUser?.passwordMustChange) redirect("/alterar-senha");
-  if (currentUser) redirect(isInternalRole(currentUser.role) ? "/" : "/portal");
+  const params = await searchParams;
 
   const hasError = params.error === "invalid";
   const isRateLimited = params.error === "rate_limited";
-  const next = params.next?.startsWith("/") && !params.next.startsWith("//") ? params.next : "/";
+
+  const next =
+    params.next?.startsWith("/") && !params.next.startsWith("//")
+      ? params.next
+      : "/";
 
   return (
     <main className="auth-shell">
@@ -23,12 +23,13 @@ export default async function LoginPage({
           <div className="auth-mark">FormsTransp</div>
           <h1>Acesso operacional</h1>
           <p>
-            Entre com as credenciais fornecidas para enviar relatórios da transportadora ou acompanhar a operação.
+            Entre com as credenciais fornecidas para acessar a operação.
           </p>
         </div>
 
         <form action={login} className="auth-form">
           <input type="hidden" name="next" value={next} />
+
           <div>
             <h2>Entrar</h2>
             <p className="muted">Use seu usuário ou e-mail cadastrado.</p>
@@ -54,10 +55,18 @@ export default async function LoginPage({
               required
             />
           </div>
+
           <div className="field">
             <label htmlFor="password">Senha</label>
-            <input id="password" name="password" type="password" autoComplete="current-password" required />
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+            />
           </div>
+
           <LoginSubmitButton />
         </form>
       </section>
