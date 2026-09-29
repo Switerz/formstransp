@@ -24,12 +24,12 @@ function card(
 }
 
 function formatarAtualizacao(valor: string | null) {
-  if (!valor) return "Base disponÃ­vel para download";
+  if (!valor) return "Base disponível para download";
 
   const data = new Date(valor);
 
   if (Number.isNaN(data.getTime())) {
-    return "Base disponÃ­vel para download";
+    return "Base disponível para download";
   }
 
   return data.toLocaleString("pt-BR", {
@@ -79,12 +79,12 @@ export default async function MinhaBasePage({
       <main className="page">
         <div className="page-header">
           <div>
-            <h1>Envio, atualizaÃ§Ã£o e conferÃªncia de bases</h1>
+            <h1>Envio, atualização e conferência de bases</h1>
 
             <p>
               A Intelipost disponibiliza a base de origem
-              automaticamente. FaÃ§a o download, atualize as
-              informaÃ§Ãµes operacionais e devolva a nova versÃ£o
+              automaticamente. Faça o download, atualize as
+              informações operacionais e devolva a nova versão
               nesta mesma tela.
             </p>
           </div>
@@ -93,85 +93,85 @@ export default async function MinhaBasePage({
         <section className="grid">
           <KpiCarousel
             slaAjusteTransporte={card(
-              "📦",
+              "??",
               "Total de pedidos",
               base.total.toLocaleString("pt-BR"),
               "Pedidos presentes na base atual",
             )}
             slaTransporte={card(
-              "⏳",
+              "?",
               "Pendentes",
               base.pending.toLocaleString("pt-BR"),
               "Pedidos ainda sem preenchimento operacional",
             )}
             slaCliente={card(
-              "📝",
+              "??",
               "Respondidos",
               totalRespondidos.toLocaleString("pt-BR"),
               `${percentualRespondido}% da base com algum preenchimento`,
             )}
             taxaInsucesso={card(
-              "✅",
-              "Concluídos",
+              "?",
+              "Conclu�dos",
               base.done.toLocaleString("pt-BR"),
               `${percentualConcluido}% da base totalmente preenchida`,
             )}
             taxaDevolucao={card(
-              "📋",
+              "??",
               "Parciais",
               base.partial.toLocaleString("pt-BR"),
               "Pedidos parcialmente preenchidos",
             )}
             pedidosAbertos={card(
-              "⏳",
+              "?",
               "Em aberto",
               base.pending.toLocaleString("pt-BR"),
               "Pedidos pendentes de tratativa",
             )}
             tratativaCx={card(
-              "📝",
+              "??",
               "Com tratativa",
               totalRespondidos.toLocaleString("pt-BR"),
               "Pedidos com algum preenchimento operacional",
             )}
             riscoAtraso={card(
-              "⚠️",
+              "??",
               "SLA atrasado",
               base.slaAtrasado.toLocaleString("pt-BR"),
               "Pedidos identificados como atrasados na base",
             )}
             processado={card(
-              "⚙️",
+              "??",
               "Processados",
               base.total.toLocaleString("pt-BR"),
               "Registros carregados do arquivo atual",
             )}
             perdas={card(
-              "⚠️",
-              "Pendências",
+              "??",
+              "Pend�ncias",
               base.pending.toLocaleString("pt-BR"),
               "Registros ainda pendentes",
             )}
             totalPedidos={card(
-              "📦",
+              "??",
               "Total da base",
               base.total.toLocaleString("pt-BR"),
               "Total de registros da base atual",
             )}
             abertoTotal={card(
-              "📝",
+              "??",
               "Respondidos",
               totalRespondidos.toLocaleString("pt-BR"),
               `${percentualRespondido}% da base`,
             )}
             integridade={card(
-              "📁",
+              "??",
               "Arquivo atual",
-              base.arquivos > 0 ? "Disponível" : "Indisponível",
+              base.arquivos > 0 ? "Dispon�vel" : "Indispon�vel",
               `${base.arquivos} arquivo(s) encontrado(s) no Drive`,
             )}
             status={card(
-              "✅",
+              "?",
               "SLA no prazo",
               base.slaNoPrazo.toLocaleString("pt-BR"),
               "Pedidos identificados como no prazo",

@@ -75,7 +75,7 @@ export default async function RootLayout({
                   ) : isInternal ? (
                     <div className="nav-section">
                       <span className="nav-section-label">
-                        Operação
+                        Opera��o
                       </span>
 
                       <Link href="/">Admin</Link>
@@ -91,7 +91,7 @@ export default async function RootLayout({
 
                       {canManage ? (
                         <Link href="/usuarios">
-                          Usuários
+                          Usu�rios
                         </Link>
                       ) : null}
 
