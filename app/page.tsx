@@ -106,21 +106,44 @@ export default async function Home({
 }: {
   searchParams: Promise<{ origem?: string; transportadoraId?: string; pendentes?: string }>;
 }) {
-  const [currentUser, filters] = await Promise.all([medirEtapa("admin:autenticacao", () => requireInternalUser("/")), searchParams]);
-  const canManage = isInternalAdmin(currentUser.role);
-  const origemFilter = filters.origem === "demo" || filters.origem === "todos" ? filters.origem : "real";
-  const transportadoraFilter = filters.transportadoraId ?? "";
-  const pendentesOnly = filters.pendentes === "1";
+  let etapa = "inicio";
 
-  const today = startOfLocalDay(new Date());
-  const tomorrow = addDays(today, 1);
-  const rangeStart = addDays(today, -(HISTORY_DAYS - 1));
-  const days = Array.from({ length: HISTORY_DAYS }, (_, index) => addDays(rangeStart, index));
+  try {
+    etapa = "autenticacao";
+    const currentUser = await medirEtapa(
+      "admin:autenticacao",
+      () => requireInternalUser("/"),
+    );
 
-  const transportadorasRemotas = await medirEtapa(
-    "admin:relatorios",
-    () => listRemoteTransportadoras(),
-  );
+    etapa = "searchParams";
+    const filters = await searchParams;
+
+    etapa = "permissoes";
+    const canManage = isInternalAdmin(currentUser.role);
+
+    const origemFilter =
+      filters.origem === "demo" || filters.origem === "todos"
+        ? filters.origem
+        : "real";
+    const transportadoraFilter = filters.transportadoraId ?? "";
+    const pendentesOnly = filters.pendentes === "1";
+
+    etapa = "datas";
+    const today = startOfLocalDay(new Date());
+    const tomorrow = addDays(today, 1);
+    const rangeStart = addDays(today, -(HISTORY_DAYS - 1));
+    const days = Array.from(
+      { length: HISTORY_DAYS },
+      (_, index) => addDays(rangeStart, index),
+    );
+
+    etapa = "transportadoras";
+    const transportadorasRemotas = await medirEtapa(
+      "admin:relatorios",
+      () => listRemoteTransportadoras(),
+    );
+
+    etapa = "renderizacao";
 
   const transportadoras = transportadorasRemotas.map((transportadora) => ({
     ...transportadora,
@@ -606,7 +629,26 @@ export default async function Home({
 
     </main>
   );
-}
+
+  } catch (error) {
+    console.error(`[diagnostico-home] falha na etapa: ${etapa}`, error);
+
+    const mensagem =
+      error instanceof Error
+        ? error.message
+        : "Erro desconhecido";
+
+    return (
+      <main className="shell">
+        <section className="card" style={{ marginTop: 24 }}>
+          <h1>Diagnostico temporario</h1>
+          <p><strong>Etapa:</strong> {etapa}</p>
+          <p><strong>Erro:</strong> {mensagem}</p>
+        </section>
+      </main>
+    );
+  }}
+
 
 
 
