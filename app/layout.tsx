@@ -1,4 +1,4 @@
-import { medirEtapa } from "@/lib/diagnostico-tempo";
+﻿import { medirEtapa } from "@/lib/diagnostico-tempo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LogOut } from "lucide-react";
@@ -6,13 +6,22 @@ import { logout } from "@/app/auth-actions";
 import { getCurrentUser, isInternalAdmin, isInternalRole } from "@/lib/auth";
 import "./globals.css";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Forms Transp",
-  description: "MVP de diário de bordo operacional para transportadoras",
+  description: "MVP de diÃ¡rio de bordo operacional para transportadoras",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const currentUser = await medirEtapa("layout:usuario", () => getCurrentUser());
+  const currentUser = await medirEtapa("layout:usuario", async () => {
+    try {
+      return await getCurrentUser();
+    } catch (error) {
+      console.error("[layout] Falha ao consultar sessão:", error);
+      return null;
+    }
+  });
   const isInternal = currentUser ? isInternalRole(currentUser.role) : false;
   const canManage = currentUser ? isInternalAdmin(currentUser.role) : false;
   const mustChangePassword = Boolean(currentUser?.passwordMustChange);
@@ -39,11 +48,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     </div>
                   ) : isInternal ? (
                     <div className="nav-section">
-                      <span className="nav-section-label">Operação</span>
+                      <span className="nav-section-label">OperaÃ§Ã£o</span>
                       <Link href="/">Admin</Link>
                       <Link href="/base-completa">Base Completa</Link>
                       {canManage ? <Link href="/transportadoras/nova">Nova transportadora</Link> : null}
-                      {canManage ? <Link href="/usuarios">Usuários</Link> : null}
+                      {canManage ? <Link href="/usuarios">UsuÃ¡rios</Link> : null}
                       {canManage ? <Link href="/automacoes/logs">Logs</Link> : null}
                     </div>
                   ) : (
@@ -71,3 +80,5 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   );
 }
+
+
