@@ -17,7 +17,7 @@ import {
   updateRemotePassword,
 } from "@/lib/godeploy-db";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { assertSameOrigin } from "@/lib/request-security";
+
 
 function cleanIdentifier(value: FormDataEntryValue | null) {
   return String(value ?? "").trim().toLowerCase().slice(0, 180);
@@ -50,8 +50,6 @@ async function requestIp() {
 }
 
 export async function login(formData: FormData) {
-  await assertSameOrigin();
-
   const identifier = cleanIdentifier(formData.get("identifier"));
   const password = String(formData.get("password") ?? "");
   const next = safeRedirectPath(
@@ -121,8 +119,6 @@ export async function logout() {
 }
 
 export async function changeCurrentPassword(formData: FormData) {
-  await assertSameOrigin();
-
   const user = await requireUser("/alterar-senha");
 
   const currentPassword = String(
@@ -183,3 +179,4 @@ export async function changeCurrentPassword(formData: FormData) {
       : next,
   );
 }
+

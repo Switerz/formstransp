@@ -1,4 +1,4 @@
-﻿import { medirEtapa } from "@/lib/diagnostico-tempo";
+import { medirEtapa } from "@/lib/diagnostico-tempo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LogOut } from "lucide-react";
@@ -8,46 +8,14 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Forms Transp",
-  description: "MVP de diÃ¡rio de bordo operacional para transportadoras",
+  description: "MVP de diário de bordo operacional para transportadoras",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  let currentUser: Awaited<ReturnType<typeof getCurrentUser>> = null;
-  let erroAutenticacao: string | null = null;
-
-  try {
-    currentUser = await medirEtapa(
-      "layout:usuario",
-      () => getCurrentUser(),
-    );
-  } catch (error) {
-    console.error("[diagnostico-layout] getCurrentUser falhou", error);
-
-    erroAutenticacao =
-      error instanceof Error
-        ? error.message
-        : "Erro desconhecido";
-  }
-
+  const currentUser = await medirEtapa("layout:usuario", () => getCurrentUser());
   const isInternal = currentUser ? isInternalRole(currentUser.role) : false;
   const canManage = currentUser ? isInternalAdmin(currentUser.role) : false;
   const mustChangePassword = Boolean(currentUser?.passwordMustChange);
-
-  if (erroAutenticacao) {
-    return (
-      <html lang="pt-BR">
-        <body>
-          <main className="shell">
-            <section className="card" style={{ marginTop: 24 }}>
-              <h1>Diagnostico temporario</h1>
-              <p><strong>Etapa:</strong> layout:getCurrentUser</p>
-              <p><strong>Erro:</strong> {erroAutenticacao}</p>
-            </section>
-          </main>
-        </body>
-      </html>
-    );
-  }
 
   return (
     <html lang="pt-BR">
@@ -71,11 +39,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     </div>
                   ) : isInternal ? (
                     <div className="nav-section">
-                      <span className="nav-section-label">OperaÃ§Ã£o</span>
+                      <span className="nav-section-label">Operação</span>
                       <Link href="/">Admin</Link>
                       <Link href="/base-completa">Base Completa</Link>
                       {canManage ? <Link href="/transportadoras/nova">Nova transportadora</Link> : null}
-                      {canManage ? <Link href="/usuarios">UsuÃ¡rios</Link> : null}
+                      {canManage ? <Link href="/usuarios">Usuários</Link> : null}
                       {canManage ? <Link href="/automacoes/logs">Logs</Link> : null}
                     </div>
                   ) : (
@@ -103,4 +71,3 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   );
 }
-
