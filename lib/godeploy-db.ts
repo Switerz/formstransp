@@ -51,12 +51,28 @@ function requireConfig() {
 }
 
 function parseDate(value: unknown): Date | null {
-  if (value === null || value === undefined || value === "") return null;
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
 
-  const date = new Date(String(value));
+  const original = String(value).trim();
+
+  // Normaliza timestamps migrados do PostgreSQL.
+  let normalized = original.replace(
+    /^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2}(?:\.\d+)?)([+-]\d{2})$/,
+    "$1T$2$3:00",
+  );
+
+  normalized = normalized.replace(
+    /^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2}(?:\.\d+)?)([+-]\d{2}:\d{2})$/,
+    "$1T$2$3",
+  );
+
+  const date = new Date(normalized);
 
   if (Number.isNaN(date.getTime())) {
-    throw new Error("Data inválida recebida do GoDeploy.");
+    console.warn("[godeploy-db] Data invalida ignorada.");
+    return null;
   }
 
   return date;
@@ -262,3 +278,4 @@ export async function listRemoteTransportadoras() {
       (item): item is GoDeployTransportadora => item !== null,
     );
 }
+
