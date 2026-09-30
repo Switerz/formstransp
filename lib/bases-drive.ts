@@ -35,6 +35,8 @@ export interface BaseDriveResumo {
   slaNoPrazo: number;
   slaAtrasado: number;
   ultimaAtualizacao: string | null;
+  ultimaDevolucao: string | null;
+  totalVisivel: number;
   arquivos: number;
 }
 
@@ -93,7 +95,7 @@ async function listarArquivos(
   transportadoraId?: string | null,
 ): Promise<DriveFile[]> {
   const query = transportadoraId
-    ? `trashed = false and appProperties has { key='formsTranspKey' and value='${escaparDriveQuery(
+    ? `trashed = false and appProperties has { key='formsTranspTipo' and value='base_transportadora' } and appProperties has { key='formsTranspKey' and value='${escaparDriveQuery(
         `transportadora:${transportadoraId}`,
       )}' }`
     : `trashed = false and appProperties has { key='formsTranspTipo' and value='base_transportadora' }`;
@@ -204,10 +206,12 @@ export async function carregarBasesDrive({
   transportadoraId,
   somentePreenchidas = false,
   limiteLinhas = 500,
+  pagina = 1,
 }: {
   transportadoraId?: string | null;
   somentePreenchidas?: boolean;
   limiteLinhas?: number;
+  pagina?: number;
 }): Promise<BaseDriveResumo> {
   const accessToken = await obterGoogleDriveAccessToken();
   const arquivos = await listarArquivos(
@@ -221,6 +225,11 @@ export async function carregarBasesDrive({
   let done = 0;
   let slaNoPrazo = 0;
   let slaAtrasado = 0;
+  let totalVisivel = 0;
+
+  const paginaSegura = Math.max(1, Math.trunc(pagina || 1));
+  const inicioPagina = (paginaSegura - 1) * limiteLinhas;
+  const fimPagina = inicioPagina + limiteLinhas;
 
   const linhasVisiveis: LinhaTabela[] = [];
 
@@ -275,13 +284,18 @@ export async function carregarBasesDrive({
       const podeMostrar =
         !somentePreenchidas || status !== "pending";
 
-      if (
-        podeMostrar &&
-        linhasVisiveis.length < limiteLinhas
-      ) {
-        linhasVisiveis.push(
-          converterLinha(registro, i, arquivo.id),
-        );
+      if (podeMostrar) {
+        const indiceVisivel = totalVisivel;
+        totalVisivel += 1;
+
+        if (
+          indiceVisivel >= inicioPagina &&
+          indiceVisivel < fimPagina
+        ) {
+          linhasVisiveis.push(
+            converterLinha(registro, i, arquivo.id),
+          );
+        }
       }
     }
   }
@@ -293,6 +307,11 @@ export async function carregarBasesDrive({
       .sort()
       .at(-1) ?? null;
 
+  const ultimaDevolucao =
+    transportadoraId
+      ? arquivos[0]?.appProperties?.formsTranspUltimaDevolucaoEm ?? null
+      : null;
+
   return {
     linhas: linhasVisiveis,
     total,
@@ -302,6 +321,8 @@ export async function carregarBasesDrive({
     slaNoPrazo,
     slaAtrasado,
     ultimaAtualizacao,
+    ultimaDevolucao,
+    totalVisivel,
     arquivos: arquivos.length,
   };
 }

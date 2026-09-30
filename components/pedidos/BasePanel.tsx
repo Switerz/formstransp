@@ -60,6 +60,7 @@ interface BasePanelProps {
   transportadorasParaSelecao?: TransportadoraOption[];
   downloadLabel?: string;
   backendNote?: string;
+  carrierCurrentMode?: boolean;
 }
 
 const TAB_INFO: Record<Tab, { title: string; hint: (n: number) => string }> = {
@@ -93,6 +94,7 @@ export function BasePanel({
   uploadOriginalAction,
   transportadorasParaSelecao,
   downloadLabel = "Baixar minha base",
+  carrierCurrentMode = false,
   backendNote = "Você está autenticado como transportadora - os downloads e a devolução acima só afetam os pedidos vinculados à sua sessão.",
 }: BasePanelProps) {
   const router = useRouter();
@@ -767,18 +769,36 @@ export function BasePanel({
       {/* ---- Painel de visualizaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o ---- */}
       <div className="card panel">
         <div className="tabs">
-          <button className={`tab ${activeTab === "original" ? "active" : ""}`} type="button" onClick={() => setActiveTab("original")}>
-            {permiteDevolucao ? "Visão original" : "Base"}
+          <button
+            className={`tab ${activeTab === "original" ? "active" : ""}`}
+            type="button"
+            onClick={() => setActiveTab("original")}
+          >
+            {carrierCurrentMode
+              ? "Base atual"
+              : permiteDevolucao
+                ? "Vis?o original"
+                : "Base"}
           </button>
+
+          {permiteDevolucao && !carrierCurrentMode ? (
+            <button
+              className={`tab ${activeTab === "updated" ? "active" : ""}`}
+              type="button"
+              onClick={() => setActiveTab("updated")}
+            >
+              Vis?o atualizada
+            </button>
+          ) : null}
+
           {permiteDevolucao ? (
-            <>
-              <button className={`tab ${activeTab === "updated" ? "active" : ""}`} type="button" onClick={() => setActiveTab("updated")}>
-                Visão atualizada
-              </button>
-              <button className={`tab ${activeTab === "compare" ? "active" : ""}`} type="button" onClick={() => setActiveTab("compare")}>
-                Comparativo
-              </button>
-            </>
+            <button
+              className={`tab ${activeTab === "compare" ? "active" : ""}`}
+              type="button"
+              onClick={() => setActiveTab("compare")}
+            >
+              Comparativo
+            </button>
           ) : null}
         </div>
 
@@ -832,7 +852,11 @@ export function BasePanel({
 
         <div className="toolbar">
           <div className="toolbar-left">
-            <strong>{TAB_INFO[activeTab].title}</strong>
+            <strong>
+              {carrierCurrentMode && activeTab === "original"
+                ? "Base atual"
+                : TAB_INFO[activeTab].title}
+            </strong>
             <div>{activeTab === "compare" ? TAB_INFO[activeTab].hint(linhas.length) : textoQuantidade}</div>
             {adminDownloadControl ? <div style={{ marginTop: 12 }}>{adminDownloadControl}</div> : null}
           </div>

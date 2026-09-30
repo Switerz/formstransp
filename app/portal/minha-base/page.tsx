@@ -52,11 +52,54 @@ export default async function MinhaBasePage({
       ? "preenchidas"
       : "todas";
 
+  const paginaSolicitada = Number.parseInt(
+    raw.pagina ?? "1",
+    10,
+  );
+
+  const pagina =
+    Number.isFinite(paginaSolicitada) &&
+    paginaSolicitada > 0
+      ? paginaSolicitada
+      : 1;
+
   const base = await carregarBasesDrive({
     transportadoraId: user.transportadoraId!,
     somentePreenchidas: filtroPreenchimento === "preenchidas",
     limiteLinhas: 500,
+    pagina,
   });
+
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(base.totalVisivel / 500),
+  );
+
+  const paginaAtual = Math.min(
+    pagina,
+    totalPaginas,
+  );
+
+  function hrefPagina(numero: number) {
+    const params = new URLSearchParams();
+
+    if (filtroPreenchimento === "preenchidas") {
+      params.set(
+        "preenchimento",
+        "preenchidas",
+      );
+    }
+
+    if (numero > 1) {
+      params.set("pagina", String(numero));
+    }
+
+    const query = params.toString();
+
+    return query
+      ? `/portal/minha-base?${query}`
+      : "/portal/minha-base";
+  }
 
   const totalRespondidos = base.partial + base.done;
 
@@ -73,6 +116,16 @@ export default async function MinhaBasePage({
   const allHref = "/portal/minha-base";
   const filledHref =
     "/portal/minha-base?preenchimento=preenchidas";
+
+  const previousHref =
+    paginaAtual > 1
+      ? hrefPagina(paginaAtual - 1)
+      : undefined;
+
+  const nextHref =
+    paginaAtual < totalPaginas
+      ? hrefPagina(paginaAtual + 1)
+      : undefined;
 
   return (
     <div className="mb-html">
@@ -185,16 +238,28 @@ export default async function MinhaBasePage({
             )}
             hasBaseUpdate={base.arquivos > 0}
             initialResumo={null}
-            lastDevolucaoLabel="Consulte a base atualizada"
+            lastDevolucaoLabel={
+              base.ultimaDevolucao
+                ? formatarAtualizacao(
+                    base.ultimaDevolucao,
+                  )
+                : "Nenhuma devolu??o recebida"
+            }
             hasDevolucaoHoje={false}
             fillPending={base.pending}
             fillPartial={base.partial}
             fillDone={base.done}
             serverFillFilter={filtroPreenchimento}
+            totalRows={base.totalVisivel}
+            page={paginaAtual}
+            totalPages={totalPaginas}
+            previousHref={previousHref}
+            nextHref={nextHref}
             allHref={allHref}
             filledHref={filledHref}
             downloadHref="/portal/minha-base/download"
             uploadAction={uploadDevolucaoTransportadora}
+            carrierCurrentMode
           />
         </section>
       </main>
