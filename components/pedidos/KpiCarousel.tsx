@@ -181,7 +181,7 @@ export function KpiCarousel(props: KpiCarouselProps) {
     <section className="kpi-carousel" id="kpiCarousel" aria-label="Indicadores">
       <div className="kpi-carousel-head">
         <div className="kpi-carousel-title">
-          <span>▥</span>
+          <span>📊</span>
           <span>Números</span>
         </div>
         <div className="kpi-carousel-view">{slides[index].title}</div>
