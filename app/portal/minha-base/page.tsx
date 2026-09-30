@@ -93,73 +93,73 @@ export default async function MinhaBasePage({
         <section className="grid">
           <KpiCarousel
             slaAjusteTransporte={card(
-              "??",
+              "📦",
               "Total de pedidos",
               base.total.toLocaleString("pt-BR"),
               "Pedidos presentes na base atual",
             )}
             slaTransporte={card(
-              "?",
+              "⏳",
               "Pendentes",
               base.pending.toLocaleString("pt-BR"),
               "Pedidos ainda sem preenchimento operacional",
             )}
             slaCliente={card(
-              "??",
+              "💬",
               "Respondidos",
               totalRespondidos.toLocaleString("pt-BR"),
               `${percentualRespondido}% da base com algum preenchimento`,
             )}
             taxaInsucesso={card(
-              "?",
+              "✅",
               "Conclu�dos",
               base.done.toLocaleString("pt-BR"),
               `${percentualConcluido}% da base totalmente preenchida`,
             )}
             taxaDevolucao={card(
-              "??",
+              "🌓",
               "Parciais",
               base.partial.toLocaleString("pt-BR"),
               "Pedidos parcialmente preenchidos",
             )}
             pedidosAbertos={card(
-              "?",
+              "📂",
               "Em aberto",
               base.pending.toLocaleString("pt-BR"),
               "Pedidos pendentes de tratativa",
             )}
             tratativaCx={card(
-              "??",
+              "🛠️",
               "Com tratativa",
               totalRespondidos.toLocaleString("pt-BR"),
               "Pedidos com algum preenchimento operacional",
             )}
             riscoAtraso={card(
-              "??",
+              "⚠️",
               "SLA atrasado",
               base.slaAtrasado.toLocaleString("pt-BR"),
               "Pedidos identificados como atrasados na base",
             )}
             processado={card(
-              "??",
+              "⚙️",
               "Processados",
               base.total.toLocaleString("pt-BR"),
               "Registros carregados do arquivo atual",
             )}
             perdas={card(
-              "??",
+              "📋",
               "Pend�ncias",
               base.pending.toLocaleString("pt-BR"),
               "Registros ainda pendentes",
             )}
             totalPedidos={card(
-              "??",
+              "🗂️",
               "Total da base",
               base.total.toLocaleString("pt-BR"),
               "Total de registros da base atual",
             )}
             abertoTotal={card(
-              "??",
+              "💬",
               "Respondidos",
               totalRespondidos.toLocaleString("pt-BR"),
               `${percentualRespondido}% da base`,
