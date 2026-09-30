@@ -58,6 +58,44 @@ async function localizarBaseAtual(
   return dados.files?.[0] ?? null;
 }
 
+
+async function localizarBasesAnteriores(
+  transportadoraId: string,
+  accessToken: string,
+): Promise<DriveFile[]> {
+  const q = [
+    "trashed = false",
+    `appProperties has { key='transportadoraId' and value='${escaparDriveQuery(transportadoraId)}' }`,
+    "appProperties has { key='formsTranspTipo' and value='base_transportadora_anterior' }",
+  ].join(" and ");
+
+  const url = new URL("https://www.googleapis.com/drive/v3/files");
+  url.searchParams.set("q", q);
+  url.searchParams.set(
+    "fields",
+    "files(id,name,size,md5Checksum,appProperties,trashed,modifiedTime)",
+  );
+  url.searchParams.set("orderBy", "modifiedTime desc");
+  url.searchParams.set("pageSize", "10");
+
+  const resposta = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+
+  if (!resposta.ok) {
+    throw new Error(
+      `Falha ao localizar hist?rico da transportadora (${resposta.status}).`,
+    );
+  }
+
+  const dados = (await resposta.json()) as {
+    files?: DriveFile[];
+  };
+
+  return dados.files ?? [];
+}
+
 const COLUNAS_PROTEGIDAS = [
   "Nome do Destinatário",
   "Canal de Vendas",
@@ -146,6 +184,92 @@ async function tornarArquivoAcessivel(fileId: string, accessToken: string) {
   if (!resposta.ok && resposta.status !== 409) {
     throw new Error(`Falha ao liberar nova base para download (${resposta.status}).`);
   }
+}
+
+
+async function tornarArquivoPrivado(
+  fileId: string,
+  accessToken: string,
+) {
+  const listar = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions?fields=permissions(id,type,role)`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  if (!listar.ok) {
+    throw new Error(
+      `Falha ao consultar permiss?es da base anterior (${listar.status}).`,
+    );
+  }
+
+  const dados = (await listar.json()) as {
+    permissions?: Array<{
+      id: string;
+      type?: string;
+      role?: string;
+    }>;
+  };
+
+  for (const permissao of dados.permissions ?? []) {
+    if (permissao.type !== "anyone") continue;
+
+    const remover = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions/${encodeURIComponent(permissao.id)}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
+      },
+    );
+
+    if (!remover.ok && remover.status !== 404) {
+      throw new Error(
+        `Falha ao tornar a base anterior privada (${remover.status}).`,
+      );
+    }
+  }
+}
+
+async function arquivarBaseAnterior(
+  arquivo: DriveFile,
+  transportadoraId: string,
+  accessToken: string,
+) {
+  const resposta = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(arquivo.id)}?fields=id,appProperties`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        appProperties: {
+          ...(arquivo.appProperties ?? {}),
+          formsTranspTipo: "base_transportadora_anterior",
+          formsTranspKey: `transportadora-anterior:${transportadoraId}`,
+          transportadoraId,
+          formsTranspArquivadaEm: new Date().toISOString(),
+        },
+      }),
+      cache: "no-store",
+    },
+  );
+
+  if (!resposta.ok) {
+    throw new Error(
+      `Falha ao preservar a base anterior (${resposta.status}).`,
+    );
+  }
+
+  await tornarArquivoPrivado(arquivo.id, accessToken);
 }
 
 async function enviarParaLixeira(fileId: string, accessToken: string) {
@@ -377,7 +501,25 @@ export async function POST(request: Request) {
 
     // A auditoria resumida fica nas appProperties da nova base no Drive.
     // SÃ³ depois da nova base validada/promovida removemos a versÃ£o anterior.
-    if (fileIdAtual !== fileId) await enviarParaLixeira(fileIdAtual, accessToken);
+    if (fileIdAtual !== fileId) {
+      // Busca o hist?rico ANTES de arquivar a base atual.
+      // Assim mantemos exatamente uma vers?o anterior.
+      const anteriores = await localizarBasesAnteriores(
+        transportadoraId,
+        accessToken,
+      );
+
+      await arquivarBaseAnterior(
+        baseAtual,
+        transportadoraId,
+        accessToken,
+      );
+
+      // Qualquer hist?rico mais antigo deixa de ser necess?rio.
+      for (const anterior of anteriores) {
+        await enviarParaLixeira(anterior.id, accessToken);
+      }
+    }
 
     return NextResponse.json({
       ok: true,
