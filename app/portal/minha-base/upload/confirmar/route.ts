@@ -73,11 +73,7 @@ const COLUNAS_PROTEGIDAS = [
   "Valor da Nota",
   "Peso fisico",
   "Chave da Nota",
-  "Data Criação",
-  "Data Entrega Origem",
-  "Previsão Entrega Cliente",
-  "Data Despacho",
-  "Previsão Entrega Transportadora",
+
 ] as const;
 
 const COLUNAS_OPERACIONAIS = [
