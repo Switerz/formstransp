@@ -326,7 +326,7 @@ function validarDevolucao(
   }
 
   if (devolucao.headers.filter(Boolean).length !== obrigatorias.length) {
-    throw new Error("Layout invÃ¡lido. A planilha deve manter exatamente as 25 colunas oficiais.");
+    throw new Error("Layout invÃ¡lido. A planilha deve manter exatamente as 36 colunas oficiais.");
   }
   if (atual.rows.length !== devolucao.rows.length) {
     throw new Error(
