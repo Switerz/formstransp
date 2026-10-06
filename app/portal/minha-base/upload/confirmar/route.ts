@@ -111,6 +111,17 @@ const COLUNAS_PROTEGIDAS = [
   "Valor da Nota",
   "Peso fisico",
   "Chave da Nota",
+  "Data Cria??o",
+  "Data Entrega Intelipost",
+  "Previs?o Entrega Cliente",
+  "Previs?o Entrega Transportadora",
+  "Data Despacho",
+  "Previs?o Entrega Transportadora Original",
+  "MicroStatus",
+  "Status Transportador",
+  "Quantidade de Ocorr?ncias",
+  "?ltima Ocorr?ncia (Micro)",
+  "Status Intelipost",
 
 ] as const;
 
