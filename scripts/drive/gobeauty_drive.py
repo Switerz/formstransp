@@ -21,7 +21,7 @@
 #
 # Quando validarmos:
 #   MODO_TESTE = False
-#   DIAS_BASE_COMPLETA = 45
+#   DIAS_BASE_COMPLETA = 50
 # ============================================================
 
 from __future__ import annotations
@@ -110,7 +110,7 @@ DIAS_BASE_TESTE = 1
 MAX_REGISTROS_TESTE = 500
 
 # Quando MODO_TESTE = False, esta serÃ¡ a janela.
-DIAS_BASE_COMPLETA = 45
+DIAS_BASE_COMPLETA = 50
 
 # Performance para carga grande
 GERAR_XLSX_LOCAL = True
@@ -157,38 +157,56 @@ SENHA_PROTECAO_XLSX = os.getenv(
 # ============================================================
 
 COLUNAS_BASE = [
-    "Nome do DestinatÃ¡rio",
+    "Nome do Destinatário",
     "Canal de Vendas",
-    "Cidade do DestinatÃ¡rio",
+    "Cidade do Destinatário",
     "UF",
-    "CEP do destinatÃ¡rio",
+    "CEP do destinatário",
     "Pedido de Venda",
     "Pedido",
-    "CÃ³digo de rastreio",
+    "Código de rastreio",
     "Nota Fiscal",
-    "MÃ©todo de envio",
+    "Método de envio",
     "Transportadora",
     "Valor da Nota",
     "Peso fisico",
     "Chave da Nota",
     "DATA COLETA/PROCESSAMENTO",
-    "DATA DE PREVISÃƒO",
-    "PRAZO DE ENTREGA (DIAS ÃšTEIS)",
+    "DATA DE PREVISÃO",
+    "PRAZO DE ENTREGA (DIAS ÚTEIS)",
     "DATA DE ENTREGA",
     "STATUS ATUAL",
-    "OCORRÃŠNCIA",
-    "MOTIVO DEVOLUÃ‡ÃƒO",
+    "OCORRÊNCIA",
+    "MOTIVO DEVOLUÇÃO",
     "SLA (NO PRAZO/ATRASADO)",
     "JUSTIFICATIVA DE ATRASO",
-    "NOVA DATA DE PREVISÃƒO (SE ATRASADO)",
-    "DATA EM QUE O PEDIDO FOI RESOLVIDO PARA DEVOLUÃ‡ÃƒO",
+    "NOVA DATA DE PREVISÃO (SE ATRASADO)",
+    "DATA EM QUE O PEDIDO FOI RESOLVIDO PARA DEVOLUÇÃO",
 ]
 
-# Da primeira coluna atÃ© Chave da Nota = origem / bloqueado.
-QTDE_COLUNAS_ORIGEM = 14
+COLUNAS_INTELIPOST_ADICIONAIS = [
+    "Data Criação",
+    "Data Entrega Intelipost",
+    "Previsão Entrega Cliente",
+    "Previsão Entrega Transportadora",
+    "Data Despacho",
+    "Previsão Entrega Transportadora Original",
+    "MicroStatus",
+    "Status Transportador",
+    "Quantidade de Ocorrências",
+    "Última Ocorrência (Micro)",
+    "Status Intelipost",
+]
 
-# O restante Ã© operacional e deve iniciar vazio.
-COLUNAS_OPERACIONAIS = COLUNAS_BASE[QTDE_COLUNAS_ORIGEM:]
+COLUNAS_OPERACIONAIS = COLUNAS_BASE[14:25]
+
+COLUNAS_BASE = (
+    COLUNAS_BASE[:14]
+    + COLUNAS_INTELIPOST_ADICIONAIS
+    + COLUNAS_OPERACIONAIS
+)
+
+QTDE_COLUNAS_ORIGEM = 25
 
 
 # ============================================================
@@ -199,7 +217,7 @@ COLUNAS_OPERACIONAIS = COLUNAS_BASE[QTDE_COLUNAS_ORIGEM:]
 # ============================================================
 
 ALIASES = {
-    "Nome do DestinatÃ¡rio": [
+    "Nome do Destinatário": [
         "Nome do DestinatÃ¡rio",
         "DestinatÃ¡rio",
         "Nome DestinatÃ¡rio",
@@ -212,7 +230,7 @@ ALIASES = {
         "Sales Channel",
         "Canal",
     ],
-    "Cidade do DestinatÃ¡rio": [
+    "Cidade do Destinatário": [
         "Cidade do DestinatÃ¡rio",
         "Cidade Destino",
         "Cidade de Destino",
@@ -224,7 +242,7 @@ ALIASES = {
         "UF de Destino",
         "Estado Destino",
     ],
-    "CEP do destinatÃ¡rio": [
+    "CEP do destinatário": [
         "CEP do destinatÃ¡rio",
         "CEP DestinatÃ¡rio",
         "CEP Destino",
@@ -244,7 +262,7 @@ ALIASES = {
         "Numero do Pedido",
         "Order Number",
     ],
-    "CÃ³digo de rastreio": [
+    "Código de rastreio": [
         "CÃ³digo de rastreio",
         "CÃ³digo de Rastreio",
         "Codigo de Rastreio",
@@ -258,7 +276,7 @@ ALIASES = {
         "NF",
         "Invoice Number",
     ],
-    "MÃ©todo de envio": [
+    "Método de envio": [
         "MÃ©todo de envio",
         "MÃ©todo de Envio",
         "Metodo de Envio",
@@ -327,14 +345,14 @@ ALIASES_DATA_CRIACAO = [
 # campos operacionais preenchidos pela transportadora.
 
 ALIASES_PREVISAO_ENTREGA_CLIENTE = [
-    "Previs?o Entrega Cliente",
+    "Previsão Entrega Cliente",
     "Previsao Entrega Cliente",
 ]
 
 ALIASES_PREVISAO_ENTREGA_TRANSPORTADORA = [
     "Previs?o Entrega Transp.",
     "Previsao Entrega Transp.",
-    "Previs?o Entrega Transportadora",
+    "Previsão Entrega Transportadora",
     "Previsao Entrega Transportadora",
 ]
 
@@ -346,7 +364,7 @@ ALIASES_DATA_DESPACHO = [
 ALIASES_PREVISAO_ENTREGA_TRANSPORTADORA_ORIGINAL = [
     "Previs?o Entrega Transp. Original",
     "Previsao Entrega Transp. Original",
-    "Previs?o Entrega Transportadora Original",
+    "Previsão Entrega Transportadora Original",
     "Previsao Entrega Transportadora Original",
 ]
 
@@ -361,7 +379,7 @@ ALIASES_STATUS_TRANSPORTADOR = [
 ]
 
 ALIASES_QUANTIDADE_OCORRENCIAS = [
-    "Quantidade de Ocorr?ncias",
+    "Quantidade de Ocorrências",
     "Quantidade de Ocorrencias",
 ]
 
@@ -371,6 +389,8 @@ ALIASES_ULTIMA_OCORRENCIA_MICRO = [
 ]
 
 ALIASES_STATUS = [
+    "Situa??o",
+    "Situacao",
     "Status Atual",
     "Status",
     "Status Pedido",
@@ -773,6 +793,29 @@ def validar_mapeamento(
                 f"[FALTA] {coluna_forms}"
             )
 
+    aliases_adicionais = {
+        "Data Criação": ALIASES_DATA_CRIACAO,
+        "Data Entrega Intelipost": ALIASES_DATA_ENTREGA,
+        "Previsão Entrega Cliente": ALIASES_PREVISAO_ENTREGA_CLIENTE,
+        "Previsão Entrega Transportadora": ALIASES_PREVISAO_ENTREGA_TRANSPORTADORA,
+        "Data Despacho": ALIASES_DATA_DESPACHO,
+        "Previsão Entrega Transportadora Original": ALIASES_PREVISAO_ENTREGA_TRANSPORTADORA_ORIGINAL,
+        "MicroStatus": ALIASES_MICRO_STATUS,
+        "Status Transportador": ALIASES_STATUS_TRANSPORTADOR,
+        "Quantidade de Ocorrências": ALIASES_QUANTIDADE_OCORRENCIAS,
+        "Última Ocorrência (Micro)": ALIASES_ULTIMA_OCORRENCIA_MICRO,
+        "Status Intelipost": ALIASES_STATUS,
+    }
+
+    for coluna_forms, aliases in aliases_adicionais.items():
+        encontrada = encontrar_coluna(df, aliases)
+        mapeamento[coluna_forms] = encontrada
+
+        if encontrada:
+            log(f"[OK] {coluna_forms} <- {encontrada}")
+        else:
+            log(f"[FALTA] {coluna_forms}")
+
     faltantes = [
         k
         for k, v in mapeamento.items()
@@ -1164,14 +1207,14 @@ def montar_payload_pedidos(
     )
 
     log(
-        f"[payload] Previs?o Entrega Cliente <- {col_previsao_cliente}"
+        f"[payload] Previsão Entrega Cliente <- {col_previsao_cliente}"
         if col_previsao_cliente
-        else "[payload] Previs?o Entrega Cliente: n?o identificada"
+        else "[payload] Previsão Entrega Cliente: n?o identificada"
     )
     log(
-        f"[payload] Previs?o Entrega Transportadora <- {col_previsao_transportadora}"
+        f"[payload] Previsão Entrega Transportadora <- {col_previsao_transportadora}"
         if col_previsao_transportadora
-        else "[payload] Previs?o Entrega Transportadora: n?o identificada"
+        else "[payload] Previsão Entrega Transportadora: n?o identificada"
     )
     log(
         f"[payload] Data Despacho <- {col_data_despacho}"
@@ -1179,9 +1222,9 @@ def montar_payload_pedidos(
         else "[payload] Data Despacho: n?o identificada"
     )
     log(
-        f"[payload] Previs?o Entrega Transportadora Original <- {col_previsao_transportadora_original}"
+        f"[payload] Previsão Entrega Transportadora Original <- {col_previsao_transportadora_original}"
         if col_previsao_transportadora_original
-        else "[payload] Previs?o Entrega Transportadora Original: n?o identificada"
+        else "[payload] Previsão Entrega Transportadora Original: n?o identificada"
     )
     log(
         f"[payload] MicroStatus <- {col_micro_status}"
@@ -1686,4 +1729,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

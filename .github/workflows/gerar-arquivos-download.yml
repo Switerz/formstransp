@@ -1,51 +1,50 @@
-name: Gerar arquivos de download
+name: Forms Transp - Pipeline Diario
 
 on:
   workflow_dispatch:
-    inputs:
-      admin_only:
-        description: "Gerar somente a Base Completa administrativa"
-        type: boolean
-        default: false
   schedule:
-    # 07:00 no horário de Brasília (UTC-3).
-    - cron: "0 10 * * *"
+    # 00:00 no horario de Brasilia (UTC-3).
+    - cron: "0 3 * * *"
 
 concurrency:
-  group: gerar-arquivos-download
+  group: forms-transp-pipeline-diario
   cancel-in-progress: false
 
 jobs:
   gerar:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 240
+
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      USUARIO: ${{ secrets.USUARIO }}
+      SENHA: ${{ secrets.SENHA }}
+
+      GOBEAUTY_APICE_USUARIO: ${{ secrets.GOBEAUTY_APICE_USUARIO }}
+      GOBEAUTY_APICE_SENHA: ${{ secrets.GOBEAUTY_APICE_SENHA }}
+      GOBEAUTY_BARBOURS_USUARIO: ${{ secrets.GOBEAUTY_BARBOURS_USUARIO }}
+      GOBEAUTY_BARBOURS_SENHA: ${{ secrets.GOBEAUTY_BARBOURS_SENHA }}
+      GOBEAUTY_LESCENT_USUARIO: ${{ secrets.GOBEAUTY_LESCENT_USUARIO }}
+      GOBEAUTY_LESCENT_SENHA: ${{ secrets.GOBEAUTY_LESCENT_SENHA }}
+
       GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
       GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
       GOOGLE_DRIVE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DRIVE_REFRESH_TOKEN }}
       GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
-      NODE_OPTIONS: --max-old-space-size=6144
+
+      FORMS_TRANSP_ENVIAR_BACKEND: "0"
+
     steps:
-      - name: Baixar código
+      - name: Baixar codigo
         uses: actions/checkout@v4
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@v4
+      - name: Configurar Python
+        uses: actions/setup-python@v5
         with:
-          node-version: 20
-          cache: npm
+          python-version: "3.11"
+          cache: pip
 
-      - name: Instalar dependências
-        run: npm ci
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
 
-      - name: Gerar Prisma Client
-        run: npx prisma generate
-
-      - name: Gerar e publicar arquivos
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.admin_only }}" = "true" ]; then
-            npm run exports:generate -- --admin-only
-          else
-            npm run exports:generate
-          fi
+      - name: Executar pipeline diario
+        run: python scripts/drive/orquestrador-diario.py
