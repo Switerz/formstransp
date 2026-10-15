@@ -38,7 +38,7 @@ function pedido(overrides: Partial<PedidoParaTabela> = {}): PedidoParaTabela {
 }
 
 describe("pedidoParaLinhaTabela", () => {
-  it("monta as 29 colunas nomeadas + status de preenchimento + Ofensor GB", () => {
+  it("monta as 30 colunas nomeadas + status de preenchimento + Ofensor GB", () => {
     const linha = pedidoParaLinhaTabela(pedido({ statusAtual: "DEVOLVIDO" }));
     expect(linha.colunas["Pedido"]).toBe("BR123456789");
     expect(linha.colunas["Transportadora"]).toBe("Log Servicos");
@@ -46,7 +46,7 @@ describe("pedidoParaLinhaTabela", () => {
     expect(linha.colunas["Previsão Entrega Cliente"]).toBe("2026-08-25");
     expect(linha.colunas["Previsão Entrega Transportadora"]).toBe("2026-08-24");
     expect(linha.colunas["DATA DE ENTREGA"]).toBe("");
-    expect(Object.keys(linha.colunas)).toHaveLength(29);
+    expect(Object.keys(linha.colunas)).toHaveLength(30);
     expect(linha.fillStatus).toBe("partial");
     expect(linha.ofensorGb).toBe("Devolução");
   });
