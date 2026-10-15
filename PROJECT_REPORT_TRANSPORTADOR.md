@@ -69,7 +69,6 @@ Todas tratam denominador zero.
 
 ```bash
 npm install
-copy .env.example .env
 npm run db:init
 npm run prisma:seed
 npm run dev
