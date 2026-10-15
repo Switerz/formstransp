@@ -9,16 +9,16 @@ datasource db {
 }
 
 model Transportadora {
-  id                     String                  @id @default(cuid())
+  id                     String                     @id @default(cuid())
   nome                   String
   cnpj                   String?
-  codigoSlug             String                  @unique
-  ativo                  Boolean                 @default(true)
-  origem                 String                  @default("real")
-  tokenPublicoFormulario String                  @unique
+  codigoSlug             String                     @unique
+  ativo                  Boolean                    @default(true)
+  origem                 String                     @default("real")
+  tokenPublicoFormulario String                     @unique
   emailsDestinatarios    String?
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
   submissions            DailyReportSubmission[]
   automationLogs         AutomationLog[]
   qualityLogs            SubmissionQualityLog[]
@@ -27,30 +27,31 @@ model Transportadora {
   pedidoChangeAttempts   PedidoFieldChangeAttempt[]
   aliases                TransportadoraAlias[]
   exportacoes            ExportacaoArquivo[]
+  devolucoes             DevolucaoArquivo[]
 
   @@map("transportadoras")
 }
 
 model AppUser {
-  id                 String          @id @default(cuid())
-  authUserId         String?         @unique @db.Uuid
-  username           String?         @unique
-  email              String          @unique
-  nome               String
-  passwordHash       String?
-  passwordMustChange Boolean         @default(false)
-  credentialSentAt   DateTime?
-  credentialSentBy   String?
-  role               String          @default("carrier_operator")
-  ativo              Boolean         @default(true)
-  transportadoraId   String?
-  lastLoginAt        DateTime?
-  passwordUpdatedAt  DateTime?
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  transportadora     Transportadora? @relation(fields: [transportadoraId], references: [id], onDelete: SetNull)
-  sessions           AppSession[]
-  qualityLogs        SubmissionQualityLog[]
+  id                   String                     @id @default(cuid())
+  authUserId           String?                    @unique @db.Uuid
+  username             String?                    @unique
+  email                String                     @unique
+  nome                 String
+  passwordHash         String?
+  passwordMustChange   Boolean                    @default(false)
+  credentialSentAt     DateTime?
+  credentialSentBy     String?
+  role                 String                     @default("carrier_operator")
+  ativo                Boolean                    @default(true)
+  transportadoraId     String?
+  lastLoginAt          DateTime?
+  passwordUpdatedAt    DateTime?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  transportadora       Transportadora?            @relation(fields: [transportadoraId], references: [id], onDelete: SetNull)
+  sessions             AppSession[]
+  qualityLogs          SubmissionQualityLog[]
   pedidoChangeAttempts PedidoFieldChangeAttempt[]
 
   @@index([transportadoraId])
@@ -162,17 +163,17 @@ model AutomationLog {
 }
 
 model SubmissionQualityLog {
-  id               String          @id @default(cuid())
+  id               String         @id @default(cuid())
   transportadoraId String
   userId           String?
   dataReport       DateTime
   action           String
-  status           String          @default("blocked")
+  status           String         @default("blocked")
   reasons          String
   payloadSummary   String?
-  createdAt        DateTime        @default(now())
+  createdAt        DateTime       @default(now())
   transportadora   Transportadora @relation(fields: [transportadoraId], references: [id], onDelete: Cascade)
-  user             AppUser?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user             AppUser?       @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([transportadoraId, dataReport])
   @@index([userId])
@@ -220,11 +221,11 @@ model Pedido {
 
   // Campos adicionais de origem Intelipost usados nas regras e KPIs.
   // Atualizados pela carga diaria e protegidos contra edicao.
-  dataDespacho                           DateTime?
+  dataDespacho                          DateTime?
   previsaoEntregaTransportadoraOriginal DateTime?
-  microStatus                            String?
-  statusTransportador                    String?
-  quantidadeOcorrencias                  Int?
+  microStatus                           String?
+  statusTransportador                   String?
+  quantidadeOcorrencias                 Int?
   ultimaOcorrenciaMicro                 String?
 
   origemAtualizadoEm DateTime @default(now())
@@ -279,6 +280,47 @@ model ExportacaoArquivo {
   @@map("exportacoes_arquivos")
 }
 
+model DevolucaoArquivo {
+  id               String  @id @default(cuid())
+  transportadoraId String
+  exportacaoId     String?
+
+  nomeArquivo  String
+  driveFileId  String?
+  tamanhoBytes BigInt?
+  md5          String?
+
+  status String @default("INICIADO")
+
+  recebidoEm        DateTime?
+  processandoEm     DateTime?
+  consolidadoEm     DateTime?
+  arquivoExcluidoEm DateTime?
+
+  totalLinhas        Int?
+  linhasAlteradas    Int?
+  linhasSemAlteracao Int?
+  linhasRejeitadas   Int?
+  totalConflitos     Int?
+
+  erro           String?
+  consolidacaoId String?
+
+  enviadoPorId    String?
+  enviadoPorNome  String?
+  enviadoPorEmail String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transportadora Transportadora @relation(fields: [transportadoraId], references: [id], onDelete: Cascade)
+
+  @@index([transportadoraId, status])
+  @@index([status, createdAt])
+  @@index([exportacaoId])
+  @@map("devolucoes_arquivos")
+}
+
 // Item 7: registro de tentativa de alterar um campo operacional que já havia
 // sido preenchido anteriormente. A alteração é bloqueada (status = "blocked");
 // o valor salvo em Pedido é preservado.
@@ -295,7 +337,7 @@ model PedidoFieldChangeAttempt {
   campo        String
   valorAtual   String?
   valorTentado String?
-  status       String @default("blocked")
+  status       String  @default("blocked")
 
   createdAt DateTime @default(now())
 
