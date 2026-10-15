@@ -16,3 +16,5 @@ p.())
 *.db
 *.db-journal
 prisma/dev.db
+
+scripts/drive/bases_transportadoras/
