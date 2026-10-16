@@ -79,8 +79,7 @@ def validar_saidas() -> None:
 def main() -> int:
     adquirir_lock()
     env = os.environ.copy()
-    # Fluxo legado de upsert de pedidos fica desligado neste pipeline.
-    env["FORMS_TRANSP_ENVIAR_BACKEND"] = "0"
+    # Mantem a configuracao de envio ao backend recebida pelo ambiente.
 
     try:
         executar("Coleta GoCase", [sys.executable, str(PASTA / "gocase_drive.py")], env)
