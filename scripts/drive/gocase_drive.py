@@ -1543,6 +1543,17 @@ def main():
             f"{caminho.name}"
         )
 
+    if ENVIAR_PARA_BACKEND:
+        pedidos, linhas_ignoradas = montar_payload_pedidos(
+            df_relatorio,
+            mapeamento,
+        )
+
+        for aviso in linhas_ignoradas:
+            log(f"[payload] {aviso}")
+
+        enviar_pedidos_backend(pedidos)
+
     log("")
     log("=" * 65)
     log("GERACAO FINALIZADA")

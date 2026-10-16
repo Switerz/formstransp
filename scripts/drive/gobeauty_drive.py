@@ -1661,12 +1661,30 @@ def processar_conta_gobeauty(
         arquivos_gerados += 1
         log(f'[OK] [{nome_conta}] {transportadora}: {len(df_transportadora):,} pedidos -> {caminho.name}')
 
+    inseridos = 0
+    atualizados = 0
+    linhas_ignoradas_localmente = 0
+
+    if ENVIAR_PARA_BACKEND:
+        pedidos, linhas_ignoradas = montar_payload_pedidos(
+            df_filtrado,
+            mapeamento,
+        )
+
+        for aviso in linhas_ignoradas:
+            log(f'[payload] [{nome_conta}] {aviso}')
+
+        retorno_backend = enviar_pedidos_backend(pedidos)
+        inseridos = retorno_backend.get('inseridos', 0)
+        atualizados = retorno_backend.get('atualizados', 0)
+        linhas_ignoradas_localmente = len(linhas_ignoradas)
+
     resultado = {
         'conta': nome_conta,
         'pedidos_validos': len(base_forms),
-        'inseridos': 0,
-        'atualizados': 0,
-        'linhas_ignoradas_localmente': 0,
+        'inseridos': inseridos,
+        'atualizados': atualizados,
+        'linhas_ignoradas_localmente': linhas_ignoradas_localmente,
         'arquivos_gerados': arquivos_gerados,
     }
 
