@@ -144,7 +144,9 @@ def localizar_arquivos():
     # GoBeauty: arquivos dentro de gobeauty/apice, barbours e lescent
     pasta_gobeauty = PASTA_ORIGEM / "gobeauty"
 
-    if pasta_gobeauty.exists():
+    somente_gocase = os.getenv("FORMS_TRANSP_ORIGENS", "").strip().upper() == "GOCASE"
+
+    if pasta_gobeauty.exists() and not somente_gocase:
         for conta in ["apice", "barbours", "lescent"]:
             pasta_conta = pasta_gobeauty / conta
 
