@@ -8,6 +8,8 @@ from datetime import datetime
 import pandas as pd
 from copy import copy
 from openpyxl import load_workbook
+from openpyxl.styles import PatternFill, Font, Alignment
+from openpyxl.comments import Comment
 
 
 PASTA = Path(__file__).resolve().parent
@@ -162,13 +164,12 @@ def escrever_template(df, caminho_saida):
     wb = load_workbook(TEMPLATE)
     ws = wb["BASE"]
 
-    cabecalhos = [
-        ws.cell(row=1, column=coluna).value
-        for coluna in range(1, 26)
-    ]
+    cabecalhos = COLUNAS_LAYOUT
 
-    dados_padrao = df.iloc[:, :25].copy()
-    dados_padrao.columns = cabecalhos
+    dados_padrao = df.reindex(columns=COLUNAS_LAYOUT).copy()
+
+    for numero_coluna, cabecalho in enumerate(COLUNAS_LAYOUT, start=1):
+        ws.cell(row=1, column=numero_coluna).value = cabecalho
 
     colunas_texto = {4, 5, 6, 7, 8, 13}
 
@@ -187,13 +188,13 @@ def escrever_template(df, caminho_saida):
         return texto
 
     for linha in ws.iter_rows(
-        min_row=2, max_row=ws.max_row, min_col=1, max_col=25
+        min_row=2, max_row=ws.max_row, min_col=1, max_col=36
     ):
         for celula in linha:
             celula.value = None
 
     estilos = []
-    for coluna in range(1, 26):
+    for coluna in range(1, 37):
         modelo = ws.cell(row=2, column=coluna)
         estilos.append({
             "style": copy(modelo._style),
@@ -222,11 +223,127 @@ def escrever_template(df, caminho_saida):
 
     ultima_linha = len(dados_padrao) + 1
     if ws.auto_filter.ref:
-        ws.auto_filter.ref = f"A1:Y{max(ultima_linha, 2)}"
+        ws.auto_filter.ref = f"A1:AJ{max(ultima_linha, 2)}"
+
+    # Formata??o das colunas preenchidas pela transportadora (26 a 36)
+    comentarios = {
+        "DATA COLETA/PROCESSAMENTO": "Informe a data em que o pedido foi coletado ou processado.",
+        "DATA DE PREVISÃO": "Informe a previs?o atual de entrega do pedido.",
+        "PRAZO DE ENTREGA (DIAS ÚTEIS)": "Informe o prazo de entrega em dias ?teis.",
+        "DATA DE ENTREGA": "Informe a data em que o pedido foi efetivamente entregue.",
+        "STATUS ATUAL": "Informe o status atual do pedido.",
+        "OCORRÊNCIA": "Informe a ocorr?ncia atual do pedido, quando houver.",
+        "MOTIVO DEVOLUÇÃO": "Informe o motivo da devolu??o, quando houver.",
+        "SLA (NO PRAZO/ATRASADO)": "Informe se o pedido est? NO PRAZO ou ATRASADO.",
+        "JUSTIFICATIVA DE ATRASO": "Informe a justificativa do atraso, quando houver.",
+        "NOVA DATA DE PREVISÃO (SE ATRASADO)": "Se estiver atrasado, informe a nova previs?o de entrega.",
+        "DATA EM QUE O PEDIDO FOI RESOLVIDO PARA DEVOLUÇÃO": "Informe a data em que o pedido foi resolvido para devolu??o.",
+    }
+
+    larguras = {
+        "DATA COLETA/PROCESSAMENTO": 28,
+        "DATA DE PREVISÃO": 22,
+        "PRAZO DE ENTREGA (DIAS ÚTEIS)": 32,
+        "DATA DE ENTREGA": 20,
+        "STATUS ATUAL": 24,
+        "OCORRÊNCIA": 28,
+        "MOTIVO DEVOLUÇÃO": 28,
+        "SLA (NO PRAZO/ATRASADO)": 27,
+        "JUSTIFICATIVA DE ATRASO": 34,
+        "NOVA DATA DE PREVISÃO (SE ATRASADO)": 38,
+        "DATA EM QUE O PEDIDO FOI RESOLVIDO PARA DEVOLUÇÃO": 48,
+    }
+
+    preenchimento_sistema = PatternFill(
+        fill_type="solid",
+        fgColor="FF17365D"
+    )
+    preenchimento_transportadora = PatternFill(
+        fill_type="solid",
+        fgColor="FFFFF2CC"
+    )
+
+    # A:Y - dados automaticos do sistema
+    for numero_coluna in range(1, 26):
+        celula = ws.cell(row=1, column=numero_coluna)
+        celula.fill = preenchimento_sistema
+        celula.font = Font(bold=True, color="FFFFFFFF")
+        celula.alignment = Alignment(
+            horizontal="center",
+            vertical="center",
+            wrap_text=True,
+        )
+        celula.comment = None
+
+    # Z:AJ - campos preenchidos pela transportadora
+    for numero_coluna in range(26, 37):
+        celula = ws.cell(row=1, column=numero_coluna)
+        cabecalho = str(celula.value or "")
+
+        celula.fill = preenchimento_transportadora
+        celula.font = Font(bold=True, color="FF7F6000")
+        celula.alignment = Alignment(
+            horizontal="center",
+            vertical="center",
+            wrap_text=True,
+        )
+
+        if cabecalho in comentarios:
+            celula.comment = Comment(
+                comentarios[cabecalho],
+                "Forms Transp"
+            )
+
+        ws.column_dimensions[celula.column_letter].width = larguras.get(
+            cabecalho,
+            25
+        )
+
+    ws.row_dimensions[1].height = 45
 
     wb.save(caminho_saida)
 
 
+
+
+COLUNAS_LAYOUT = [
+    "Nome do Destinat\u00e1rio",
+    "Canal de Vendas",
+    "Cidade do Destinat\u00e1rio",
+    "UF",
+    "CEP do destinat\u00e1rio",
+    "Pedido de Venda",
+    "Pedido",
+    "C\u00f3digo de rastreio",
+    "Nota Fiscal",
+    "M\u00e9todo de envio",
+    "Transportadora",
+    "Valor da Nota",
+    "Peso fisico",
+    "Chave da Nota",
+    "Data Cria\u00e7\u00e3o",
+    "Data Entrega Intelipost",
+    "Previs\u00e3o Entrega Cliente",
+    "Previs\u00e3o Entrega Transportadora",
+    "Data Despacho",
+    "Previs\u00e3o Entrega Transportadora Original",
+    "MicroStatus",
+    "Status Transportador",
+    "Quantidade de Ocorr\u00eancias",
+    "\u00daltima Ocorr\u00eancia (Micro)",
+    "Status Intelipost",
+    "DATA COLETA/PROCESSAMENTO",
+    "DATA DE PREVIS\u00c3O",
+    "PRAZO DE ENTREGA (DIAS \u00daTEIS)",
+    "DATA DE ENTREGA",
+    "STATUS ATUAL",
+    "OCORR\u00caNCIA",
+    "MOTIVO DEVOLU\u00c7\u00c3O",
+    "SLA (NO PRAZO/ATRASADO)",
+    "JUSTIFICATIVA DE ATRASO",
+    "NOVA DATA DE PREVIS\u00c3O (SE ATRASADO)",
+    "DATA EM QUE O PEDIDO FOI RESOLVIDO PARA DEVOLU\u00c7\u00c3O",
+]
 
 COLUNAS_CHAVE = ["Transportadora", "Pedido", "Nota Fiscal", "Pedido de Venda"]
 
@@ -260,7 +377,7 @@ def preservar_operacional_anterior(base_nova):
     if anterior.empty:
         return base_nova, metricas
 
-    colunas_operacionais = list(base_nova.columns[14:25])
+    colunas_operacionais = list(base_nova.columns[25:36])
     anterior["__chave"] = _chave_linha(anterior)
     base_nova = base_nova.copy()
     base_nova["__chave"] = _chave_linha(base_nova)
@@ -411,6 +528,13 @@ def main():
     total_antes = len(base_geral)
     base_geral = base_geral.drop_duplicates().reset_index(drop=True)
     duplicatas_exatas = total_antes - len(base_geral)
+
+    # Forca o contrato oficial de 36 colunas antes da preservacao historica.
+    for coluna in COLUNAS_LAYOUT:
+        if coluna not in base_geral.columns:
+            base_geral[coluna] = None
+
+    base_geral = base_geral[COLUNAS_LAYOUT].copy()
 
     base_geral, metricas = preservar_operacional_anterior(base_geral)
 

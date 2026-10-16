@@ -46,13 +46,13 @@ describe("classificarMacroStatus", () => {
     ).toBe("N\u00E3o Processado");
   });
 
-  it("aplica regra extra de n?o processado da GoBeaut?", () => {
+  it("nao aplica regra antiga de nao processado da GoBeauty", () => {
     expect(
       classificarMacroStatus({
         microStatus: "ETIQUETA CRIADA",
         ehGocase: false,
       }),
-    ).toBe("N\u00E3o Processado");
+    ).toBe("Em Tr\u00E2nsito");
   });
 
   it("n?o aplica regra exclusiva da GoBeaut? na Gocase", () => {

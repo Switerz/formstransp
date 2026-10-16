@@ -13,7 +13,7 @@ Por secret, mesmo padrão do job `send-daily-reports` já existente. Envie **um*
 - Header: `x-pedidos-import-secret: <valor de PEDIDOS_IMPORT_SECRET>`
 - Querystring: `?secret=<valor de PEDIDOS_IMPORT_SECRET>`
 
-`PEDIDOS_IMPORT_SECRET` é uma variável de ambiente nova (ver `.env.example`). Sem ela configurada no servidor, o endpoint responde `401` para qualquer chamada.
+`PEDIDOS_IMPORT_SECRET` é uma variável de ambiente nova. Sem ela configurada no servidor, o endpoint responde `401` para qualquer chamada.
 
 ## Corpo da requisição
 

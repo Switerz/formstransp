@@ -35,7 +35,7 @@ def adquirir_lock() -> None:
     except FileExistsError:
         detalhe = LOCK.read_text(encoding="utf-8", errors="replace") if LOCK.exists() else ""
         raise RuntimeError(
-            "Já existe uma atualização diária em andamento. "
+            "JÃƒÂ¡ existe uma atualizaÃƒÂ§ÃƒÂ£o diÃƒÂ¡ria em andamento. "
             f"Lock: {LOCK}. Detalhe: {detalhe}"
         )
     with os.fdopen(fd, "w", encoding="utf-8") as arq:
@@ -46,11 +46,11 @@ def liberar_lock() -> None:
     try:
         LOCK.unlink(missing_ok=True)
     except Exception as exc:
-        log(f"AVISO: não foi possível remover lock: {exc}")
+        log(f"AVISO: nÃƒÂ£o foi possÃƒÂ­vel remover lock: {exc}")
 
 
 def executar(etapa: str, comando: list[str], env: dict[str, str]) -> None:
-    log(f"INÍCIO: {etapa}")
+    log(f"INÃƒÂCIO: {etapa}")
     subprocess.run(comando, cwd=ROOT, env=env, check=True)
     log(f"OK: {etapa}")
 
@@ -61,41 +61,45 @@ def validar_saidas() -> None:
     ]
     ausentes = [str(p) for p in esperados if not p.exists() or p.stat().st_size == 0]
     if ausentes:
-        raise RuntimeError("Arquivos ausentes/vazios após consolidação:\n- " + "\n- ".join(ausentes))
+        raise RuntimeError("Arquivos ausentes/vazios apÃƒÂ³s consolidaÃƒÂ§ÃƒÂ£o:\n- " + "\n- ".join(ausentes))
 
-    # Validação leve e sem carregar 130k linhas na memória.
+    # ValidaÃƒÂ§ÃƒÂ£o leve e sem carregar 130k linhas na memÃƒÂ³ria.
     codigo = (
         "from openpyxl import load_workbook; import sys; "
         "p=sys.argv[1]; wb=load_workbook(p,read_only=True,data_only=True); "
-        "ws=wb['BASE']; h=[ws.cell(1,c).value for c in range(1,26)]; "
-        "assert len(h)==25 and all(x is not None for x in h), 'cabecalho invalido'; "
+        "ws=wb['BASE']; h=[ws.cell(1,c).value for c in range(1,37)]; "
+        "assert len(h)==36 and all(x is not None for x in h), 'cabecalho invalido'; "
         "assert ws.max_row and ws.max_row>=1, 'planilha vazia'; wb.close()"
     )
     for caminho in esperados:
         subprocess.run([sys.executable, "-c", codigo, str(caminho)], check=True)
-    log("OK: BASE_GERAL + 9 recortes validados antes da publicação")
+    log("OK: BASE_GERAL + 9 recortes validados antes da publicaÃƒÂ§ÃƒÂ£o")
 
 
 def main() -> int:
     adquirir_lock()
     env = os.environ.copy()
-    # Fluxo legado de upsert de pedidos fica desligado neste pipeline.
-    env["FORMS_TRANSP_ENVIAR_BACKEND"] = "0"
+    # Mantem a configuracao de envio ao backend recebida pelo ambiente.
 
     try:
         executar("Coleta GoCase", [sys.executable, str(PASTA / "gocase_drive.py")], env)
         executar("Coleta GoBeauty", [sys.executable, str(PASTA / "gobeauty_drive.py")], env)
-        executar("Consolidação + preservação + recortes", [sys.executable, str(PASTA / "consolidar-bases.py")], env)
-        validar_saidas()
         executar(
-            "Publicação das 9 transportadoras",
-            ["npx", "tsx", str(PASTA / "publicar-bases-drive.ts"), "--todas"],
+            "Download da BASE_GERAL anterior",
+            [sys.executable, str(PASTA / "publicar-bases-drive.py"), "--baixar-base-geral"],
             env,
         )
-        log("SUCESSO: atualização diária concluída")
+        executar("ConsolidaÃƒÂ§ÃƒÂ£o + preservaÃƒÂ§ÃƒÂ£o + recortes", [sys.executable, str(PASTA / "consolidar-bases.py")], env)
+        validar_saidas()
+        executar(
+            "PublicaÃƒÂ§ÃƒÂ£o das 9 transportadoras",
+            [sys.executable, str(PASTA / "publicar-bases-drive.py")],
+            env,
+        )
+        log("SUCESSO: atualizaÃƒÂ§ÃƒÂ£o diÃƒÂ¡ria concluÃƒÂ­da")
         return 0
     except subprocess.CalledProcessError as exc:
-        log(f"FALHA: etapa interrompida (exit code {exc.returncode}). Nenhuma etapa posterior será executada.")
+        log(f"FALHA: etapa interrompida (exit code {exc.returncode}). Nenhuma etapa posterior serÃƒÂ¡ executada.")
         return exc.returncode or 1
     except Exception as exc:
         log(f"FALHA: {exc}")
@@ -106,3 +110,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+

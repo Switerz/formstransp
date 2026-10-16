@@ -73,7 +73,7 @@ DIAS_BASE_TESTE = 1
 MAX_REGISTROS_TESTE = 500
 
 # Quando MODO_TESTE = False, esta serÃƒÂ¡ a janela.
-DIAS_BASE_COMPLETA = 45
+DIAS_BASE_COMPLETA = 50
 
 # Performance para carga grande
 GERAR_XLSX_LOCAL = True
@@ -149,11 +149,29 @@ COLUNAS_BASE = [
     "DATA EM QUE O PEDIDO FOI RESOLVIDO PARA DEVOLUÇÃO",
 ]
 
-# Da primeira coluna atÃƒÂ© Chave da Nota = origem / bloqueado.
-QTDE_COLUNAS_ORIGEM = 14
+COLUNAS_INTELIPOST_ADICIONAIS = [
+    "Data Cria\u00e7\u00e3o",
+    "Data Entrega Intelipost",
+    "Previs\u00e3o Entrega Cliente",
+    "Previs\u00e3o Entrega Transportadora",
+    "Data Despacho",
+    "Previs\u00e3o Entrega Transportadora Original",
+    "MicroStatus",
+    "Status Transportador",
+    "Quantidade de Ocorr\u00eancias",
+    "\u00daltima Ocorr\u00eancia (Micro)",
+    "Status Intelipost",
+]
 
-# O restante ÃƒÂ© operacional e deve iniciar vazio.
-COLUNAS_OPERACIONAIS = COLUNAS_BASE[QTDE_COLUNAS_ORIGEM:]
+COLUNAS_OPERACIONAIS = COLUNAS_BASE[14:25]
+
+COLUNAS_BASE = (
+    COLUNAS_BASE[:14]
+    + COLUNAS_INTELIPOST_ADICIONAIS
+    + COLUNAS_OPERACIONAIS
+)
+
+QTDE_COLUNAS_ORIGEM = 25
 
 
 # ============================================================
@@ -336,6 +354,7 @@ ALIASES_ULTIMA_OCORRENCIA_MICRO = [
 ]
 
 ALIASES_STATUS = [
+    "Situa\u00e7\u00e3o",
     "Status Atual",
     "Status",
     "Status Pedido",
@@ -737,6 +756,29 @@ def validar_mapeamento(
             log(
                 f"[FALTA] {coluna_forms}"
             )
+
+    aliases_adicionais = {
+        "Data Cria\u00e7\u00e3o": ALIASES_DATA_CRIACAO,
+        "Data Entrega Intelipost": ALIASES_DATA_ENTREGA,
+        "Previs\u00e3o Entrega Cliente": ALIASES_PREVISAO_ENTREGA_CLIENTE,
+        "Previs\u00e3o Entrega Transportadora": ALIASES_PREVISAO_ENTREGA_TRANSPORTADORA,
+        "Data Despacho": ALIASES_DATA_DESPACHO,
+        "Previs\u00e3o Entrega Transportadora Original": ALIASES_PREVISAO_ENTREGA_TRANSPORTADORA_ORIGINAL,
+        "MicroStatus": ALIASES_MICRO_STATUS,
+        "Status Transportador": ALIASES_STATUS_TRANSPORTADOR,
+        "Quantidade de Ocorr\u00eancias": ALIASES_QUANTIDADE_OCORRENCIAS,
+        "\u00daltima Ocorr\u00eancia (Micro)": ALIASES_ULTIMA_OCORRENCIA_MICRO,
+        "Status Intelipost": ALIASES_STATUS,
+    }
+
+    for coluna_forms, aliases in aliases_adicionais.items():
+        encontrada = encontrar_coluna(df, aliases)
+        mapeamento[coluna_forms] = encontrada
+
+        if encontrada:
+            log(f"[OK] {coluna_forms} <- {encontrada}")
+        else:
+            log(f"[FALTA] {coluna_forms}")
 
     faltantes = [
         k
@@ -1500,6 +1542,17 @@ def main():
             f"{len(df_transportadora):,} pedidos -> "
             f"{caminho.name}"
         )
+
+    if ENVIAR_PARA_BACKEND:
+        pedidos, linhas_ignoradas = montar_payload_pedidos(
+            df_relatorio,
+            mapeamento,
+        )
+
+        for aviso in linhas_ignoradas:
+            log(f"[payload] {aviso}")
+
+        enviar_pedidos_backend(pedidos)
 
     log("")
     log("=" * 65)

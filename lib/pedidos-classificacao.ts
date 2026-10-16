@@ -18,18 +18,11 @@ function normalizar(value: unknown): string {
     .toUpperCase();
 }
 
-const GOBEAUTE_MICRO_NAO_PROCESSADO = new Set([
-  "PRONTO PARA DESPACHO",
-  "FALHA AO CRIAR PEDIDO COM A TRANSPORTADORA",
-  "ETIQUETA CRIADA",
-  "OPERACAO CANCELADA",
-  "DESPACHO",
-]);
-
 const MICRO_NAO_PROCESSADO = new Set([
   "ARQUIVO RECEBIDO",
   "DESPACHADO",
   "CRIADO",
+  "FALHA AO CRIAR PEDIDO COM A TRANSPORTADORA",
 ]);
 
 const TRATATIVA_DIRETA = new Set([
@@ -122,22 +115,6 @@ export function classificarMacroStatus({
   }
 
   if (MICRO_NAO_PROCESSADO.has(micro)) {
-    return "N\u00E3o Processado";
-  }
-
-  // Regra adicional da GoBeaut?.
-  if (!ehGocase && GOBEAUTE_MICRO_NAO_PROCESSADO.has(micro)) {
-    return "N\u00E3o Processado";
-  }
-
-  /*
-   * EM TRANSITO ainda ? considerado N?o Processado quando a
-   * transportadora s? registrou Criado/Despachado.
-   */
-  if (
-    micro === "EM TRANSITO" &&
-    (statusT === "CRIADO" || statusT === "DESPACHADO")
-  ) {
     return "N\u00E3o Processado";
   }
 
