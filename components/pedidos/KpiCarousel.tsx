@@ -17,20 +17,10 @@ interface KpiSlideDef {
 }
 
 export interface KpiCarouselProps {
-  slaAjusteTransporte: KpiCard;
-  slaTransporte: KpiCard;
-  slaCliente: KpiCard;
-  taxaInsucesso: KpiCard;
-  taxaDevolucao: KpiCard;
-  pedidosAbertos: KpiCard;
-  tratativaCx: KpiCard;
-  riscoAtraso: KpiCard;
-  processado: KpiCard;
-  perdas: KpiCard;
-  totalPedidos: KpiCard;
-  abertoTotal: KpiCard;
-  integridade: KpiCard;
-  status: KpiCard;
+  total: KpiCard;
+  pendentes: KpiCard;
+  respondido: KpiCard;
+  slaBaseCompleta: KpiCard;
 }
 
 function KpiCardEl({ card }: { card: KpiCard }) {
@@ -55,31 +45,16 @@ function KpiCardEl({ card }: { card: KpiCard }) {
  */
 export function KpiCarousel(props: KpiCarouselProps) {
   const slides: KpiSlideDef[] = [
-    {
-      title: "Geral",
-      cards: [
-        props.slaAjusteTransporte,
-        props.slaTransporte,
-        props.slaCliente,
-        props.taxaInsucesso,
-        props.taxaDevolucao,
-        props.pedidosAbertos,
-        props.tratativaCx,
-        props.riscoAtraso,
-        props.processado,
-        props.perdas,
-        props.totalPedidos,
-        props.abertoTotal,
-      ],
-    },
-    { title: "SLA", cards: [props.slaAjusteTransporte, props.slaTransporte, props.slaCliente] },
-    {
-      title: "Operação",
-      cards: [props.taxaInsucesso, props.taxaDevolucao, props.pedidosAbertos, props.tratativaCx, props.riscoAtraso, props.perdas],
-    },
-    { title: "Processamento", cards: [props.processado, props.totalPedidos, props.abertoTotal] },
-    { title: "Integridade de bases", cards: [props.integridade, props.status] },
-  ];
+  {
+    title: "Geral",
+    cards: [
+      props.total,
+      props.pendentes,
+      props.respondido,
+      props.slaBaseCompleta,
+    ],
+  },
+];
 
   const [index, setIndex] = useState(0);
 

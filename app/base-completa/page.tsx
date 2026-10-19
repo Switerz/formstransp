@@ -1,4 +1,4 @@
-﻿import { medirEtapa } from "@/lib/diagnostico-tempo";
+import { medirEtapa } from "@/lib/diagnostico-tempo";
 import {
   requireInternalUser,
   isInternalAdmin,
@@ -109,110 +109,35 @@ export default async function BaseCompletaPage({
       ? (respondidos / base.total) * 100
       : 0;
 
-  const totalSla =
-    base.slaNoPrazo + base.slaAtrasado;
-
-  const percentualSla =
-    totalSla > 0
-      ? (base.slaNoPrazo / totalSla) * 100
-      : 0;
-
-  const semDado = "Sem dado disponível no XLSX atual";
+  const percentualSlaBase =
+    base.total > 0
+      ? ((base.slaNoPrazo / base.total) * 100).toFixed(2).replace(".", ",")
+      : "0,00";
 
   const kpis = {
-    slaAjusteTransporte: card(
-      "⏱️",
-      "SLA ajuste transporte",
-      totalSla > 0
-        ? `${percentualSla.toFixed(1)}%`
-        : "—",
-      totalSla > 0
-        ? `${base.slaNoPrazo.toLocaleString("pt-BR")} no prazo`
-        : semDado,
-    ),
-    slaTransporte: card(
-      "🚚",
-      "SLA transporte",
-      totalSla > 0
-        ? `${percentualSla.toFixed(1)}%`
-        : "—",
-      totalSla > 0
-        ? `${base.slaAtrasado.toLocaleString("pt-BR")} atrasados`
-        : semDado,
-    ),
-    slaCliente: card(
-      "👤",
-      "SLA cliente",
-      "—",
-      semDado,
-    ),
-    taxaInsucesso: card(
-      "⚠️",
-      "Taxa de insucesso",
-      "—",
-      semDado,
-    ),
-    taxaDevolucao: card(
-      "↩️",
-      "Taxa de devolução",
-      "—",
-      semDado,
-    ),
-    pedidosAbertos: card(
-      "📦",
-      "Pedidos pendentes",
-      base.pending.toLocaleString("pt-BR"),
-      "Sem preenchimento nos 11 campos operacionais",
-    ),
-    tratativaCx: card(
-      "📝",
-      "Em tratativa",
-      base.partial.toLocaleString("pt-BR"),
-      "Preenchimento parcial",
-    ),
-    riscoAtraso: card(
-      "🚨",
-      "Risco de atraso",
-      "—",
-      semDado,
-    ),
-    processado: card(
-      "✅",
-      "Processado",
-      `${percentualRespondido.toFixed(1)}%`,
-      `${respondidos.toLocaleString("pt-BR")} com alguma resposta`,
-    ),
-    perdas: card(
-      "📉",
-      "Perdas",
-      "—",
-      semDado,
-    ),
-    totalPedidos: card(
-      "📊",
-      "Total de pedidos",
+    total: card(
+      "??",
+      "Total",
       base.total.toLocaleString("pt-BR"),
-      `${base.arquivos} base(s) atual(is) do Drive`,
+      "Total de pedidos da base",
     ),
-    abertoTotal: card(
-      "📂",
-      "Respondidos",
-      base.done.toLocaleString("pt-BR"),
-      "11 de 11 campos operacionais preenchidos",
+    pendentes: card(
+      "?",
+      "Pendentes",
+      base.pending.toLocaleString("pt-BR"),
+      "Pedidos ainda sem resposta operacional",
     ),
-    integridade: card(
-      "🧩",
-      "Integridade",
-      base.total > 0 ? "OK" : "—",
-      base.total > 0
-        ? "Bases atuais lidas diretamente do Drive"
-        : "Nenhuma linha encontrada",
+    respondido: card(
+      "??",
+      "Respondido",
+      respondidos.toLocaleString("pt-BR"),
+      `${percentualRespondido.toFixed(1).replace(".", ",")}% da base`,
     ),
-    status: card(
-      "☁️",
-      "Status da base",
-      base.arquivos > 0 ? "Disponível" : "Sem base",
-      `${base.arquivos} arquivo(s) carregado(s)`,
+    slaBaseCompleta: card(
+      "??",
+      "SLA com Base Completa",
+      `${percentualSlaBase}%`,
+      `${base.slaNoPrazo.toLocaleString("pt-BR")} pedidos no prazo sobre o total da base`,
     ),
   };
 

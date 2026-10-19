@@ -108,10 +108,11 @@ export default async function MinhaBasePage({
       ? Math.round((totalRespondidos / base.total) * 100)
       : 0;
 
-  const percentualConcluido =
+  const percentualSlaBase =
     base.total > 0
-      ? Math.round((base.done / base.total) * 100)
-      : 0;
+      ? ((base.slaNoPrazo / base.total) * 100).toFixed(2).replace(".", ",")
+      : "0,00";
+
 
   const allHref = "/portal/minha-base";
   const filledHref =
@@ -145,89 +146,29 @@ export default async function MinhaBasePage({
 
         <section className="grid">
           <KpiCarousel
-            slaAjusteTransporte={card(
-              "📦",
-              "Total de pedidos",
+            total={card(
+              "??",
+              "Total",
               base.total.toLocaleString("pt-BR"),
-              "Pedidos presentes na base atual",
+              "Total de pedidos da base",
             )}
-            slaTransporte={card(
-              "⏳",
+            pendentes={card(
+              "?",
               "Pendentes",
               base.pending.toLocaleString("pt-BR"),
-              "Pedidos ainda sem preenchimento operacional",
+              "Pedidos ainda sem resposta operacional",
             )}
-            slaCliente={card(
-              "💬",
-              "Respondidos",
-              totalRespondidos.toLocaleString("pt-BR"),
-              `${percentualRespondido}% da base com algum preenchimento`,
-            )}
-            taxaInsucesso={card(
-              "✅",
-              "Conclu�dos",
-              base.done.toLocaleString("pt-BR"),
-              `${percentualConcluido}% da base totalmente preenchida`,
-            )}
-            taxaDevolucao={card(
-              "🌓",
-              "Parciais",
-              base.partial.toLocaleString("pt-BR"),
-              "Pedidos parcialmente preenchidos",
-            )}
-            pedidosAbertos={card(
-              "📂",
-              "Em aberto",
-              base.pending.toLocaleString("pt-BR"),
-              "Pedidos pendentes de tratativa",
-            )}
-            tratativaCx={card(
-              "🛠️",
-              "Com tratativa",
-              totalRespondidos.toLocaleString("pt-BR"),
-              "Pedidos com algum preenchimento operacional",
-            )}
-            riscoAtraso={card(
-              "⚠️",
-              "SLA atrasado",
-              base.slaAtrasado.toLocaleString("pt-BR"),
-              "Pedidos identificados como atrasados na base",
-            )}
-            processado={card(
-              "⚙️",
-              "Processados",
-              base.total.toLocaleString("pt-BR"),
-              "Registros carregados do arquivo atual",
-            )}
-            perdas={card(
-              "📋",
-              "Pend�ncias",
-              base.pending.toLocaleString("pt-BR"),
-              "Registros ainda pendentes",
-            )}
-            totalPedidos={card(
-              "🗂️",
-              "Total da base",
-              base.total.toLocaleString("pt-BR"),
-              "Total de registros da base atual",
-            )}
-            abertoTotal={card(
-              "💬",
-              "Respondidos",
+            respondido={card(
+              "??",
+              "Respondido",
               totalRespondidos.toLocaleString("pt-BR"),
               `${percentualRespondido}% da base`,
             )}
-            integridade={card(
+            slaBaseCompleta={card(
               "??",
-              "Arquivo atual",
-              base.arquivos > 0 ? "Dispon�vel" : "Indispon�vel",
-              `${base.arquivos} arquivo(s) encontrado(s) no Drive`,
-            )}
-            status={card(
-              "?",
-              "SLA no prazo",
-              base.slaNoPrazo.toLocaleString("pt-BR"),
-              "Pedidos identificados como no prazo",
+              "SLA com Base Completa",
+              `${percentualSlaBase}%`,
+              `${base.slaNoPrazo.toLocaleString("pt-BR")} pedidos no prazo sobre o total da base`,
             )}
           />
 
