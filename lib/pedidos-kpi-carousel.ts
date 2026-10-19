@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatBrazilianDate } from "@/lib/dates";
-import type { KpiCard, KpiCarouselProps } from "@/components/pedidos/KpiCarousel";
+import type { KpiCard } from "@/components/pedidos/KpiCarousel";
 import { calcularPercentualAbertoTotal } from "@/lib/pedidos-kpis";
 import { parsePeriodoFilters, periodoParaIntervaloDatas, type Periodo } from "@/lib/pedidos-periodo";
 import { obterKpiSnapshot, resumirKpiSnapshot } from "@/lib/pedidos-kpi-snapshot";
@@ -14,7 +14,7 @@ const ATUALIZANDO: Omit<KpiCard, "icon" | "label"> = {
 
 export interface DadosKpiCarousel {
   periodo: Periodo;
-  props: KpiCarouselProps;
+  props: Record<string, KpiCard>;
   ultimaCargaLabel: string;
   hasBaseUpdate: boolean;
 }
@@ -53,7 +53,7 @@ export async function montarDadosKpiCarousel(
         icon: "•", label, value: total ? `${percentual(ok, total)}%` : "0%",
         hint: `${ok.toLocaleString("pt-BR")} de ${total.toLocaleString("pt-BR")} ${descricao}`,
       });
-      const props: KpiCarouselProps = {
+      const props: Record<string, KpiCard> = {
         slaAjusteTransporte: cardPercentual("SLA Ajuste Transporte", r.slaAjusteOk, r.slaAjusteTotal, "no prazo ajustado"),
         slaTransporte: cardPercentual("SLA Transporte", r.slaTransOk, r.slaTransTotal, "entregues no prazo"),
         slaCliente: cardPercentual("SLA Cliente", r.slaClienteOk, r.slaClienteTotal, "entregues no prazo"),
@@ -110,7 +110,7 @@ export async function montarDadosKpiCarousel(
     .split("-").reverse().join("/")}`;
   const pendente = (label: string): KpiCard => ({ ...ATUALIZANDO, icon: "…", label });
 
-  const props: KpiCarouselProps = {
+  const props: Record<string, KpiCard> = {
     slaAjusteTransporte: pendente("SLA Ajuste Transporte"),
     slaTransporte: pendente("SLA Transporte"),
     slaCliente: pendente("SLA Cliente"),
