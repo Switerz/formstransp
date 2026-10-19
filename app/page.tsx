@@ -1,4 +1,4 @@
-﻿import { medirEtapa } from "@/lib/diagnostico-tempo";
+import { medirEtapa } from "@/lib/diagnostico-tempo";
 import Link from "next/link";
 import {
   CalendarDays,
@@ -15,6 +15,7 @@ import { isInternalAdmin, requireInternalUser } from "@/lib/auth";
 import { listRemoteTransportadoras } from "@/lib/godeploy-db";
 import { startOfLocalDay } from "@/lib/dates";
 import { BRAZILIAN_UFS } from "@/lib/ufs";
+import { carregarBasesDrive } from "@/lib/bases-drive";
 
 const HISTORY_DAYS = 14;
 const GOOD_SLA_THRESHOLD = 93;
@@ -134,6 +135,49 @@ export default async function Home({
     return matchesOrigem && matchesTransportadora;
   });
   const activeTransportadoras = filteredTransportadoras.filter((item) => item.ativo);
+  const basesAtualizadas = (
+    await Promise.all(
+      activeTransportadoras.map(async (transportadora) => {
+        const base = await carregarBasesDrive({
+          transportadoraId: transportadora.id,
+          limiteLinhas: 1,
+        });
+
+        if (base.arquivos === 0) return null;
+
+        const respondidos = base.partial + base.done;
+        const sla =
+          base.total > 0
+            ? (base.slaNoPrazo / base.total) * 100
+            : 0;
+
+        return {
+          id: transportadora.id,
+          nome: transportadora.nome,
+          total: base.total,
+          pendentes: base.pending,
+          respondidos,
+          sla,
+        };
+      }),
+    )
+  ).filter((item): item is NonNullable<typeof item> => item !== null);
+
+  const resumoBases = basesAtualizadas.reduce(
+    (acc, item) => {
+      acc.total += item.total;
+      acc.pendentes += item.pendentes;
+      acc.respondidos += item.respondidos;
+      return acc;
+    },
+    { total: 0, pendentes: 0, respondidos: 0 },
+  );
+
+  const baseGeral = await carregarBasesDrive({ limiteLinhas: 1 });
+  const slaGeral =
+    baseGeral.total > 0
+      ? (baseGeral.slaNoPrazo / baseGeral.total) * 100
+      : 0;
   const relatoriosHoje = 0;
   const ativas = activeTransportadoras.length;
   const pendentes = Math.max(0, ativas - relatoriosHoje);
@@ -270,6 +314,49 @@ export default async function Home({
         <div className="card metric-card orange">
           <div className="metric-label">RelatÃ³rios pendentes hoje</div>
           <div className="metric-value">{pendentes}</div>
+        </div>
+      </section>
+
+      <section className="card" style={{ marginTop: 18 }}>
+        <div className="panel-heading">
+          <div>
+            <h2 className="section-title">Resumo das bases atualizadas</h2>
+            <p className="muted">
+              Transportadoras com base oficial publicada no Drive.
+            </p>
+          </div>
+        </div>
+
+        <div className="table-wrap" style={{ marginTop: 14 }}>
+          <table className="risk-table">
+            <thead>
+              <tr>
+                <th>Transportadora</th>
+                <th>Total da base</th>
+                <th>Pendentes</th>
+                <th>Respondidos</th>
+                <th>SLA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {basesAtualizadas.map((item) => (
+                <tr key={item.id}>
+                  <td><strong>{item.nome}</strong></td>
+                  <td>{item.total.toLocaleString("pt-BR")}</td>
+                  <td>{item.pendentes.toLocaleString("pt-BR")}</td>
+                  <td>{item.respondidos.toLocaleString("pt-BR")}</td>
+                  <td>{item.sla.toFixed(2).replace(".", ",")}%</td>
+                </tr>
+              ))}
+              <tr>
+                <td><strong>TOTAL GERAL</strong></td>
+                <td><strong>{resumoBases.total.toLocaleString("pt-BR")}</strong></td>
+                <td><strong>{resumoBases.pendentes.toLocaleString("pt-BR")}</strong></td>
+                <td><strong>{resumoBases.respondidos.toLocaleString("pt-BR")}</strong></td>
+                <td><strong>{slaGeral.toFixed(2).replace(".", ",")}%</strong></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
