@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 
 import * as XLSX from "xlsx";
 import { obterGoogleDriveAccessToken } from "@/lib/google-drive";
@@ -200,6 +200,88 @@ function converterLinha(
     ofensorGb: valorDaLinha(linha, "STATUS ATUAL") || null,
     colunas,
   };
+}
+
+
+export async function carregarResumosBasesDrive(
+  transportadoraIds: string[],
+): Promise<Map<string, BaseDriveResumo>> {
+  const accessToken = await obterGoogleDriveAccessToken();
+  const arquivos = await listarArquivos(accessToken);
+  const idsDesejados = new Set(transportadoraIds);
+  const resultados = new Map<string, BaseDriveResumo>();
+
+  await Promise.all(
+    arquivos
+      .filter((arquivo) => {
+        const id = arquivo.appProperties?.transportadoraId;
+        return Boolean(id && idsDesejados.has(id));
+      })
+      .map(async (arquivo) => {
+        const transportadoraId = arquivo.appProperties?.transportadoraId;
+        if (!transportadoraId) return;
+
+        const buffer = await baixarXlsx(accessToken, arquivo.id);
+        const workbook = XLSX.read(buffer, {
+          type: "buffer",
+          cellDates: true,
+        });
+
+        const primeiraAba = workbook.SheetNames[0];
+        if (!primeiraAba) return;
+
+        const worksheet = workbook.Sheets[primeiraAba];
+        const registros =
+          XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+            defval: "",
+            raw: false,
+          });
+
+        let pending = 0;
+        let partial = 0;
+        let done = 0;
+        let slaNoPrazo = 0;
+        let slaAtrasado = 0;
+
+        for (const registro of registros) {
+          const status = fillStatus(registro);
+
+          if (status === "pending") pending += 1;
+          if (status === "partial") partial += 1;
+          if (status === "done") done += 1;
+
+          const sla = valorDaLinha(
+            registro,
+            "SLA (NO PRAZO/ATRASADO)",
+          )
+            .toUpperCase()
+            .trim();
+
+          if (sla.includes("NO PRAZO")) {
+            slaNoPrazo += 1;
+          } else if (sla.includes("ATRAS")) {
+            slaAtrasado += 1;
+          }
+        }
+
+        resultados.set(transportadoraId, {
+          linhas: [],
+          total: registros.length,
+          pending,
+          partial,
+          done,
+          slaNoPrazo,
+          slaAtrasado,
+          ultimaAtualizacao: arquivo.modifiedTime ?? null,
+          ultimaDevolucao:
+            arquivo.appProperties?.formsTranspUltimaDevolucaoEm ?? null,
+          totalVisivel: registros.length,
+          arquivos: 1,
+        });
+      }),
+  );
+
+  return resultados;
 }
 
 export async function carregarBasesDrive({
