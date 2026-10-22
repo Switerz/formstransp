@@ -279,8 +279,6 @@ async function arquivarBaseAnterior(
       `Falha ao preservar a base anterior (${resposta.status}).`,
     );
   }
-
-  await tornarArquivoPrivado(arquivo.id, accessToken);
 }
 
 async function enviarParaLixeira(fileId: string, accessToken: string) {
