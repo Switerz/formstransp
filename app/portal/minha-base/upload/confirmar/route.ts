@@ -545,9 +545,25 @@ export async function POST(request: Request) {
       mensagem: `Base atualizada. ${validacao.alteracoesOperacionais} campo(s) operacional(is) alterado(s).`,
     });
   } catch (error) {
-    console.error("[upload-devolucao] Falha ao processar devoluÃ§Ã£o:", error);
+    const mensagemErro =
+      error instanceof Error ? error.message : "Não foi possível processar a devolução.";
+
+    if (mensagemErro.includes("Falha ao tornar a base anterior privada (403)")) {
+      console.warn(
+        "[upload-devolucao] Base atualizada, mas não foi possível tornar a base anterior privada. Operação considerada concluída.",
+      );
+
+      return NextResponse.json({
+        ok: true,
+        mensagem: "Base atualizada com sucesso.",
+        avisoPrivacidadeBaseAnterior: true,
+      });
+    }
+
+    console.error("[upload-devolucao] Falha ao processar devolução:", error);
+
     return NextResponse.json(
-      { erro: error instanceof Error ? error.message : "NÃ£o foi possÃ­vel processar a devoluÃ§Ã£o." },
+      { erro: mensagemErro },
       { status: 500 },
     );
   }
