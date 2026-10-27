@@ -36,6 +36,8 @@ export interface BaseDriveResumo {
   slaAtrasado: number;
   ultimaAtualizacao: string | null;
   ultimaDevolucao: string | null;
+  pedidosAlterados: number;
+  ultimaAtualizacaoReal: string | null;
   totalVisivel: number;
   arquivos: number;
 }
@@ -275,6 +277,8 @@ export async function carregarResumosBasesDrive(
           ultimaAtualizacao: arquivo.modifiedTime ?? null,
           ultimaDevolucao:
             arquivo.appProperties?.formsTranspUltimaDevolucaoEm ?? null,
+          pedidosAlterados: Number(arquivo.appProperties?.formsTranspUltimaDevolucaoPedidosAlterados ?? 0),
+          ultimaAtualizacaoReal: arquivo.appProperties?.formsTranspUltimaAtualizacaoRealEm ?? null,
           totalVisivel: registros.length,
           arquivos: 1,
         });
@@ -404,6 +408,12 @@ export async function carregarBasesDrive({
     slaAtrasado,
     ultimaAtualizacao,
     ultimaDevolucao,
+    pedidosAlterados: transportadoraId
+      ? Number(arquivos[0]?.appProperties?.formsTranspUltimaDevolucaoPedidosAlterados ?? 0)
+      : 0,
+    ultimaAtualizacaoReal: transportadoraId
+      ? arquivos[0]?.appProperties?.formsTranspUltimaAtualizacaoRealEm ?? null
+      : null,
     totalVisivel,
     arquivos: arquivos.length,
   };

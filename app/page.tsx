@@ -27,6 +27,30 @@ function addDays(date: Date, days: number) {
   return next;
 }
 
+function formatarDataHora(valor: string | null) {
+  if (!valor) return "\u2014";
+  const data = new Date(valor);
+  if (Number.isNaN(data.getTime())) return "\u2014";
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(data);
+}
+
+function situacaoBase(
+  ultimaDevolucao: string | null,
+  pedidosAlterados: number,
+  today: Date,
+  tomorrow: Date,
+) {
+  if (!ultimaDevolucao) return "\u{1F534} Pendente";
+  const upload = new Date(ultimaDevolucao);
+  if (upload < today || upload >= tomorrow) return "\u{1F534} Pendente";
+  if (pedidosAlterados === 0) return "\u{1F7E1} Sem altera\u00e7\u00e3o";
+  return "\u{1F7E2} Atualizada";
+}
+
 export default async function Home({
   searchParams,
 }: {
@@ -85,7 +109,10 @@ export default async function Home({
         respondidos,
         sla,
         slaNoPrazo: base.slaNoPrazo,
+        ultimaAtualizacao: base.ultimaAtualizacao,
         ultimaDevolucao: base.ultimaDevolucao,
+        pedidosAlterados: base.pedidosAlterados,
+        ultimaAtualizacaoReal: base.ultimaAtualizacaoReal,
       };
     })
     .filter((item): item is NonNullable<typeof item> => item !== null);
@@ -197,9 +224,10 @@ export default async function Home({
               <tr>
                 <th>Transportadora</th>
                 <th>Total da base</th>
-                <th>Pendentes</th>
-                <th>Respondidos</th>
                 <th>SLA</th>
+                <th>Atualizacao da base</th>
+                <th>Ultimo upload</th>
+                <th>Situacao</th>
               </tr>
             </thead>
             <tbody>
@@ -207,17 +235,19 @@ export default async function Home({
                 <tr key={item.id}>
                   <td><strong>{item.nome}</strong></td>
                   <td>{item.total.toLocaleString("pt-BR")}</td>
-                  <td>{item.pendentes.toLocaleString("pt-BR")}</td>
-                  <td>{item.respondidos.toLocaleString("pt-BR")}</td>
                   <td>{item.sla.toFixed(2).replace(".", ",")}%</td>
+                  <td>{formatarDataHora(item.ultimaAtualizacao)}</td>
+                  <td>{formatarDataHora(item.ultimaDevolucao)}</td>
+                  <td>{situacaoBase(item.ultimaDevolucao, item.pedidosAlterados, today, tomorrow)}</td>
                 </tr>
               ))}
               <tr>
                 <td><strong>TOTAL GERAL</strong></td>
                 <td><strong>{resumoBases.total.toLocaleString("pt-BR")}</strong></td>
-                <td><strong>{resumoBases.pendentes.toLocaleString("pt-BR")}</strong></td>
-                <td><strong>{resumoBases.respondidos.toLocaleString("pt-BR")}</strong></td>
                 <td><strong>{slaGeral.toFixed(2).replace(".", ",")}%</strong></td>
+                <td>--</td>
+                <td>--</td>
+                <td>--</td>
               </tr>
             </tbody>
           </table>
