@@ -378,7 +378,9 @@ function validarDevolucao(
     }
   }
 
-  return { totalLinhas: devolucao.rows.length, alteracoesOperacionais, alteracoes };
+  const pedidosAlterados = new Set(alteracoes.map((alteracao) => alteracao.chave)).size;
+
+  return { totalLinhas: devolucao.rows.length, alteracoesOperacionais, pedidosAlterados, alteracoes };
 }
 
 export async function POST(request: Request) {
@@ -493,6 +495,11 @@ export async function POST(request: Request) {
             formsTranspUltimaDevolucaoEm: new Date().toISOString(),
             formsTranspUltimaDevolucaoUserId: user.id.slice(0, 120),
             formsTranspUltimaDevolucaoAlteracoes: String(validacao.alteracoesOperacionais),
+            formsTranspUltimaDevolucaoPedidosAlterados: String(validacao.pedidosAlterados),
+            formsTranspUltimaAtualizacaoRealEm:
+              validacao.pedidosAlterados > 0
+                ? new Date().toISOString()
+                : baseAtual.appProperties?.formsTranspUltimaAtualizacaoRealEm ?? "",
             formsTranspUltimaDevolucaoLinhas: String(validacao.totalLinhas),
             ...(user.transportadora?.nome ? { transportadoraNome: user.transportadora.nome.slice(0, 120) } : {}),
           },
