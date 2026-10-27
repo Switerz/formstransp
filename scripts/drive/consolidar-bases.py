@@ -362,6 +362,56 @@ def _chave_linha(df):
     return chave
 
 
+def mascara_finalizados_consolidado(df):
+    """Identifica pedidos finalizados que nao devem permanecer na base operacional."""
+
+    def texto(coluna):
+        if coluna not in df.columns:
+            return pd.Series("", index=df.index)
+        return df[coluna].fillna("").astype(str).map(normalizar_texto)
+
+    def preenchido(coluna):
+        if coluna not in df.columns:
+            return pd.Series(False, index=df.index)
+        valores = df[coluna]
+        if "DATA" in coluna.upper():
+            return pd.to_datetime(valores, errors="coerce").notna()
+        return valores.notna() & valores.astype(str).str.strip().ne("")
+
+    # Status vindos da nossa origem.
+    status_origem = pd.concat(
+        [
+            texto("Status Intelipost"),
+            texto("Status Transportador"),
+            texto("MicroStatus"),
+        ],
+        axis=1,
+    )
+
+    entregue_origem = status_origem.eq("entregue").any(axis=1)
+    devolvido_origem = status_origem.eq("devolvido").any(axis=1)
+    data_entrega_origem = preenchido("Data Entrega Intelipost")
+
+    # Informacoes preenchidas pela transportadora.
+    status_transportadora = texto("STATUS ATUAL")
+    entregue_transportadora = status_transportadora.eq("entregue")
+    devolvido_transportadora = status_transportadora.eq("devolvido")
+    sinistro_extravio_transportadora = status_transportadora.isin(
+        {"sinistro", "extravio"}
+    )
+    data_entrega_transportadora = preenchido("DATA DE ENTREGA")
+    motivo_devolucao = preenchido("MOTIVO DEVOLUÇÃO")
+
+    return (
+        entregue_origem
+        | devolvido_origem
+        | data_entrega_origem
+        | entregue_transportadora
+        | data_entrega_transportadora
+        | (devolvido_transportadora & motivo_devolucao)
+        | sinistro_extravio_transportadora
+    )
+
 def preservar_operacional_anterior(base_nova):
     """Mantém respostas anteriores e devolve métricas de auditoria."""
     metricas = {
@@ -540,9 +590,14 @@ def main():
 
     base_geral, metricas = preservar_operacional_anterior(base_geral)
 
+    finalizados_consolidado = mascara_finalizados_consolidado(base_geral)
+    pedidos_finalizados_consolidado = int(finalizados_consolidado.sum())
+    base_geral = base_geral.loc[~finalizados_consolidado].copy()
+
     salvar_base_geral_atomica(base_geral)
 
     print(f"[OK] BASE GERAL: {len(base_geral):,} linha(s)")
+    print(f"[OK] Finalizados removidos apos consolidacao: {pedidos_finalizados_consolidado:,}")
     if duplicatas_exatas:
         print(f"     duplicatas exatas removidas: {duplicatas_exatas:,}")
     print(f"     pedidos anteriores: {metricas['pedidos_anteriores']:,}")
