@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRouter } from "next/navigation";
 
@@ -518,6 +518,21 @@ export function BasePanel({
 
   return (
     <>
+      {/* Downloads operacionais preservados */}
+      {downloadHref ? (
+        <div className="panel-download">
+          <a href={downloadHref} className="btn-transporter">
+            <Download size={13} /> {downloadLabel}
+          </a>
+        </div>
+      ) : null}
+
+      {adminDownloadControl ? (
+        <div style={{ marginBottom: 16 }}>
+          {adminDownloadControl}
+        </div>
+      ) : null}
+
       {/* ---- Input de bases (accordion, 2 dropzones) ---- */}
       {/* SÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ existe quando hÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ pelo menos um dos dois uploads liberados. */}
       {mostrarAccordion ? (
@@ -766,277 +781,6 @@ export function BasePanel({
         </div>
       ) : null}
 
-      {/* ---- Painel de visualizaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o ---- */}
-      <div className="card panel">
-        <div className="tabs">
-          <button
-            className={`tab ${activeTab === "original" ? "active" : ""}`}
-            type="button"
-            onClick={() => setActiveTab("original")}
-          >
-            {carrierCurrentMode
-              ? "Base atual"
-              : permiteDevolucao
-                ? "Vis?o original"
-                : "Base"}
-          </button>
-
-          {permiteDevolucao && !carrierCurrentMode ? (
-            <button
-              className={`tab ${activeTab === "updated" ? "active" : ""}`}
-              type="button"
-              onClick={() => setActiveTab("updated")}
-            >
-              Vis?o atualizada
-            </button>
-          ) : null}
-
-          {permiteDevolucao ? (
-            <button
-              className={`tab ${activeTab === "compare" ? "active" : ""}`}
-              type="button"
-              onClick={() => setActiveTab("compare")}
-            >
-              Comparativo
-            </button>
-          ) : null}
-        </div>
-
-        <div className="backend-ready-bar" id="backendReadyBar">
-          <div className="backend-ready-left">
-            <span className="backend-ready-title">Base operacional</span>
-            <span className="backend-pill">
-              <span className="backend-dot" style={{ background: hasBaseUpdate ? "#16a34a" : "#94a3b8" }} />
-              Última atualização: <strong>{lastBaseUpdateLabel}</strong>
-            </span>
-            <span className="backend-pill">
-              <span
-                className="backend-dot"
-                style={{ background: devolucaoRecebidaHoje ? "#16a34a" : "#94a3b8" }}
-              />
-              {devolucaoRecebidaHoje ? "Devolução recebida hoje:" : "Última devolução:"}{" "}
-              <strong>{ultimaDevolucaoLabelAtual}</strong>
-            </span>
-          </div>
-          <div className="backend-ready-right">
-            <span className="backend-pill">
-              <span className="backend-dot pending" />
-              Pendentes: <strong>{fillPending}</strong>
-            </span>
-            <span className="backend-pill">
-              <span className="backend-dot partial" />
-              Parciais: <strong>{fillPartial}</strong>
-            </span>
-            <span className="backend-pill">
-              <span className="backend-dot done" />
-              Respondidos: <strong>{fillDone}</strong>
-            </span>
-          </div>
-        </div>
-
-        {processandoUpload ? (
-          <div className="backend-loading show">
-            Processando {arquivoAtualNome || "devolução"}{progressoUpload ? ` · ${progressoUpload}%` : "..."}
-          </div>
-        ) : null}
-
-        {downloadHref && (
-          <div className="panel-download">
-            <a href={downloadHref} className="btn-transporter">
-              <Download size={13} /> {downloadLabel}
-            </a>
-          </div>
-        )}
-
-        <div className="backend-note">{backendNote}</div>
-
-        <div className="toolbar">
-          <div className="toolbar-left">
-            <strong>
-              {carrierCurrentMode && activeTab === "original"
-                ? "Base atual"
-                : TAB_INFO[activeTab].title}
-            </strong>
-            <div>{activeTab === "compare" ? TAB_INFO[activeTab].hint(linhas.length) : textoQuantidade}</div>
-            {adminDownloadControl ? <div style={{ marginTop: 12 }}>{adminDownloadControl}</div> : null}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {activeTab !== "compare" && !toolbarDateFilter ? (
-                <select
-                  value={filtroAtual}
-                onChange={(e) => {
-                  const valor = e.target.value as "todas" | "preenchidas";
-
-                  if (usarFiltroServidor) {
-                    const destino =
-                      valor === "preenchidas" ? filledHref : allHref;
-
-                    if (destino) {
-                      window.location.href = destino;
-                    }
-
-                    return;
-                  }
-
-                  setFiltroPreenchimento(valor);
-                }}
-                aria-label="Filtrar preenchimento da base"
-                style={{
-                  height: 40,
-                  padding: "0 12px",
-                  border: "1px solid #d8dee8",
-                  borderRadius: 8,
-                  background: "#fff",
-                  color: "#0f2742",
-                  fontWeight: 600,
-                }}
-              >
-                <option value="todas">Todas</option>
-                <option value="preenchidas">Somente preenchidas</option>
-              </select>
-            ) : null}
-              {toolbarDateFilter}
-
-
-            <input
-              className="search"
-              placeholder="Pesquisar em qualquer coluna..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {activeTab !== "compare" ? (
-          <>
-          <PedidosTable
-            linhas={linhasExibidas}
-            busca={busca}
-            mostrarProtegidas={mostrarProtegidas}
-            onToggleProtegidas={() => setMostrarProtegidas((v) => !v)}
-          />
-
-          {usarFiltroServidor && filtroAtual === "todas" && totalPages > 1 ? (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: 12,
-                paddingTop: 14,
-              }}
-            >
-              {previousHref ? (
-                <a className="btn-secondary" href={previousHref}>
-                  ← Anterior
-                </a>
-              ) : (
-                <span
-                  className="btn-secondary"
-                  style={{ opacity: 0.45, pointerEvents: "none" }}
-                >
-                  ← Anterior
-                </span>
-              )}
-
-              <strong style={{ fontSize: 12 }}>
-                Página {page.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
-              </strong>
-
-              {nextHref ? (
-                <a className="btn-secondary" href={nextHref}>
-                  Próxima →
-                </a>
-              ) : (
-                <span
-                  className="btn-secondary"
-                  style={{ opacity: 0.45, pointerEvents: "none" }}
-                >
-                  Próxima →
-                </span>
-              )}
-            </div>
-          ) : null}
-          </>
-        ) : (
-          <div>
-            {!resumo ? (
-              <div className="empty">Envie uma devolução para gerar o comparativo antes → depois.</div>
-            ) : (
-              <>
-                <div className={`compact-alert integrity-compact ${alertOpen ? "open" : ""} ${temViolacao ? "" : "ok"}`} id="integrityAlert">
-                  <button type="button" className="compact-alert-toggle" onClick={() => setAlertOpen((v) => !v)}>
-                    <span className="compact-alert-title">
-                      {temViolacao ? "⚠ Divergência crítica detectada na devolução" : "✓ Integridade dos campos protegidos preservada"}
-                    </span>
-                    <span className="compact-alert-action" />
-                  </button>
-                  {temViolacao ? (
-                    <div className="compact-alert-body">
-                      <div>A transportadora alterou informações que deveriam permanecer idênticas à base original. Revise antes de aceitar a devolução.</div>
-                      <div className="tamper-list">
-                        {violacoesProtegidas.map((v, i) => (
-                          <div key={i} className="tamper-item">
-                            <strong>
-                              Linha {v.linha} · {v.campo}
-                            </strong>
-                            <br />
-                            Original: "{String(v.antes)}" → Devolvido: "{String(v.depois)}" (não aplicado)
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="split">
-                  <div className="split-box">
-                    <div className="split-title">Campos operacionais aplicados (antes → depois)</div>
-                    <div style={{ padding: 10 }}>
-                      {alteracoesAplicadas.length === 0 ? (
-                        <div className="empty">Nenhum campo novo aplicado nesta devolução.</div>
-                      ) : (
-                        <div className="tamper-list">
-                          {alteracoesAplicadas.map((v, i) => (
-                            <div key={i} className="tamper-item" style={{ borderColor: "#b6dfc5", background: "#f7fcf8" }}>
-                              <strong>
-                                Linha {v.linha} · {v.campo}
-                              </strong>
-                              <br />
-                              "{String(v.antes) || "(vazio)"}" → "{String(v.depois)}"
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="split-box">
-                    <div className="split-title">Campos já respondidos preservados (tentativa bloqueada)</div>
-                    <div style={{ padding: 10 }}>
-                      {tentativasBloqueadas.length === 0 ? (
-                        <div className="empty">Nenhuma tentativa bloqueada nesta devolução.</div>
-                      ) : (
-                        <div className="tamper-list">
-                          {tentativasBloqueadas.map((v, i) => (
-                            <div key={i} className="tamper-item">
-                              <strong>
-                                Linha {v.linha} · {v.campo}
-                              </strong>
-                              <br />
-                              Mantido: "{String(v.antes)}" (tentativa: "{String(v.depois)}")
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
     </>
   );
 }
-
