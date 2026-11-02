@@ -21,3 +21,8 @@
 .bright-login__divider{height:1px;background:#262930;margin:23px 0 16px}.bright-login__help{text-align:center;font-size:11px;color:#9398a3;line-height:1.6;margin:0}.bright-login__help strong{color:#c5c8ce}
 @media(max-width:850px){.bright-login{grid-template-columns:1fr}.bright-login__visual{display:none}.bright-login__side{min-height:100vh;border:0;padding:35px 22px}.bright-login__mobile-brand{display:block;margin-bottom:38px}}
 @media(max-width:380px){.bright-login__side{padding:28px 16px}.bright-login__wrap>h2{font-size:21px}}
+
+/* Oculta o cabeçalho global somente na tela de login Bright */
+body:has(> .bright-login) > .topbar {
+  display: none;
+}
