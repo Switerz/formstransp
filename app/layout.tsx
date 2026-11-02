@@ -7,6 +7,8 @@ import {
   isInternalAdmin,
   isInternalRole,
 } from "@/lib/auth";
+import BlackFridaySidebar from "@/components/BlackFridaySidebar";
+import "@/components/black-friday-sidebar.css";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +40,7 @@ export default async function RootLayout({
   return (
     <html lang="pt-BR">
       <body>
-        <header className="topbar">
+        <header className="topbar" style={{ display: isInternal && !mustChangePassword ? "none" : undefined }}>
           <div className="topbar-inner">
             <Link
               className="brand-lockup"
@@ -133,7 +135,17 @@ export default async function RootLayout({
           </div>
         </header>
 
-        {children}
+        {isInternal && !mustChangePassword ? (
+          <>
+            <BlackFridaySidebar
+              canManage={canManage}
+              userName={currentUser?.nome ?? ""}
+            />
+            <div className="bf-main-content">{children}</div>
+          </>
+        ) : (
+          children
+        )}
       </body>
     </html>
   );

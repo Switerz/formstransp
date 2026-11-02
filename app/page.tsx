@@ -1,7 +1,9 @@
+import "./admin-black-friday.css";
+import BlackFridayBasesTable from "@/components/BlackFridayBasesTable";
 import { medirEtapa } from "@/lib/diagnostico-tempo";
-import Link from "next/link";
-import { ClipboardList, Layers3, Plus } from "lucide-react";
-import { isInternalAdmin, requireInternalUser } from "@/lib/auth";
+
+import { Layers3 } from "lucide-react";
+import { requireInternalUser } from "@/lib/auth";
 import { listRemoteTransportadoras } from "@/lib/godeploy-db";
 import { startOfLocalDay } from "@/lib/dates";
 import { carregarResumosBasesDrive } from "@/lib/bases-drive";
@@ -57,7 +59,7 @@ export default async function Home({
   searchParams: Promise<{ origem?: string; transportadoraId?: string }>;
 }) {
   const [currentUser, filters] = await Promise.all([medirEtapa("admin:autenticacao", () => requireInternalUser("/")), searchParams]);
-  const canManage = isInternalAdmin(currentUser.role);
+
   const origemFilter = filters.origem === "demo" || filters.origem === "todos" ? filters.origem : "real";
   const transportadoraFilter = filters.transportadoraId ?? "";
 
@@ -144,28 +146,51 @@ export default async function Home({
 
   const ativas = activeTransportadoras.length;
   const pendentes = Math.max(0, ativas - relatoriosHoje);
+  const linhasTabela = [
+    ...basesAtualizadas.map((item) => ({
+      id: item.id,
+      nome: item.nome,
+      total: item.total.toLocaleString("pt-BR"),
+      sla: item.sla.toFixed(2).replace(".", ","),
+      atualizacao: formatarDataHora(item.ultimaAtualizacao),
+      upload: formatarDataHora(item.ultimaDevolucao),
+      situacao: situacaoBase(item.ultimaDevolucao, item.pedidosAlterados, today, tomorrow),
+    })),
+    {
+      id: "__total_geral__",
+      nome: "TOTAL GERAL",
+      total: resumoBases.total.toLocaleString("pt-BR"),
+      sla: slaGeral.toFixed(2).replace(".", ","),
+      atualizacao: "--",
+      upload: "--",
+      situacao: "--",
+    },
+  ];
 
   return (
     <main className="shell admin-dashboard">
-      <div className="page-title">
-        <div>
-          <h1>Admin operacional</h1>
-          <p className="muted">Acompanhe os preenchimentos diÃ¡rios e acesse os relatÃ³rios das transportadoras.</p>
+      <section className="bf-admin-hero">
+        <div className="bf-admin-hero-kicker">
+          ⚡ BLACK FRIDAY 2026 · OPERAÇÃO TRANSPORTES
         </div>
-        <div className="actions">
-          {canManage ? (
-            <Link className="btn" href="/transportadoras/nova">
-              <Plus size={18} /> Nova transportadora
-            </Link>
-          ) : null}
-          {canManage ? (
-            <Link className="btn secondary" href="/automacoes/logs">
-              <ClipboardList size={18} /> Logs
-            </Link>
-          ) : null}
-        </div>
-      </div>
 
+        <h1>
+          Uma operação intensa.
+          <br />
+          <span>Controle absoluto.</span>
+        </h1>
+
+        <p>
+          Acompanhe suas transportadoras, monitore as atualizações das bases
+          e mantenha a operação sob controle em cada etapa.
+        </p>
+
+        <div className="bf-admin-hero-tags">
+          <span>◉ {ativas} transportadoras acompanhadas</span>
+          <span>▣ Gestão de bases</span>
+          <span>⚡ Black Mode</span>
+        </div>
+      </section>
       <section className="card dashboard-filters">
         <div className="filter-row">
           <form className="filter-form">
@@ -193,66 +218,22 @@ export default async function Home({
         </div>
       </section>
 
-      <section className="grid grid-3">
-        <div className="card metric-card">
+      <section className="grid grid-3 bf-admin-metrics">
+        <div className="card metric-card bf-admin-metric">
           <div className="metric-label">Transportadoras ativas</div>
           <div className="metric-value">{ativas}</div>
         </div>
-        <div className="card metric-card green">
+        <div className="card metric-card bf-admin-metric green">
           <div className="metric-label">RelatÃ³rios enviados hoje</div>
           <div className="metric-value">{relatoriosHoje}</div>
         </div>
-        <div className="card metric-card orange">
+        <div className="card metric-card bf-admin-metric orange">
           <div className="metric-label">RelatÃ³rios pendentes hoje</div>
           <div className="metric-value">{pendentes}</div>
         </div>
       </section>
 
-      <section className="card" style={{ marginTop: 18 }}>
-        <div className="panel-heading">
-          <div>
-            <h2 className="section-title">Resumo das bases atualizadas</h2>
-            <p className="muted">
-              Transportadoras com base oficial publicada no Drive.
-            </p>
-          </div>
-        </div>
-
-        <div className="table-wrap" style={{ marginTop: 14 }}>
-          <table className="risk-table">
-            <thead>
-              <tr>
-                <th>Transportadora</th>
-                <th>Total da base</th>
-                <th>SLA</th>
-                <th>Atualizacao da base</th>
-                <th>Ultimo upload</th>
-                <th>Situacao</th>
-              </tr>
-            </thead>
-            <tbody>
-              {basesAtualizadas.map((item) => (
-                <tr key={item.id}>
-                  <td><strong>{item.nome}</strong></td>
-                  <td>{item.total.toLocaleString("pt-BR")}</td>
-                  <td>{item.sla.toFixed(2).replace(".", ",")}%</td>
-                  <td>{formatarDataHora(item.ultimaAtualizacao)}</td>
-                  <td>{formatarDataHora(item.ultimaDevolucao)}</td>
-                  <td>{situacaoBase(item.ultimaDevolucao, item.pedidosAlterados, today, tomorrow)}</td>
-                </tr>
-              ))}
-              <tr>
-                <td><strong>TOTAL GERAL</strong></td>
-                <td><strong>{resumoBases.total.toLocaleString("pt-BR")}</strong></td>
-                <td><strong>{slaGeral.toFixed(2).replace(".", ",")}%</strong></td>
-                <td>--</td>
-                <td>--</td>
-                <td>--</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <BlackFridayBasesTable rows={linhasTabela} />
 
     </main>
   );
