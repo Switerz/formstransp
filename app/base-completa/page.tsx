@@ -17,7 +17,6 @@ import {
   uploadDevolucaoInterna,
 } from "@/app/base-completa/actions";
 import "@/components/pedidos/minha-base.css";
-import "./goblack.css";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -149,7 +148,7 @@ export default async function BaseCompletaPage({
     : "Base disponível no Google Drive";
 
   return (
-    <div className="mb-html goblack-base">
+    <div className="mb-html">
       <main className="page">
         <div className="page-header">
           <div>
@@ -161,22 +160,6 @@ export default async function BaseCompletaPage({
           </div>
         </div>
 
-        <section className="goblack-hero" aria-label="Campanha GOBLACK 2026">
-          <div className="goblack-hero-copy">
-            <span className="goblack-eyebrow">BLACK FRIDAY 2026 · TRANSPORTES</span>
-            <h2>GOBLACK <span>2026</span></h2>
-            <p>Operação em movimento. Controle total das bases.</p>
-          </div>
-          <div className="goblack-truck-scene" aria-hidden="true">
-            <div className="goblack-flames"></div>
-            <div className="goblack-truck">
-              <div className="goblack-trailer">GOBLACK</div>
-              <div className="goblack-cab"></div>
-              <div className="goblack-wheel goblack-wheel-back"></div>
-              <div className="goblack-wheel goblack-wheel-front"></div>
-            </div>
-          </div>
-        </section>
         <PeriodoFilter
           action="/base-completa"
           de={raw.de ?? ""}
