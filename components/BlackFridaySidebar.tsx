@@ -4,9 +4,6 @@ import {
   Database,
   LayoutDashboard,
   LogOut,
-  Plus,
-  ScrollText,
-  Users,
 } from "lucide-react";
 import { logout } from "@/app/auth-actions";
 
@@ -16,7 +13,6 @@ type BlackFridaySidebarProps = {
 };
 
 export default function BlackFridaySidebar({
-  canManage,
   userName,
 }: BlackFridaySidebarProps) {
   return (
@@ -42,25 +38,6 @@ export default function BlackFridaySidebar({
           <Database size={17} />
           <span>Base Completa</span>
         </Link>
-
-        {canManage && (
-          <>
-            <Link href="/transportadoras/nova" className="bf-sidebar-link">
-              <Plus size={17} />
-              <span>Nova transportadora</span>
-            </Link>
-
-            <Link href="/usuarios" className="bf-sidebar-link">
-              <Users size={17} />
-              <span>Usuários</span>
-            </Link>
-
-            <Link href="/automacoes/logs" className="bf-sidebar-link">
-              <ScrollText size={17} />
-              <span>Logs</span>
-            </Link>
-          </>
-        )}
       </nav>
 
       <div className="bf-sidebar-footer">
