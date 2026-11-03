@@ -753,3 +753,160 @@
   .mb-html.goblack-v10 .goblack-fire-trail,
   .mb-html.goblack-v10 .goblack-fire-sparks { animation: none; }
 }
+
+/* GOBLACK V10 - CORRECOES VISUAIS CONSOLIDADAS */
+
+/* Titulo: manter o ponto na mesma linha */
+.mb-html.goblack-v10 .goblack-hero h1 span {
+  display: inline;
+}
+
+/* Hero: proporcoes e distribuicao */
+.mb-html.goblack-v10 .goblack-hero-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 68%;
+}
+
+/* Caminhao SVG: proporcao original e sem deformacao */
+.mb-html.goblack-v10 .goblack-road {
+  height: 68px;
+}
+
+.mb-html.goblack-v10 .goblack-truck {
+  width: 144px;
+  height: 63px;
+  left: -160px;
+  bottom: 0;
+  animation: goblack-drive 12s linear infinite;
+}
+
+.mb-html.goblack-v10 .goblack-truck svg {
+  display: block;
+  width: 144px;
+  height: 63px;
+  max-width: none;
+  aspect-ratio: 16 / 7;
+}
+
+/* Percurso limitado a largura do banner */
+@keyframes goblack-drive {
+  from {
+    left: -160px;
+  }
+  to {
+    left: calc(100% + 10px);
+  }
+}
+
+/* Responsividade */
+@media (max-width: 950px) {
+  .mb-html.goblack-v10 .goblack-hero-copy {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 650px) {
+  .mb-html.goblack-v10 .goblack-hero {
+    padding-bottom: 78px;
+  }
+
+  .mb-html.goblack-v10 .goblack-truck-note {
+    right: 14px;
+    bottom: 55px;
+    font-size: 8px;
+  }
+
+  .mb-html.goblack-v10 .goblack-truck {
+    width: 124px;
+    height: 54px;
+  }
+
+  .mb-html.goblack-v10 .goblack-truck svg {
+    width: 124px;
+    height: 54px;
+  }
+}
+
+/* GOBLACK V10 - AJUSTES VISUAIS DO TEMA ESCURO */
+
+/* Filtros */
+.mb-html.goblack-v10 .periodo-filter-toggle,
+.mb-html.goblack-v10 .periodo-filter-body {
+  background: #19191f;
+  border: 1px solid #393941;
+  color: #f5f5f6;
+}
+
+.mb-html.goblack-v10 .periodo-filter-label,
+.mb-html.goblack-v10 .periodo-filter-summary,
+.mb-html.goblack-v10 .periodo-filter-chevron {
+  color: #f5f5f6;
+}
+
+.mb-html.goblack-v10 .field label {
+  color: #e3e3e8;
+}
+
+.mb-html.goblack-v10 .field input,
+.mb-html.goblack-v10 .field select,
+.mb-html.goblack-v10 .field textarea {
+  background: #24242b;
+  border: 1px solid #45454f;
+  color: #fff;
+  color-scheme: dark;
+}
+
+.mb-html.goblack-v10 .field input::placeholder,
+.mb-html.goblack-v10 .field textarea::placeholder {
+  color: #b8b8c3;
+}
+
+.mb-html.goblack-v10 .field select option {
+  background: #24242b;
+  color: #fff;
+}
+
+/* Textos operacionais */
+.mb-html.goblack-v10 .toolbar-left strong,
+.mb-html.goblack-v10 .metric-value {
+  color: #f5f5f6;
+}
+
+.mb-html.goblack-v10 .toolbar-left div,
+.mb-html.goblack-v10 .metric-label,
+.mb-html.goblack-v10 .metric-hint,
+.mb-html.goblack-v10 .kpi-card-label,
+.mb-html.goblack-v10 .kpi-card-hint {
+  color: #c2c2cd;
+}
+
+/* Navegacao de indicadores */
+.mb-html.goblack-v10 .kpi-dot {
+  background: #666672;
+}
+
+.mb-html.goblack-v10 .kpi-dot.active {
+  background: #ff394d;
+}
+
+/* Caminhao: remover deslocamento herdado */
+.mb-html.goblack-v10 .goblack-truck {
+  transform: none;
+}
+
+/* Titulo */
+.mb-html.goblack-v10 .goblack-hero h1 span {
+  display: inline;
+}
+
+/* Responsividade dos filtros */
+@media (max-width: 650px) {
+  .mb-html.goblack-v10 .periodo-filter-body {
+    max-width: 100%;
+  }
+
+  .mb-html.goblack-v10 .periodo-filter-summary {
+    white-space: normal;
+  }
+}
