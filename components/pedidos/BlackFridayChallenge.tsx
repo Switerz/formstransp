@@ -5,8 +5,8 @@ const format = (n:number)=>n.toLocaleString("pt-BR");
 export function BlackFridayChallenge({transportadoraNome,slaOperacional,totalPedidos,pendentes,respondidos}:BlackFridayChallengeProps){
 const initials=transportadoraNome.trim().split(/\s+/).slice(0,2).map(x=>x[0]||"").join("").toUpperCase();
 return <div className="shell" id="inicio">
-<aside className="sidebar" aria-label="Navegação GOBLACK"><div className="brand">Forms <span>Transp.</span></div><div className="campaign">✦ BLACK FRIDAY 2026</div><nav className="nav"><div className="nav-label">SUA OPERAÇÃO</div><a className="active" href="#inicio">◈ &nbsp; Black Friday</a><a href="#indicadores">▥ &nbsp; Indicadores</a><a href="#missoes">◎ &nbsp; Missões</a><a href="#acoes">↗ &nbsp; Ações rápidas</a></nav><div className="side-bottom">◉ &nbsp; Portal da transportadora</div></aside>
-<main className="main"><header className="topbar"><div className="crumb">Portal &nbsp; / &nbsp; Minha Base &nbsp; / &nbsp; <b>Black Friday</b></div><div className="profile"><span>Transportadora <b>{transportadoraNome}</b></span><span className="avatar">{initials}</span></div></header>
+
+<main className="main">
 <section className="hero" aria-labelledby="hero-title"><div className="eyebrow"><i/> Black Friday Transportes Challenge</div><h1 id="hero-title">Sua operação.<br/><span>Seu próximo nível.</span></h1><p>A corrida pela liderança começou. Mantenha a base em dia, acompanhe seus indicadores e prepare-se para conquistar o topo.</p><div className="speed-label">GOBLACK EXPRESS · EM MOVIMENTO</div><div className="road" aria-hidden="true"/><div className="motion-truck" aria-hidden="true"><svg viewBox="0 0 220 112" xmlns="http://www.w3.org/2000/svg">
 <defs><linearGradient id="goblack-v3-cargo" x1="0" x2="1"><stop stopColor="#b91c32"></stop><stop offset="1" stopColor="#f3394f"></stop></linearGradient><linearGradient id="goblack-v3-cab" x1="0" x2="1"><stop stopColor="#f54a5d"></stop><stop offset="1" stopColor="#a9172b"></stop></linearGradient></defs>
 <g className="trail" stroke="#fa6576" strokeLinecap="round" strokeWidth="3"><path d="M-34 53H-6"></path><path d="M-51 65H-13"></path><path d="M-28 77H-4"></path></g>

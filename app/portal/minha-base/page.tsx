@@ -111,6 +111,7 @@ export default async function MinhaBasePage({
       : undefined;
 
   return (
+    <>
     <div className="goblack-v3">
       <BlackFridayChallenge
         transportadoraNome={user.transportadora?.nome ?? "Transportadora"}
@@ -152,7 +153,8 @@ export default async function MinhaBasePage({
             goblackUploadMode
           />
       </section>
-      <HelpPanel />
     </div>
+    <HelpPanel />
+    </>
   );
 }

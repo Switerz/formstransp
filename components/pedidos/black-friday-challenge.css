@@ -150,3 +150,11 @@
 .goblack-v3 .base-section .upload-accordion.open .upload-mini{background:#191b21;color:#f7f7f9;border:1px solid #383039}
 @media(max-width:950px){.goblack-v3 .base-section{padding:0 22px 40px}}
 @media(max-width:650px){.goblack-v3 .base-section{padding:0 15px 32px}}
+
+/* GOBLACK V3 integrado ao layout original do Forms Transp. */
+.goblack-v3{min-height:0;width:100%;isolation:isolate}
+.goblack-v3 .shell{display:block;min-height:0;width:100%}
+.goblack-v3 .main{max-width:1480px;margin:0 auto;padding:24px clamp(16px,3vw,44px) 32px}
+.goblack-v3 .base-section{max-width:1480px;margin:0 auto;padding:0 clamp(16px,3vw,44px) 40px}
+.goblack-v3 .hero{margin-top:0}
+@media(max-width:650px){.goblack-v3 .main{padding:16px 14px 24px}.goblack-v3 .base-section{padding:0 14px 28px}}
