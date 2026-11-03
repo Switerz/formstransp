@@ -17,6 +17,7 @@ import {
   uploadDevolucaoInterna,
 } from "@/app/base-completa/actions";
 import "@/components/pedidos/minha-base.css";
+import "./goblack-v10.css";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -148,18 +149,69 @@ export default async function BaseCompletaPage({
     : "Base disponível no Google Drive";
 
   return (
-    <div className="mb-html">
+    <div className="mb-html goblack-v10">
       <main className="page">
-        <div className="page-header">
-          <div>
-            <h1>Base Completa</h1>
-            <p>
-              Visão interna das bases das transportadoras.
-              Os arquivos atuais são mantidos no Google Drive.
-            </p>
-          </div>
+        <div className="goblack-mission-strip">
+          <span className="goblack-live-dot" />
+          <strong>MISSÃO GOBLACK</strong>
+          <span className="goblack-mission-separator">/</span>
+          <span className="goblack-mission-text">
+            CENTRO DE COMANDO 2026 · VISIBILIDADE TOTAL · TRANSPORTES EM MOVIMENTO
+          </span>
+          <span className="goblack-energy">⚡ ENERGIA</span>
         </div>
 
+        <header className="goblack-hero">
+          <div className="goblack-hero-glow" aria-hidden="true" />
+          <div className="goblack-radar" aria-hidden="true">
+            <div className="goblack-radar-sweep" />
+            <div className="goblack-radar-center" />
+          </div>
+
+          <div className="goblack-hero-copy">
+            <span className="goblack-eyebrow">
+              CONTROLE DE DADOS · TRANSPORTES
+            </span>
+            <h1>
+              Base Completa<span>.</span>
+            </h1>
+            <p>
+              Sua operação em alta velocidade. Dados no radar, decisões em tempo real e transportadoras conectadas em uma única central.
+            </p>
+          </div>
+
+          <span className="goblack-hero-tag">
+            ⚡ GOBLACK 2026 · ON FIRE
+          </span>
+          <span className="goblack-truck-note">
+            OPERAÇÃO SEM FREIO
+          </span>
+
+          <div className="goblack-road" aria-hidden="true">
+            <div className="goblack-truck">
+              <span className="goblack-fire-trail" />
+              <span className="goblack-fire-sparks">✦ ✧ ✦</span>
+              <svg viewBox="0 0 160 70" xmlns="http://www.w3.org/2000/svg">
+                <rect x="6" y="14" width="91" height="38" rx="5" fill="#e53649" />
+                <rect x="12" y="20" width="77" height="26" rx="2" fill="#bd2237" />
+                <path d="M98 25h25l18 18v10H98Z" fill="#f3f4f7" />
+                <path d="M108 29h14l11 12h-25Z" fill="#1c3047" />
+                <path d="M100 45h40v8h-40Z" fill="#e53649" />
+                <rect x="135" y="45" width="8" height="4" rx="1" fill="#ffd58b" />
+                <rect x="7" y="47" width="133" height="6" rx="2" fill="#a6172c" />
+                <text x="48" y="36" textAnchor="middle" fill="#fff" fontFamily="Arial,sans-serif" fontSize="10" fontWeight="900" textLength="69" lengthAdjust="spacingAndGlyphs">GOBLACK</text>
+                <g className="goblack-svg-wheel">
+                  <circle cx="35" cy="55" r="10" fill="#15171e" />
+                  <circle cx="35" cy="55" r="5" fill="#cdd2dc" />
+                </g>
+                <g className="goblack-svg-wheel">
+                  <circle cx="116" cy="55" r="10" fill="#15171e" />
+                  <circle cx="116" cy="55" r="5" fill="#cdd2dc" />
+                </g>
+              </svg>
+            </div>
+          </div>
+        </header>
         <PeriodoFilter
           action="/base-completa"
           de={raw.de ?? ""}
