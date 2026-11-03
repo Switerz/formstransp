@@ -1,0 +1,510 @@
+﻿/* GOBLACK 2026 — Tema exclusivo da Base Completa */
+
+.goblack-base {
+  --gb-bg: #090b10;
+  --gb-surface: #141820;
+  --gb-surface-raised: #1c222d;
+  --gb-border: #303642;
+  --gb-text: #f5f6f8;
+  --gb-muted: #9ba4b4;
+  --gb-red: #f43f4b;
+  --gb-orange: #ff873d;
+
+  background: var(--gb-bg);
+  color: var(--gb-text);
+  min-height: 100vh;
+}
+
+.goblack-base .page {
+  max-width: 1520px;
+  padding: 24px;
+}
+
+.goblack-base .page-header h1 {
+  color: var(--gb-text);
+}
+
+.goblack-base .page-header p {
+  color: var(--gb-muted);
+}
+
+/* Banner GOBLACK */
+.goblack-base .goblack-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 210px;
+  margin: 18px 0 22px;
+  padding: 32px 38px;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid #63242b;
+  border-radius: 18px;
+  background:
+    radial-gradient(ellipse at 80% 65%, rgba(244,63,75,.2), transparent 48%),
+    linear-gradient(115deg, #16171d 0%, #0b0c11 75%);
+  box-shadow: 0 16px 40px rgba(0,0,0,.25);
+}
+
+.goblack-base .goblack-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: .15;
+  background: repeating-linear-gradient(
+    125deg, transparent 0 28px, #f43f4b 29px, transparent 30px 60px
+  );
+}
+
+.goblack-base .goblack-hero-copy {
+  position: relative;
+  z-index: 2;
+  flex: 1 1 45%;
+}
+
+.goblack-base .goblack-eyebrow {
+  display: inline-block;
+  margin-bottom: 12px;
+  color: #ff8c92;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .2em;
+}
+
+.goblack-base .goblack-hero h2 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(34px, 5vw, 66px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -.055em;
+}
+
+.goblack-base .goblack-hero h2 span {
+  color: #f43f4b;
+}
+
+.goblack-base .goblack-hero-copy p {
+  margin: 15px 0 0;
+  color: #b6b8c3;
+  font-size: 13px;
+}
+
+.goblack-base .goblack-truck-scene {
+  position: relative;
+  flex: 1 1 48%;
+  height: 140px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.goblack-base .goblack-truck-scene::after {
+  content: "";
+  position: absolute;
+  bottom: 14px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #f43f4b, transparent);
+  opacity: .65;
+}
+
+.goblack-base .goblack-truck {
+  position: absolute;
+  bottom: 24px;
+  left: 15%;
+  width: 265px;
+  height: 92px;
+  animation: goblackTruckDrive 4.5s ease-in-out infinite alternate;
+  filter: drop-shadow(0 8px 12px rgba(244,63,75,.25));
+}
+
+.goblack-base .goblack-trailer {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 185px;
+  height: 66px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ff737c;
+  border-radius: 8px 5px 3px 3px;
+  background: linear-gradient(150deg, #f43f4b, #9e1727);
+  color: #fff;
+  font-size: 25px;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -.06em;
+  text-shadow: 0 2px 4px rgba(0,0,0,.3);
+}
+
+.goblack-base .goblack-cab {
+  position: absolute;
+  top: 24px;
+  left: 186px;
+  width: 72px;
+  height: 48px;
+  border: 2px solid #ff737c;
+  border-radius: 12px 22px 5px 3px;
+  background: linear-gradient(135deg, #ff515f, #a91829);
+}
+
+.goblack-base .goblack-cab::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 9px;
+  width: 27px;
+  height: 17px;
+  border-radius: 4px 10px 2px 2px;
+  background: #1a2635;
+  border: 1px solid #ff9a9e;
+}
+
+.goblack-base .goblack-wheel {
+  position: absolute;
+  bottom: 9px;
+  width: 30px;
+  height: 30px;
+  border: 7px solid #11141b;
+  border-radius: 50%;
+  background: #a5aab6;
+  box-shadow: 0 0 0 2px #525866;
+  animation: goblackWheelSpin 1s linear infinite;
+}
+
+.goblack-base .goblack-wheel-back { left: 36px; }
+.goblack-base .goblack-wheel-front { left: 210px; }
+
+.goblack-base .goblack-flames {
+  position: absolute;
+  left: 2%;
+  bottom: 39px;
+  width: 130px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, transparent, #ff5a21, #ffcc39, transparent);
+  filter: blur(10px);
+  opacity: .75;
+  animation: goblackFlamePulse .45s ease-in-out infinite alternate;
+}
+
+@keyframes goblackTruckDrive {
+  from { transform: translateX(-12px) translateY(1px); }
+  to { transform: translateX(35px) translateY(-2px); }
+}
+
+@keyframes goblackWheelSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes goblackFlamePulse {
+  from { transform: scaleX(.7) scaleY(.7); opacity: .45; }
+  to { transform: scaleX(1.15) scaleY(1.2); opacity: .9; }
+}
+
+@media (max-width: 800px) {
+  .goblack-base .goblack-hero {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 26px 20px;
+  }
+
+  .goblack-base .goblack-truck-scene {
+    flex: none;
+    width: 100%;
+    height: 135px;
+  }
+
+  .goblack-base .goblack-truck {
+    left: max(0px, calc(50% - 135px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goblack-base .goblack-truck,
+  .goblack-base .goblack-wheel,
+  .goblack-base .goblack-flames {
+    animation: none;
+  }
+}
+/* GOBLACK DARK COMPONENTS V1 */
+
+/* Identidade escura exclusiva da rota */
+.mb-html.goblack-base {
+  --navy: #f4f5f8;
+  --blue: #ff5362;
+  --gray: #a6adbb;
+  --line: #343a46;
+  --bg: #090b10;
+  --text: #f4f5f8;
+  --muted: #a6adbb;
+  --surface: #171b23;
+  --table-header: #252b36;
+  --soft-blue: #2a2029;
+  --radius: 12px;
+  --shadow: 0 8px 24px rgba(0,0,0,.18);
+  background: #090b10;
+  color: #f4f5f8;
+}
+
+.goblack-base .page-header h1 {
+  font-size: 25px;
+  color: #fff;
+}
+
+.goblack-base .page-header p,
+.goblack-base .card-sub,
+.goblack-base .toolbar-left div,
+.goblack-base .backend-note {
+  color: #a6adbb;
+}
+
+/* Indicadores */
+.goblack-base .kpi-carousel-head {
+  border-bottom-color: #343a46;
+}
+
+.goblack-base .kpi-carousel-title,
+.goblack-base .toolbar-left strong,
+.goblack-base .section-label {
+  color: #f4f5f8;
+}
+
+.goblack-base .kpi-carousel-view {
+  color: #a6adbb;
+}
+
+.goblack-base .kpi-card {
+  min-height: 108px;
+  padding: 17px 18px;
+  border: 1px solid #343a46;
+  border-top: 3px solid #f43f4b;
+  border-radius: 13px;
+  background: linear-gradient(145deg, #20242e, #141820);
+  box-shadow: 0 8px 22px rgba(0,0,0,.17);
+}
+
+.goblack-base .kpi-card-label {
+  color: #b7becb;
+  font-size: 11px;
+}
+
+.goblack-base .kpi-card-icon {
+  color: #ff6570;
+  font-size: 16px;
+  width: 24px;
+  height: 24px;
+}
+
+.goblack-base .kpi-card-value {
+  color: #fff;
+  font-size: clamp(23px, 2.5vw, 32px);
+  margin-top: 10px;
+}
+
+.goblack-base .kpi-card-hint {
+  color: #9da6b6;
+  font-size: 10px;
+  margin-top: 7px;
+}
+
+.goblack-base .kpi-dot {
+  background: #414754;
+}
+
+.goblack-base .kpi-dot.active {
+  background: #f43f4b;
+}
+
+/* Painéis e uploads */
+.goblack-base .card,
+.goblack-base .upload-accordion,
+.goblack-base .upload-mini {
+  background: #171b23;
+  border-color: #343a46;
+  color: #f4f5f8;
+  box-shadow: 0 8px 24px rgba(0,0,0,.13);
+}
+
+.goblack-base .card-title,
+.goblack-base .upload-mini-title,
+.goblack-base .upload-toggle-title,
+.goblack-base .backend-ready-title {
+  color: #f4f5f8;
+}
+
+.goblack-base .upload-toggle,
+.goblack-base .upload-content {
+  background: #1a1f29;
+  color: #f4f5f8;
+  border-color: #343a46;
+}
+
+.goblack-base .upload-toggle:hover {
+  background: #252a35;
+}
+
+.goblack-base .upload-toggle-icon {
+  background: #3c2029;
+  color: #ff6570;
+}
+
+.goblack-base .upload-toggle-sub,
+.goblack-base .upload-chevron {
+  color: #a6adbb;
+}
+
+.goblack-base .upload-mini-role,
+.goblack-base .role-label {
+  color: #ff7c85;
+}
+
+.goblack-base .dropzone,
+.goblack-base .dropzone.compact {
+  background: #11151c;
+  border-color: #5d4650;
+}
+
+.goblack-base .dropzone:hover,
+.goblack-base .dropzone.drag {
+  background: #251b24;
+  border-color: #f43f4b;
+}
+
+.goblack-base .dropzone strong {
+  color: #f4f5f8;
+}
+
+.goblack-base .dropzone span,
+.goblack-base .file-meta {
+  color: #a6adbb;
+}
+
+.goblack-base .file-meta,
+.goblack-base .backend-ready-bar,
+.goblack-base .backend-pill {
+  background: #202530;
+  border-color: #343a46;
+  color: #b9c1cf;
+}
+
+.goblack-base .file-meta strong,
+.goblack-base .backend-pill strong {
+  color: #fff;
+}
+
+.goblack-base .btn-primary,
+.goblack-base .btn-transporter,
+.goblack-base .btn-blue {
+  background: linear-gradient(135deg, #f43f4b, #b51e30);
+  border-color: #e43b49;
+  color: #fff;
+}
+
+.goblack-base .btn-secondary,
+.goblack-base .btn-internal,
+.goblack-base .btn-columns {
+  background: #262c37;
+  border-color: #49515f;
+  color: #f4f5f8;
+}
+
+/* Filtros e tabela */
+.goblack-base .search,
+.goblack-base input:not([type="file"]),
+.goblack-base select {
+  background: #202530;
+  border-color: #49515f;
+  color: #f4f5f8;
+}
+
+.goblack-base input::placeholder {
+  color: #929baa;
+}
+
+.goblack-base .table-wrap {
+  border-color: #343a46;
+}
+
+.goblack-base table {
+  background: #171b23;
+  color: #dfe3eb;
+}
+
+.goblack-base th {
+  background: #282e39;
+  color: #e4e8ef;
+}
+
+.goblack-base td {
+  border-bottom-color: #343a46;
+}
+
+.goblack-base tbody tr:hover {
+  background: #252a35;
+}
+
+.goblack-base .tabs {
+  border-bottom-color: #343a46;
+}
+
+.goblack-base .tab {
+  color: #a6adbb;
+}
+
+.goblack-base .tab.active {
+  color: #fff;
+  border-bottom-color: #f43f4b;
+}
+
+/* Avisos e áreas de orientação */
+.goblack-base .notice,
+.goblack-base .table-guidance,
+.goblack-base .validation-strip {
+  background: #2c251d;
+  border-color: #685033;
+  color: #f0d7b0;
+}
+
+.goblack-base .validation-strip.ok {
+  background: #172a22;
+  border-color: #3d7955;
+  color: #b9e9c9;
+}
+
+.goblack-base .validation-strip.error,
+.goblack-base .compact-alert {
+  background: #321d25;
+  border-color: #8e4654;
+  color: #ffc2ca;
+}
+
+.goblack-base .upload-mini.locked {
+  background: #20232a;
+  border-color: #3a414c;
+}
+
+.goblack-base .upload-mini.locked .dropzone {
+  background: #191d25;
+  border-color: #3a414c;
+}
+
+@media (max-width: 760px) {
+  .goblack-base .page {
+    padding: 16px;
+  }
+
+  .goblack-base .kpi-card {
+    min-height: 95px;
+    padding: 13px;
+  }
+
+  .goblack-base .kpi-card-value {
+    font-size: 23px;
+  }
+}
