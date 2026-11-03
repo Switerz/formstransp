@@ -1,4 +1,4 @@
-import { requireCarrierUser } from "@/lib/auth";
+﻿import { requireCarrierUser } from "@/lib/auth";
 import { carregarBasesDrive } from "@/lib/bases-drive";
 import {
   KpiCarousel,
@@ -6,6 +6,7 @@ import {
 } from "@/components/pedidos/KpiCarousel";
 import { BasePanel } from "@/components/pedidos/BasePanel";
 import { HelpPanel } from "@/components/pedidos/HelpPanel";
+import { BlackFridayChallenge } from "@/components/pedidos/BlackFridayChallenge";
 import {
   uploadDevolucaoTransportadora,
 } from "@/app/portal/minha-base/actions";
@@ -144,6 +145,13 @@ export default async function MinhaBasePage({
           </div>
         </div>
 
+        <BlackFridayChallenge
+          transportadoraNome={user.transportadora?.nome ?? "Transportadora"}
+          slaOperacional={percentualSlaBase}
+          totalPedidos={base.total}
+          pendentes={base.pending}
+          respondidos={totalRespondidos}
+        />
         <section className="grid">
           <KpiCarousel
             total={card(
@@ -172,6 +180,7 @@ export default async function MinhaBasePage({
             )}
           />
 
+          <div id="bf-base-operacional" />
           <BasePanel
             linhas={base.linhas}
             lastBaseUpdateLabel={formatarAtualizacao(
