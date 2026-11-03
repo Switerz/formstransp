@@ -34,6 +34,8 @@ export default function BlackFridaySidebar({
           <span>Admin</span>
         </Link>
 
+        <Link href="/avarias" className="bf-sidebar-link"><ClipboardList size={17} /><span>Evidências</span></Link>
+
         <Link href="/base-completa" className="bf-sidebar-link">
           <Database size={17} />
           <span>Base Completa</span>

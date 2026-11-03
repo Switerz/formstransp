@@ -158,3 +158,39 @@
 .goblack-v3 .base-section{max-width:1480px;margin:0 auto;padding:0 clamp(16px,3vw,44px) 40px}
 .goblack-v3 .hero{margin-top:0}
 @media(max-width:650px){.goblack-v3 .main{padding:16px 14px 24px}.goblack-v3 .base-section{padding:0 14px 28px}}
+
+/* Navegação exclusiva do portal da transportadora */
+body:has(.goblack-v3) > header.topbar{display:none!important}
+body:has(.goblack-v3) > .topbar{display:none!important}
+body:has(.goblack-v3){background:#08090c}
+.goblack-v3{display:grid;grid-template-columns:235px minmax(0,1fr);align-items:stretch}
+.goblack-v3 .goblack-carrier-sidebar{position:sticky;top:0;height:100vh;background:#0d0e12;border-right:1px solid #292c34;padding:27px 16px;display:flex;flex-direction:column;gap:18px;z-index:2}
+.goblack-v3 .goblack-carrier-brand{display:block;font-size:23px;font-weight:950;letter-spacing:-.9px;color:#fff;text-decoration:none}
+.goblack-v3 .goblack-carrier-brand span{color:#f04356}
+.goblack-v3 .goblack-carrier-brand small{display:block;font-size:10px;letter-spacing:1.3px;color:#a8aab3}
+.goblack-v3 .goblack-carrier-section{font-size:10px;color:#858a95;letter-spacing:1.5px;font-weight:800;margin-top:18px}
+.goblack-v3 .goblack-carrier-sidebar nav{display:flex;flex-direction:column;gap:5px}
+.goblack-v3 .goblack-carrier-sidebar nav a{display:block;color:#b7bbc6;text-decoration:none;padding:12px 11px;border-radius:9px;font-size:12px;font-weight:700}
+.goblack-v3 .goblack-carrier-sidebar nav a:hover,.goblack-v3 .goblack-carrier-sidebar nav a.goblack-carrier-active{color:#fff;background:#32181f;border-left:3px solid #ee3345}
+.goblack-v3 .goblack-carrier-bottom{margin-top:auto;border-top:1px solid #34343d;padding-top:17px;display:flex;flex-direction:column;gap:5px;font-size:12px;color:#a8abb5;overflow-wrap:anywhere}
+.goblack-v3 .goblack-carrier-bottom strong{color:#fff}
+.goblack-v3 .goblack-carrier-bottom button{margin-top:12px;width:100%;background:#24242b;border:1px solid #4b3036;border-radius:9px;padding:10px;color:#fff;text-align:left;cursor:pointer}
+.goblack-v3 .goblack-carrier-body{min-width:0}
+.goblack-v3 .goblack-carrier-top{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:20px clamp(16px,3vw,44px) 0;color:#9ea3af;font-size:12px}
+.goblack-v3 .goblack-carrier-top b{color:#fff}
+@media(max-width:950px){.goblack-v3{grid-template-columns:1fr}.goblack-v3 .goblack-carrier-sidebar{position:relative;height:auto;padding:16px;gap:8px}.goblack-v3 .goblack-carrier-sidebar nav{flex-direction:row;flex-wrap:wrap}.goblack-v3 .goblack-carrier-bottom{margin-top:5px}.goblack-v3 .goblack-carrier-top{padding-top:12px}}
+/* HelpPanel: painel lateral oculto por padrão, sem alterar outros componentes */
+.help-fab{position:fixed;right:24px;bottom:22px;z-index:1090;width:49px;height:49px;border:1px solid #ff7888;border-radius:50%;background:#c5273b;color:#fff;font-weight:900;font-size:22px;box-shadow:0 8px 28px #0008;cursor:pointer}
+.help-backdrop{display:none;position:fixed;inset:0;z-index:1091;background:#0009}
+.help-backdrop.open{display:block}
+.help-panel{position:fixed!important;z-index:1092!important;right:0;top:0;bottom:0;width:min(440px,100vw);height:100dvh;background:#15171d;color:#f4f5f7;box-shadow:-15px 0 50px #0009;transform:translateX(105%);visibility:hidden;pointer-events:none;transition:transform .22s ease,visibility .22s;overflow-y:auto;padding:22px;display:flex;flex-direction:column;gap:18px}
+.help-panel.open{transform:translateX(0);visibility:visible;pointer-events:auto}
+.help-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:1px solid #3b3e46;padding-bottom:18px}
+.help-header-title{font-size:21px;margin:0 0 6px;color:#fff}.help-header-sub{font-size:12px;color:#a8abb5}
+.help-close{background:#292c34;color:#fff;border:1px solid #464953;border-radius:8px;font-size:24px;width:38px;height:38px;cursor:pointer}
+.help-search-wrap{width:100%}.help-search{width:100%;padding:13px;background:#23252d;color:#fff;border:1px solid #4b4e59;border-radius:9px}
+.help-content{overflow-y:auto;min-height:0}.help-section-title{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#fb7d8b;font-weight:800;margin:16px 0 10px}
+.help-item{border:1px solid #393d47;border-radius:10px;margin-bottom:8px;overflow:hidden;background:#1e2128}
+.help-question{width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;border:0;background:transparent;color:#fff;padding:14px;font-size:13px;font-weight:750;cursor:pointer}
+.help-answer{display:none;color:#c2c6cf;padding:0 14px 15px;font-size:12px;line-height:1.6}.help-item.open .help-answer{display:block}
+.help-question-arrow{font-size:18px}.help-empty{color:#c2c6cf;padding:16px}

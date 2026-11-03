@@ -1,12 +1,17 @@
 import { requireCarrierUser } from "@/lib/auth";
+import Link from "next/link";
+import { logout } from "@/app/auth-actions";
 import { carregarBasesDrive } from "@/lib/bases-drive";
 import { BasePanel } from "@/components/pedidos/BasePanel";
 import { HelpPanel } from "@/components/pedidos/HelpPanel";
+import { EvidenciasPanel } from "@/components/pedidos/EvidenciasPanel";
 import { BlackFridayChallenge } from "@/components/pedidos/BlackFridayChallenge";
 import {
   uploadDevolucaoTransportadora,
 } from "@/app/portal/minha-base/actions";
 import "@/components/pedidos/minha-base.css";
+import "@/components/pedidos/evidencias.css";
+import "@/components/pedidos/help-panel-goblack.css";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -113,6 +118,22 @@ export default async function MinhaBasePage({
   return (
     <>
     <div className="goblack-v3">
+      <aside className="goblack-carrier-sidebar" aria-label="Navegação GOBLACK">
+        <Link href="/portal/minha-base" className="goblack-carrier-brand">GO<span>BLACK</span><small>TRANSPORTES · 2026</small></Link>
+        <div className="goblack-carrier-section">OPERAÇÃO</div>
+        <nav aria-label="Menu da transportadora">
+          <a href="#inicio" className="goblack-carrier-active">🏠 Visão geral</a>
+          <a href="#indicadores">📊 Indicadores</a>
+          <a href="#missoes">🎯 Missões</a>
+          <a href="#acoes">⚡ Ações rápidas</a>
+          <a href="#bf-base-operacional">📦 Minha Base</a>
+        </nav>
+        <div className="goblack-carrier-bottom"><strong>{user.transportadora?.nome ?? "Transportadora"}</strong><span>{user.nome}</span>
+          <form action={logout}><button type="submit">↪ Sair</button></form>
+        </div>
+      </aside>
+      <div className="goblack-carrier-body">
+        <div className="goblack-carrier-top"><span>GOBLACK / <b>Minha operação</b></span><span>{user.transportadora?.nome ?? "Transportadora"}</span></div>
       <BlackFridayChallenge
         transportadoraNome={user.transportadora?.nome ?? "Transportadora"}
         slaOperacional={percentualSlaBase}
@@ -153,7 +174,9 @@ export default async function MinhaBasePage({
             goblackUploadMode
           />
       </section>
+      </div>
     </div>
+    <EvidenciasPanel />
     <HelpPanel />
     </>
   );

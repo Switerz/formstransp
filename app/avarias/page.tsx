@@ -1,0 +1,4 @@
+import { requireInternalUser } from "@/lib/auth";
+import { listarEvidencias } from "@/lib/avarias-drive";
+export const dynamic="force-dynamic";
+export default async function AvariasAdmin(){await requireInternalUser("/avarias");const itens=await listarEvidencias();return <main style={{padding:32,maxWidth:1100,margin:"auto"}}><h1>Evidências de avarias</h1><p>Histórico privado de anexos enviados pelas transportadoras.</p><table style={{width:"100%",textAlign:"left"}}><thead><tr><th>Transportadora ID</th><th>Pedido</th><th>Arquivo</th><th>Enviado em</th><th>Ação</th></tr></thead><tbody>{itens.map(x=><tr key={x.id}><td>{x.transportadoraId}</td><td>{x.pedido}</td><td>{x.nome}</td><td>{new Date(x.criadoEm).toLocaleString("pt-BR")}</td><td><a href={`/api/avarias/${encodeURIComponent(x.id)}`}>Baixar</a></td></tr>)}</tbody></table>{itens.length===0&&<p>Nenhuma evidência enviada.</p>}</main>}
