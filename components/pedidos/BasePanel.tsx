@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Download } from "lucide-react";
 import { PedidosTable } from "@/components/pedidos/PedidosTable";
 import type { LinhaTabela } from "@/lib/pedidos-table-row";
@@ -61,6 +61,7 @@ interface BasePanelProps {
   downloadLabel?: string;
   backendNote?: string;
   carrierCurrentMode?: boolean;
+  goblackUploadMode?: boolean;
 }
 
 const TAB_INFO: Record<Tab, { title: string; hint: (n: number) => string }> = {
@@ -95,13 +96,20 @@ export function BasePanel({
   transportadorasParaSelecao,
   downloadLabel = "Baixar minha base",
   carrierCurrentMode = false,
+  goblackUploadMode = false,
   backendNote = "Você está autenticado como transportadora - os downloads e a devolução acima só afetam os pedidos vinculados à sua sessão.",
 }: BasePanelProps) {
   const router = useRouter();
   const permiteDevolucao = Boolean(uploadAction);
   const permiteBaseOriginal = Boolean(uploadOriginalAction);
   const mostrarAccordion = permiteDevolucao || permiteBaseOriginal;
-  const [accordionOpen, setAccordionOpen] = useState(true);
+  const [accordionOpen, setAccordionOpen] = useState(!goblackUploadMode);
+  useEffect(() => {
+    if (!goblackUploadMode) return;
+    const open = () => setAccordionOpen(true);
+    window.addEventListener("goblack-open-upload", open);
+    return () => window.removeEventListener("goblack-open-upload", open);
+  }, [goblackUploadMode]);
   const [activeTab, setActiveTab] = useState<Tab>("original");
   const [busca, setBusca] = useState("");
   const [filtroPreenchimento, setFiltroPreenchimento] = useState<"todas" | "preenchidas">("todas");

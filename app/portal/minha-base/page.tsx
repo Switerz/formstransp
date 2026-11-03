@@ -1,9 +1,5 @@
-﻿import { requireCarrierUser } from "@/lib/auth";
+import { requireCarrierUser } from "@/lib/auth";
 import { carregarBasesDrive } from "@/lib/bases-drive";
-import {
-  KpiCarousel,
-  type KpiCard,
-} from "@/components/pedidos/KpiCarousel";
 import { BasePanel } from "@/components/pedidos/BasePanel";
 import { HelpPanel } from "@/components/pedidos/HelpPanel";
 import { BlackFridayChallenge } from "@/components/pedidos/BlackFridayChallenge";
@@ -14,15 +10,6 @@ import "@/components/pedidos/minha-base.css";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
-
-function card(
-  icon: string,
-  label: string,
-  value: string,
-  hint: string,
-): KpiCard {
-  return { icon, label, value, hint };
-}
 
 function formatarAtualizacao(valor: string | null) {
   if (!valor) return "Base disponível para download";
@@ -103,12 +90,6 @@ export default async function MinhaBasePage({
   }
 
   const totalRespondidos = base.partial + base.done;
-
-  const percentualRespondido =
-    base.total > 0
-      ? Math.round((totalRespondidos / base.total) * 100)
-      : 0;
-
   const percentualSlaBase =
     base.total > 0
       ? ((base.slaNoPrazo / base.total) * 100).toFixed(2).replace(".", ",")
@@ -130,57 +111,15 @@ export default async function MinhaBasePage({
       : undefined;
 
   return (
-    <div className="mb-html">
-      <main className="page">
-        <div className="page-header">
-          <div>
-            <h1>Envio, atualização e conferência de bases</h1>
-
-            <p>
-              A Intelipost disponibiliza a base de origem
-              automaticamente. Faça o download, atualize as
-              informações operacionais e devolva a nova versão
-              nesta mesma tela.
-            </p>
-          </div>
-        </div>
-
-        <BlackFridayChallenge
-          transportadoraNome={user.transportadora?.nome ?? "Transportadora"}
-          slaOperacional={percentualSlaBase}
-          totalPedidos={base.total}
-          pendentes={base.pending}
-          respondidos={totalRespondidos}
-        />
-        <section className="grid">
-          <KpiCarousel
-            total={card(
-              "??",
-              "Total",
-              base.total.toLocaleString("pt-BR"),
-              "Total de pedidos da base",
-            )}
-            pendentes={card(
-              "?",
-              "Pendentes",
-              base.pending.toLocaleString("pt-BR"),
-              "Pedidos ainda sem resposta operacional",
-            )}
-            respondido={card(
-              "??",
-              "Respondido",
-              totalRespondidos.toLocaleString("pt-BR"),
-              `${percentualRespondido}% da base`,
-            )}
-            slaBaseCompleta={card(
-              "??",
-              "SLA com Base Completa",
-              `${percentualSlaBase}%`,
-              `${base.slaNoPrazo.toLocaleString("pt-BR")} pedidos no prazo sobre o total da base`,
-            )}
-          />
-
-          <div id="bf-base-operacional" />
+    <div className="goblack-v3">
+      <BlackFridayChallenge
+        transportadoraNome={user.transportadora?.nome ?? "Transportadora"}
+        slaOperacional={percentualSlaBase}
+        totalPedidos={base.total}
+        pendentes={base.pending}
+        respondidos={totalRespondidos}
+      />
+      <section className="base-section" id="bf-base-operacional">
           <BasePanel
             linhas={base.linhas}
             lastBaseUpdateLabel={formatarAtualizacao(
@@ -210,10 +149,9 @@ export default async function MinhaBasePage({
             downloadHref="/portal/minha-base/download"
             uploadAction={uploadDevolucaoTransportadora}
             carrierCurrentMode
+            goblackUploadMode
           />
-        </section>
-      </main>
-
+      </section>
       <HelpPanel />
     </div>
   );
